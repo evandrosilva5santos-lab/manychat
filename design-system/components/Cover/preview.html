@@ -1,0 +1,60 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Fluxo</title>
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--surface-100); color:var(--ink); font-family:var(--font-sans); overflow:hidden; }
+  .cover { position:relative; height:288px; overflow:hidden; }
+  .art { position:absolute; top:0; left:480px; width:480px; height:288px; overflow:hidden; }
+  .art svg { display:block; width:480px; height:288px; }
+  .brand { fill:var(--primary); }
+  .deep { fill:var(--ink); }
+  .teal { fill:var(--node-condition); }
+  .green { fill:var(--node-trigger); }
+  .tile { fill:var(--primary-soft); }
+  .blk { rx:var(--radius-md); }
+  .sm { rx:var(--radius-sm); }
+  .edge { stroke:var(--primary-soft); stroke-width:2; fill:none; }
+  .port { fill:var(--primary); stroke:var(--primary-soft); stroke-width:2; }
+  .words { position:absolute; left:var(--space-6); bottom:var(--space-6); max-width:440px; }
+  .name { margin:0; font-size:120px; line-height:.9; font-weight:700; letter-spacing:-.03em; color:var(--ink); }
+  .tag { margin:var(--space-3) 0 0 6px; font-size:14px; line-height:20px; color:var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      primary 160×224 slab bled off the top (the brand's one hue) · ink 296×176 bleeding off the right (the canvas at night) · node-condition 160×48 and node-trigger 64×32 as satellites (flow categories) — ≈40% of 960×288
+  arrangement one tall primary slab with the ink canvas beside it, bottoms aligned space-6 above the edge, space-4 gutters
+  pattern     literal motif — "caixinhas ligadas por linhas" (the flow editor): four primary-soft node tiles cut into the ink block, joined by bezier edges with radius-full ports in primary
+  scales      sides in space-2 multiples; gutters space-4; tiles radius-sm; blocks radius-md; ports radius-full (r=5)
+-->
+<rect class="brand blk" x="16" y="-16" width="160" height="224" rx="10"/>
+<rect class="teal blk" x="16" y="224" width="160" height="48" rx="10"/>
+<rect class="deep blk" x="192" y="48" width="304" height="224" rx="10"/>
+<rect class="green sm" x="192" y="8" width="64" height="32" rx="6"/>
+<rect class="tile sm" x="216" y="80" width="80" height="40" rx="6"/>
+<rect class="tile sm" x="336" y="136" width="96" height="40" rx="6"/>
+<rect class="tile sm" x="216" y="200" width="80" height="40" rx="6"/>
+<rect class="tile sm" x="352" y="216" width="80" height="32" rx="6"/>
+<path class="edge" d="M296 100 C 320 100, 312 156, 336 156"/>
+<path class="edge" d="M296 220 C 320 220, 312 156, 336 156"/>
+<path class="edge" d="M432 156 C 456 156, 456 200, 432 232"/>
+<circle class="port" cx="296" cy="100" r="5"/>
+<circle class="port" cx="296" cy="220" r="5"/>
+<circle class="port" cx="336" cy="156" r="5"/>
+<circle class="port" cx="432" cy="156" r="5"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">Fluxo</h1>
+<p class="tag">Automação de conversas no Instagram, caixinha por caixinha.</p>
+</div>
+</div>
+</body>
+</html>

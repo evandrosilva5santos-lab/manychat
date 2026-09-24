@@ -1,0 +1,87 @@
+/* Fluxo — tokens gerados de tokens.json */
+:root, [data-theme="light"] {
+  --surface-100: #f7f6f3;
+  --surface-200: #ffffff;
+  --surface-300: #efede8;
+  --canvas: #eeece6;
+  --canvas-dot: #d6d2c8;
+  --border: #e3e0d9;
+  --border-strong: #848077;
+  --ink: #1f2226;
+  --ink-muted: #565a61;
+  --ink-subtle: #6b6f76;
+  --primary: #1f5fd6;
+  --primary-hover: #184cb0;
+  --primary-soft: #e7eefc;
+  --on-primary: #ffffff;
+  --focus: #1f5fd6;
+  --success: #17774a;
+  --success-soft: #e3f3ea;
+  --danger: #b83a2c;
+  --danger-soft: #fbe9e6;
+  --warning: #8f5a06;
+  --warning-soft: #fbf0dc;
+  --node-trigger: #17774a;
+  --node-message: var(--primary);
+  --node-condition: #0e6f78;
+  --node-delay: #8f5a06;
+  --node-action: #b4481a;
+  --node-edge: #9a968c;
+  --node-edge-active: var(--primary);
+  --shadow-card: 0 1px 2px rgba(31,34,38,0.06);
+  --shadow-node: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06);
+  --shadow-pop: 0 8px 24px rgba(31,34,38,0.14);
+}
+[data-theme="dark"] {
+  --surface-100: #141619;
+  --surface-200: #1c1f23;
+  --surface-300: #24282d;
+  --canvas: #101215;
+  --canvas-dot: #2a2e34;
+  --border: #2d3137;
+  --border-strong: #6b717a;
+  --ink: #eceae6;
+  --ink-muted: #a7abb2;
+  --ink-subtle: #8d929a;
+  --primary: #6b9bf2;
+  --primary-hover: #8ab0f5;
+  --primary-soft: #1b2a47;
+  --on-primary: #0b1428;
+  --focus: #8ab0f5;
+  --success: #4fc58a;
+  --success-soft: #12301f;
+  --danger: #f08a7c;
+  --danger-soft: #3a1a16;
+  --warning: #e7b053;
+  --warning-soft: #33260f;
+  --node-trigger: #4fc58a;
+  --node-message: var(--primary);
+  --node-condition: #4cc3cc;
+  --node-delay: #e7b053;
+  --node-action: #f39a6b;
+  --node-edge: #5d636c;
+  --node-edge-active: var(--primary);
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-node: 0 2px 8px rgba(0,0,0,0.5);
+  --shadow-pop: 0 8px 24px rgba(0,0,0,0.6);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+  --z-canvas: 0;
+  --z-panel: 10;
+  --z-pop: 50;
+  --z-modal: 100;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
