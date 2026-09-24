@@ -1,0 +1,383 @@
+// Banco de dados do Fluxo.
+// Explicação de cada tabela, em português simples: docs/etapa-1-banco.md
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// A URL de conexão fica em prisma.config.ts (lida do .env).
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Conta do Instagram conectada (a "dona" de tudo abaixo)
+// ─────────────────────────────────────────────────────────────
+
+enum ConnectionStatus {
+  CONNECTED // tudo certo
+  EXPIRED // token da Meta venceu: automações pausadas até reconectar
+  DISCONNECTED
+}
+
+/// Perfil profissional do Instagram ligado ao sistema.
+/// Cada contato, etiqueta, fluxo e card pertence a uma conta — assim dá pra
+/// atender mais de um perfil (agência) sem misturar dados.
+model InstagramAccount {
+  id             String           @id @default(cuid())
+  igUserId       String           @unique // ID da conta no Instagram (vem da Meta)
+  username       String
+  name           String?
+  profilePicUrl  String?
+  status         ConnectionStatus @default(CONNECTED)
+  /// Token de acesso criptografado. Enquanto houver uma conta só, o token
+  /// fica no .env (IG_ACCESS_TOKEN) e este campo fica vazio.
+  accessTokenEnc String?
+  tokenExpiresAt DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  contacts     Contact[]
+  tags         Tag[]
+  flows        Flow[]
+  catalogItems CatalogItem[]
+  messages     Message[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Contato e etiquetas
+// ─────────────────────────────────────────────────────────────
+
+/// A pessoa que conversou com você (comentou, mandou DM ou clicou num botão).
+model Contact {
+  id                String    @id @default(cuid())
+  accountId         String
+  /// IGSID: o ID que o Instagram dá pra essa pessoa *dentro da sua conta*.
+  igsid             String
+  username          String?
+  name              String?
+  profilePicUrl     String?
+  /// Segue o perfil? null = ainda não sabemos.
+  followsAccount    Boolean?
+  /// Última mensagem que ELA mandou. A Meta só deixa responder DM
+  /// até 24h depois disso.
+  lastInboundAt     DateTime?
+  lastInteractionAt DateTime?
+  /// Fluxo pelo qual a pessoa entrou ("Entrou por" na lista de contatos).
+  sourceFlowId      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  account    InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sourceFlow Flow?            @relation("ContactSource", fields: [sourceFlowId], references: [id], onDelete: SetNull)
+  tags       ContactTag[]
+  messages   Message[]
+  runs       FlowRun[]
+
+  @@unique([accountId, igsid]) // evita contato duplicado
+  @@index([accountId, lastInteractionAt])
+}
+
+/// Etiqueta que você cola no contato ("lead-quente", "já-comprou").
+model Tag {
+  id        String   @id @default(cuid())
+  accountId String
+  name      String
+  createdAt DateTime @default(now())
+
+  account  InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contacts ContactTag[]
+
+  @@unique([accountId, name])
+}
+
+/// Liga contato ↔ etiqueta (um contato tem várias etiquetas e
+/// uma etiqueta está em vários contatos).
+model ContactTag {
+  contactId       String
+  tagId           String
+  /// Fluxo que aplicou a etiqueta (null = aplicada à mão no painel).
+  appliedByFlowId String?
+  createdAt       DateTime @default(now())
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+  @@index([tagId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Fluxo, caixinhas (nós) e linhas (arestas)
+// ─────────────────────────────────────────────────────────────
+
+enum FlowStatus {
+  DRAFT // rascunho, nunca publicado
+  LIVE // "Ao vivo": respondendo de verdade
+  STOPPED // "Parado"
+}
+
+enum FlowMode {
+  SIMPLE // builder simples (receita: gatilho → condição → mensagem)
+  ADVANCED // builder avançado (canvas com caixinhas)
+}
+
+/// A automação em si ("Captação story", "Casamento por DM").
+model Flow {
+  id        String     @id @default(cuid())
+  accountId String
+  name      String
+  folder    String? // pasta do breadcrumb: Automações › pasta › nome
+  status    FlowStatus @default(DRAFT)
+  mode      FlowMode   @default(ADVANCED)
+  /// Zoom e posição da tela do editor, pra reabrir do mesmo jeito.
+  viewport  Json?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  account          InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  nodes            Node[]
+  edges            Edge[]
+  triggers         Trigger[]
+  runs             FlowRun[]
+  messages         Message[]
+  contactsAcquired Contact[]        @relation("ContactSource")
+
+  @@index([accountId, status])
+}
+
+enum NodeType {
+  MESSAGE // mensagem de texto
+  QUESTION // mensagem com 1 a 3 botões fixos; cada botão é uma saída
+  CONDITION // if/else: saída "yes" e saída "no"
+  DELAY // esperar um tempo
+  ADD_TAG // colocar etiqueta no contato
+  CAROUSEL // carrossel de cards do catálogo
+  FOLLOW_GATE // "confirme que segue" com botão DESBLOQUEAR
+  NOTE // anotação no canvas, não executa nada
+}
+
+/// Uma caixinha do fluxo. O que vai dentro depende do tipo e fica em `data`:
+///   MESSAGE      { text }
+///   QUESTION     { text, buttons: [{ id, title, type: "postback" | "web_url", url? }] }  // máx. 3
+///   CONDITION    { rule: "follows" | "has_tag" | "reply_contains", tagId?, value? }
+///   DELAY        { seconds }
+///   ADD_TAG      { tagId }
+///   CAROUSEL     {} — os cards ficam na tabela CarouselCard
+///   FOLLOW_GATE  { text, buttonTitle: "DESBLOQUEAR", notFollowingText }
+///   NOTE         { text }
+/// O `id` é o mesmo usado pelo React Flow na tela.
+model Node {
+  id        String   @id @default(cuid())
+  flowId    String
+  type      NodeType
+  name      String? // nome editável ("Mensagem #1")
+  positionX Float
+  positionY Float
+  data      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flow          Flow           @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  outgoing      Edge[]         @relation("EdgeSource")
+  incoming      Edge[]         @relation("EdgeTarget")
+  carouselCards CarouselCard[]
+  startsFrom    Trigger[]      @relation("TriggerStart")
+  runsHere      FlowRun[]
+  messages      Message[]
+
+  @@index([flowId])
+}
+
+/// A linha que liga uma caixinha na próxima.
+/// `sourceHandle` diz de QUAL saída ela sai: o id do botão, o id do card
+/// do carrossel, "yes"/"no" na condição, "unlock" no FOLLOW_GATE. null = saída única.
+model Edge {
+  id           String  @id @default(cuid())
+  flowId       String
+  sourceNodeId String
+  sourceHandle String?
+  targetNodeId String
+
+  flow   Flow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  source Node @relation("EdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  target Node @relation("EdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceNodeId, sourceHandle, targetNodeId])
+  @@index([flowId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Gatilho
+// ─────────────────────────────────────────────────────────────
+
+enum TriggerType {
+  COMMENT_KEYWORD // palavra-chave em comentário de post/reel
+  DM_KEYWORD // palavra-chave em DM
+  STORY_REPLY // resposta a um story
+  BUTTON_CLICK // clique num botão (payload)
+}
+
+enum KeywordMatch {
+  CONTAINS // a mensagem contém a palavra
+  EXACT // a mensagem é exatamente a palavra
+  ANY // qualquer mensagem serve
+}
+
+/// O que faz o fluxo começar.
+model Trigger {
+  id          String       @id @default(cuid())
+  flowId      String
+  type        TriggerType
+  keywords    String[] // ["casamento", "eu quero"]
+  match       KeywordMatch @default(CONTAINS)
+  /// Post/reel/story específico. null = vale pra qualquer publicação.
+  mediaId     String?
+  /// Payload do botão (só para BUTTON_CLICK).
+  payload     String?
+  /// Resposta pública no comentário ("Te mandei no direct!"), opcional.
+  publicReply String?
+  /// Caixinha onde o fluxo começa. null = a primeira sem linha chegando.
+  startNodeId String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  flow      Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  startNode Node?     @relation("TriggerStart", fields: [startNodeId], references: [id], onDelete: SetNull)
+  runs      FlowRun[]
+
+  @@index([flowId])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Execução do fluxo (o "motor" usa na Etapa 3)
+// ─────────────────────────────────────────────────────────────
+
+enum RunStatus {
+  RUNNING
+  WAITING_DELAY // parado numa Espera, volta em `resumeAt`
+  WAITING_CLICK // mandou botões e espera o clique
+  DONE
+  FAILED
+}
+
+/// Uma "passada" de um contato por um fluxo. Guarda onde ele está,
+/// pra continuar depois de uma espera ou de um clique.
+model FlowRun {
+  id            String    @id @default(cuid())
+  flowId        String
+  contactId     String
+  triggerId     String?
+  status        RunStatus @default(RUNNING)
+  currentNodeId String?
+  resumeAt      DateTime?
+  error         String?
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  flow        Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  trigger     Trigger?  @relation(fields: [triggerId], references: [id], onDelete: SetNull)
+  currentNode Node?     @relation(fields: [currentNodeId], references: [id], onDelete: SetNull)
+  messages    Message[]
+
+  @@index([status, resumeAt])
+  @@index([contactId, status])
+  @@index([flowId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Histórico de conversa
+// ─────────────────────────────────────────────────────────────
+
+enum Direction {
+  IN // o contato mandou
+  OUT // o sistema mandou
+}
+
+enum MessageKind {
+  TEXT
+  BUTTONS // button template (botões fixos)
+  CAROUSEL // generic template (cards)
+  POSTBACK // clique num botão
+  COMMENT // comentário num post/reel
+  COMMENT_REPLY // resposta pública ao comentário
+  STORY_REPLY
+  MEDIA // imagem, áudio, vídeo
+}
+
+/// Tudo que já foi trocado com um contato, na ordem.
+model Message {
+  id          String      @id @default(cuid())
+  accountId   String
+  contactId   String
+  direction   Direction
+  kind        MessageKind
+  text        String?
+  /// Conteúdo completo (botões, cards, anexo, payload do clique).
+  payload     Json?
+  /// ID da mensagem/comentário no Instagram — evita gravar o mesmo evento 2x.
+  igMessageId String?     @unique
+  mediaId     String? // post/reel/story relacionado
+  flowId      String?
+  nodeId      String?
+  runId       String?
+  error       String? // se a Meta recusou o envio
+  createdAt   DateTime    @default(now())
+
+  account InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  flow    Flow?            @relation(fields: [flowId], references: [id], onDelete: SetNull)
+  node    Node?            @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  run     FlowRun?         @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([contactId, createdAt])
+  @@index([flowId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Catálogo de cards (reutilizável)
+// ─────────────────────────────────────────────────────────────
+
+enum CardButtonType {
+  URL // link externo
+  POSTBACK // próximo passo do fluxo
+}
+
+/// Card reutilizável: imagem + título + descrição + botão.
+/// Edita aqui e todo carrossel que usa o card é atualizado.
+model CatalogItem {
+  id          String         @id @default(cuid())
+  accountId   String
+  title       String // máx. 80 caracteres
+  description String? // máx. 80 caracteres
+  imageUrl    String // 1080×1080 recomendado
+  buttonTitle String // curto, ≈20 caracteres, em CAIXA ALTA
+  buttonType  CardButtonType @default(URL)
+  buttonUrl   String? // só quando buttonType = URL
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  account InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  usages  CarouselCard[]
+
+  @@index([accountId])
+}
+
+/// Qual card aparece em qual carrossel, e em que ordem (máx. 10 por carrossel).
+/// Um card em uso não pode ser apagado (onDelete: Restrict).
+/// Botões POSTBACK saem do nó pelo handle = id desta linha.
+model CarouselCard {
+  id            String @id @default(cuid())
+  nodeId        String
+  catalogItemId String
+  position      Int
+
+  node        Node        @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Restrict)
+
+  @@index([nodeId, position])
+  @@index([catalogItemId])
+}

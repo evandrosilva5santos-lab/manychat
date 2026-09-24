@@ -1,0 +1,59 @@
+@import "tailwindcss";
+/* Tokens do design system Fluxo (tema claro e escuro via data-theme no <html>) */
+@import "../../design-system/tokens.css";
+
+/* As fontes vêm do next/font; os nomes batem com os tokens --font-sans / --font-mono */
+:root {
+  --font-sans: var(--font-jakarta), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+}
+
+/*
+ * Tema do Tailwind apontando para as variáveis do design system.
+ * Raios (rounded-sm/md/lg/full) e fontes (font-sans/mono) já usam os mesmos
+ * nomes de variável dos tokens; o espaçamento padrão do Tailwind é a grade de 4px.
+ */
+@theme inline {
+  --color-surface-100: var(--surface-100);
+  --color-surface-200: var(--surface-200);
+  --color-surface-300: var(--surface-300);
+  --color-canvas: var(--canvas);
+  --color-canvas-dot: var(--canvas-dot);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-focus: var(--focus);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-node-trigger: var(--node-trigger);
+  --color-node-message: var(--node-message);
+  --color-node-condition: var(--node-condition);
+  --color-node-delay: var(--node-delay);
+  --color-node-action: var(--node-action);
+  --color-node-edge: var(--node-edge);
+  --color-node-edge-active: var(--node-edge-active);
+  --shadow-card: var(--shadow-card);
+  --shadow-node: var(--shadow-node);
+  --shadow-pop: var(--shadow-pop);
+}
+
+body {
+  background: var(--surface-100);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
