@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Verificar conexão — passo 3</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>body{margin:0;background:#f7f6f3}a{color:#1f5fd6;text-decoration:none}a:hover{color:#184cb0}</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; display: flex; flex-direction: column; background: #f7f6f3; color: #1f2226; font-family: 'Plus Jakarta Sans', sans-serif">
+<header style="height: 68px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: #ffffff; border-bottom: 1px solid #e3e0d9">
+<div style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em">Fluxo</div>
+<ol aria-label="Etapas" style="display: flex; align-items: center; gap: 12px; margin: 0; padding: 0; list-style: none; font-size: 13px; font-weight: 600">
+<li style="display: flex; align-items: center; gap: 8px; color: #17774a"><span style="width: 24px; height: 24px; border-radius: 999px; background: #e3f3ea; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>Entrar com a Meta</li>
+<li aria-hidden="true" style="width: 32px; height: 1px; background: #e3e0d9"></li>
+<li style="display: flex; align-items: center; gap: 8px; color: #17774a"><span style="width: 24px; height: 24px; border-radius: 999px; background: #e3f3ea; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>Escolher conta</li>
+<li aria-hidden="true" style="width: 32px; height: 1px; background: #e3e0d9"></li>
+<li aria-current="step" style="display: flex; align-items: center; gap: 8px; color: #1f5fd6"><span style="width: 24px; height: 24px; border-radius: 999px; background: #1f5fd6; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 12px">3</span>Verificar</li>
+</ol>
+<a href="Login.dc.html" style="font-size: 13px; font-weight: 600">Sair</a>
+</header>
+<main style="flex-grow: 1; display: flex; justify-content: center; padding: 56px 48px">
+<section style="width: 720px; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em">Testando a conexão com @movingfestival</h1>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #565a61">Conferimos com a Meta se tudo que as automações precisam está liberado.</p>
+</div>
+<div style="display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #e3e0d9"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17774a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path></svg><span style="flex-grow: 1; font-size: 15px">Login na Meta e token de acesso</span><span style="font-size: 13px; color: #17774a; font-weight: 600">Ok · válido por 60 dias</span></div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #e3e0d9"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17774a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path></svg><span style="flex-grow: 1; font-size: 15px">Conta profissional ligada à Página</span><span style="font-size: 13px; color: #17774a; font-weight: 600">Ok</span></div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #e3e0d9"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17774a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path></svg><span style="flex-grow: 1; font-size: 15px">Permissões de mensagens e comentários</span><span style="font-size: 13px; color: #17774a; font-weight: 600">5 de 5 aceitas</span></div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #e3e0d9"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17774a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path></svg><span style="flex-grow: 1; font-size: 15px">Webhook assinado <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #565a61">comments · messages · messaging_postbacks</span></span><span style="font-size: 13px; color: #17774a; font-weight: 600">Ok</span></div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #e3e0d9"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8f5a06" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px">Acesso avançado do app (Advanced Access)</span><span style="font-size: 13px; color: #565a61">Em modo de teste o app só responde contas marcadas como testadoras. Envie o app para revisão da Meta antes de abrir pro público.</span></span><span style="font-size: 13px; color: #8f5a06; font-weight: 600">Pendente</span></div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px">
+<div style="display: flex; align-items: center; gap: 12px"><span style="width: 20px; height: 20px; border-radius: 999px; border: 2px solid #1f5fd6; border-right-color: transparent; box-sizing: border-box"></span><span style="flex-grow: 1; font-size: 15px">Mensagem de teste</span><span style="font-size: 13px; color: #1f5fd6; font-weight: 600">Aguardando você</span></div>
+<div style="margin-left: 32px; padding: 12px; background: #f7f6f3; border-radius: 10px; font-size: 13px; line-height: 18px; color: #565a61">De outra conta, mande a palavra <span style="padding: 1px 6px; border-radius: 6px; background: #e7eefc; color: #1f5fd6; font-family: 'JetBrains Mono', monospace; font-size: 12px">FLUXO-7421</span> por DM para @movingfestival. Quando ela chegar aqui, a verificação termina.</div>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between">
+<a href="Conta.dc.html" style="height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #848077; background: #ffffff; color: #1f2226; display: flex; align-items: center; font-size: 15px; font-weight: 600">Voltar</a>
+<div style="display: flex; gap: 12px"><a href="Painel.dc.html" style="height: 44px; padding: 0 16px; display: flex; align-items: center; font-size: 15px; font-weight: 600">Pular teste</a><a href="Painel.dc.html" style="height: 44px; padding: 0 20px; border-radius: 10px; background: #1f5fd6; color: #ffffff; display: flex; align-items: center; font-size: 15px; font-weight: 600">Ir para o painel</a></div>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

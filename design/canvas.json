@@ -1,0 +1,525 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Ajustes.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "09 · Ajustes — Meta",
+      "w": 1440,
+      "x": 0,
+      "y": 2160
+    },
+    "Automacoes.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "03 · Automações",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Catalogo.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "08 · Catálogo de cards",
+      "w": 1440,
+      "x": 4560,
+      "y": 1080
+    },
+    "Checklist.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "15 · Checklist final",
+      "w": 1080,
+      "x": 4640,
+      "y": 2940
+    },
+    "Construtor.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "04 · Builder simples",
+      "w": 1440,
+      "x": 4560,
+      "y": 0
+    },
+    "Contatos.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "06 · Contatos",
+      "w": 1440,
+      "x": 1520,
+      "y": 1080
+    },
+    "Conversa.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "07 · Conversas",
+      "w": 1440,
+      "x": 3040,
+      "y": 1080
+    },
+    "Fluxo.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "05 · Builder avançado",
+      "w": 1440,
+      "x": 0,
+      "y": 1080
+    },
+    "Login.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "01 · Login",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "01 · Capa",
+      "w": 1080,
+      "x": 0,
+      "y": 0
+    },
+    "Painel.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "02 · Painel",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Passo-1.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "02 · Passo 1",
+      "w": 1080,
+      "x": 1160,
+      "y": 0
+    },
+    "Passo-2.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "03 · Passo 2",
+      "w": 1080,
+      "x": 2320,
+      "y": 0
+    },
+    "Passo-3.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "04 · Passo 3",
+      "w": 1080,
+      "x": 3480,
+      "y": 0
+    },
+    "Passo-4.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "05 · Passo 4",
+      "w": 1080,
+      "x": 4640,
+      "y": 0
+    },
+    "Passo-5.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "06 · Passo 5",
+      "w": 1080,
+      "x": 0,
+      "y": 1470
+    },
+    "Passo-6.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "07 · Passo 6",
+      "w": 1080,
+      "x": 1160,
+      "y": 1470
+    },
+    "Passo-7.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "08 · Passo 7",
+      "w": 1080,
+      "x": 2320,
+      "y": 1470
+    },
+    "Passo-7b.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "09 · Passo 7 (continuação)",
+      "w": 1080,
+      "x": 3480,
+      "y": 1470
+    },
+    "Passo-8.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "10 · Passo 8",
+      "w": 1080,
+      "x": 4640,
+      "y": 1470
+    },
+    "Prompt-1.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "11 · Prompt 1/4",
+      "w": 1080,
+      "x": 0,
+      "y": 2940
+    },
+    "Prompt-2.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "12 · Prompt 2/4",
+      "w": 1080,
+      "x": 1160,
+      "y": 2940
+    },
+    "Prompt-3.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "13 · Prompt 3/4",
+      "w": 1080,
+      "x": 2320,
+      "y": 2940
+    },
+    "Prompt-4.dc.html": {
+      "h": 1350,
+      "page": "guia",
+      "title": "14 · Prompt 4/4",
+      "w": 1080,
+      "x": 3480,
+      "y": 2940
+    },
+    "Sidebar.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "app",
+      "title": "Componente · Sidebar",
+      "w": 72,
+      "x": 1520,
+      "y": 2160
+    },
+    "Conectar.dc.html": {
+      "x": 0,
+      "y": 3240,
+      "w": 1440,
+      "h": 960,
+      "title": "10 · Onboarding 1 — Entrar com a Meta",
+      "page": "app",
+      "is_interactive": true
+    },
+    "Conta.dc.html": {
+      "x": 1520,
+      "y": 3240,
+      "w": 1440,
+      "h": 960,
+      "title": "11 · Onboarding 2 — Escolher conta",
+      "page": "app",
+      "is_interactive": true
+    },
+    "Verificacao.dc.html": {
+      "x": 3040,
+      "y": 3240,
+      "w": 1440,
+      "h": 960,
+      "title": "12 · Onboarding 3 — Verificar",
+      "page": "app",
+      "is_interactive": true
+    },
+    "Basico.dc.html": {
+      "x": 4560,
+      "y": 3240,
+      "w": 1440,
+      "h": 960,
+      "title": "13 · Automações básicas",
+      "page": "app",
+      "is_interactive": true
+    },
+    "Seguidores.dc.html": {
+      "x": 0,
+      "y": 4320,
+      "w": 1440,
+      "h": 960,
+      "title": "14 · Cumprimente novos seguidores",
+      "page": "app",
+      "is_interactive": true
+    },
+    "Canal.dc.html": {
+      "x": 1520,
+      "y": 4320,
+      "w": 1440,
+      "h": 960,
+      "title": "15 · Ajustes — canal Instagram",
+      "page": "app",
+      "is_interactive": true
+    },
+    "M-Login.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Login",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "M-Conectar.dc.html": {
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Conectar com a Meta",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "M-Painel.dc.html": {
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Painel",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "M-Automacoes.dc.html": {
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Automações",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "M-Construtor.dc.html": {
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Builder simples",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "M-Fluxo.dc.html": {
+      "x": 2350,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Builder avançado",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "M-Contatos.dc.html": {
+      "x": 2820,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Contatos",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "M-Conversa.dc.html": {
+      "x": 3290,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Celular · Conversa",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "TabBar.dc.html": {
+      "x": 0,
+      "y": 964,
+      "w": 390,
+      "h": 76,
+      "title": "Componente · Barra de abas",
+      "page": "mobile",
+      "is_interactive": true
+    },
+    "T-Painel.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 834,
+      "h": 1194,
+      "title": "Tablet · Painel",
+      "page": "tablet",
+      "is_interactive": true
+    },
+    "T-Automacoes.dc.html": {
+      "x": 914,
+      "y": 0,
+      "w": 834,
+      "h": 1194,
+      "title": "Tablet · Automações",
+      "page": "tablet",
+      "is_interactive": true
+    },
+    "T-Construtor.dc.html": {
+      "x": 1828,
+      "y": 0,
+      "w": 834,
+      "h": 1194,
+      "title": "Tablet · Builder simples",
+      "page": "tablet",
+      "is_interactive": true
+    },
+    "T-Fluxo.dc.html": {
+      "x": 2742,
+      "y": 0,
+      "w": 834,
+      "h": 1194,
+      "title": "Tablet · Builder avançado",
+      "page": "tablet",
+      "is_interactive": true
+    },
+    "T-Contatos.dc.html": {
+      "x": 3656,
+      "y": 0,
+      "w": 834,
+      "h": 1194,
+      "title": "Tablet · Contatos",
+      "page": "tablet",
+      "is_interactive": true
+    },
+    "T-Conversa.dc.html": {
+      "x": 4570,
+      "y": 0,
+      "w": 834,
+      "h": 1194,
+      "title": "Tablet · Conversas",
+      "page": "tablet",
+      "is_interactive": true
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-24T15:00:00Z",
+    "v": 1
+  },
+  "designSystems": [
+    {
+      "artifact": "https://claude.ai/code/artifact/043abebf-da00-4d3a-9cfc-1e1820db295f",
+      "copiedAt": "2026-09-24T16:00:00Z",
+      "namespace": "fluxo",
+      "title": "Fluxo",
+      "version": "1790291001-0f4c"
+    }
+  ],
+  "launch": {
+    "page": "app",
+    "view": "canvas"
+  },
+  "notes": {
+    "app": {
+      "kind": "title1",
+      "maxW": 6000,
+      "page": "app",
+      "text": "Fluxo — telas do app",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "titulo": {
+      "kind": "title1",
+      "maxW": 5720,
+      "page": "guia",
+      "text": "Como Criar seu Próprio ManyChat — carrossel 1080×1350",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "mobile": {
+      "kind": "title1",
+      "maxW": 3680,
+      "page": "mobile",
+      "text": "Fluxo — celular (390×844)",
+      "x": 0,
+      "y": -300
+    },
+    "tablet": {
+      "kind": "title1",
+      "maxW": 5404,
+      "page": "tablet",
+      "text": "Fluxo — tablet (834×1194)",
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": [
+    "Login.dc.html",
+    "Painel.dc.html",
+    "Automacoes.dc.html",
+    "Construtor.dc.html",
+    "Fluxo.dc.html",
+    "Contatos.dc.html",
+    "Conversa.dc.html",
+    "Catalogo.dc.html",
+    "Ajustes.dc.html",
+    "Conectar.dc.html",
+    "Conta.dc.html",
+    "Verificacao.dc.html",
+    "Basico.dc.html",
+    "Seguidores.dc.html",
+    "Canal.dc.html",
+    "Sidebar.dc.html",
+    "M-Login.dc.html",
+    "M-Conectar.dc.html",
+    "M-Painel.dc.html",
+    "M-Automacoes.dc.html",
+    "M-Construtor.dc.html",
+    "M-Fluxo.dc.html",
+    "M-Contatos.dc.html",
+    "M-Conversa.dc.html",
+    "TabBar.dc.html",
+    "T-Painel.dc.html",
+    "T-Automacoes.dc.html",
+    "T-Construtor.dc.html",
+    "T-Fluxo.dc.html",
+    "T-Contatos.dc.html",
+    "T-Conversa.dc.html",
+    "Main.dc.html",
+    "Passo-1.dc.html",
+    "Passo-2.dc.html",
+    "Passo-3.dc.html",
+    "Passo-4.dc.html",
+    "Passo-5.dc.html",
+    "Passo-6.dc.html",
+    "Passo-7.dc.html",
+    "Passo-7b.dc.html",
+    "Passo-8.dc.html",
+    "Prompt-1.dc.html",
+    "Prompt-2.dc.html",
+    "Prompt-3.dc.html",
+    "Prompt-4.dc.html",
+    "Checklist.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "app",
+      "name": "Telas do app"
+    },
+    {
+      "id": "mobile",
+      "name": "Celular"
+    },
+    {
+      "id": "tablet",
+      "name": "Tablet"
+    },
+    {
+      "id": "guia",
+      "name": "Guia passo a passo"
+    }
+  ],
+  "title": "Fluxo — telas do app"
+}

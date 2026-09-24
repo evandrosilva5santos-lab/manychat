@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Conversas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>body{margin:0;background:#f7f6f3}a{color:#1f5fd6;text-decoration:none}a:hover{color:#184cb0}</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; display: flex; background: #f7f6f3; color: #1f2226; font-family: 'Plus Jakarta Sans', sans-serif">
+<dc-import name="Sidebar" active="conversas" hint-size="72px,960px"></dc-import>
+<section aria-label="Lista de conversas" style="width: 340px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; background: #ffffff; border-right: 1px solid #e3e0d9">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 24px 16px 12px"><h1 style="margin: 0; font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em">Conversas</h1>
+<label style="display: flex; align-items: center; height: 40px; padding: 0 12px; box-sizing: border-box; border: 1px solid #848077; border-radius: 10px"><input type="search" aria-label="Buscar conversa" placeholder="Buscar" style="flex-grow: 1; border: 0; outline: none; font-family: inherit; font-size: 15px; background: transparent"></label></div>
+<a href="#" style="display: flex; gap: 10px; padding: 12px 16px; background: #efede8; color: #1f2226"><span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; background: #e7eefc; color: #1f5fd6; display: flex; align-items: center; justify-content: center; font-weight: 700">J</span><div style="flex-grow: 1; min-width: 0"><div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 600">@juliana.exemplo<span style="font-size: 12px; font-weight: 400; color: #6b6f76">2 min</span></div><div style="font-size: 13px; color: #565a61; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Tocou em QUERO ME INSCREVER</div></div></a>
+<a href="#" style="display: flex; gap: 10px; padding: 12px 16px; color: #1f2226"><span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; background: #e3f3ea; color: #17774a; display: flex; align-items: center; justify-content: center; font-weight: 700">R</span><div style="flex-grow: 1; min-width: 0"><div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 600">@rafael.exemplo<span style="font-size: 12px; font-weight: 400; color: #6b6f76">9 min</span></div><div style="font-size: 13px; color: #565a61">Comentou “casamento”</div></div></a>
+<a href="#" style="display: flex; gap: 10px; padding: 12px 16px; color: #1f2226"><span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; background: #fbf0dc; color: #8f5a06; display: flex; align-items: center; justify-content: center; font-weight: 700">C</span><div style="flex-grow: 1; min-width: 0"><div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 600">@carla.exemplo<span style="font-size: 12px; font-weight: 400; color: #6b6f76">14 min</span></div><div style="font-size: 13px; color: #565a61">Ainda não segue o perfil</div></div></a>
+<a href="#" style="display: flex; gap: 10px; padding: 12px 16px; color: #1f2226"><span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; background: #efede8; color: #565a61; display: flex; align-items: center; justify-content: center; font-weight: 700">P</span><div style="flex-grow: 1; min-width: 0"><div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 600">@paulo.exemplo<span style="font-size: 12px; font-weight: 400; color: #6b6f76">31 min</span></div><div style="font-size: 13px; color: #565a61">oi</div></div></a>
+</section>
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<header style="height: 68px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e3e0d9"><div style="flex-grow: 1; font-size: 17px; line-height: 24px; font-weight: 600">@juliana.exemplo</div><span style="font-size: 13px; color: #565a61">Automação pausada para este contato</span><span role="switch" aria-checked="false" aria-label="Pausar automação" style="width: 40px; height: 24px; border-radius: 999px; background: #efede8; border: 1px solid #848077; padding: 2px; box-sizing: border-box; display: flex"><span style="width: 18px; height: 18px; border-radius: 999px; background: #848077"></span></span></header>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 12px; padding: 24px 32px; overflow: hidden">
+<div style="align-self: center; font-size: 12px; color: #6b6f76">Hoje · comentou em “Casamento coletivo 2026”</div>
+<div style="align-self: flex-start; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: #ffffff; border: 1px solid #e3e0d9; font-size: 15px">casamento</div>
+<div style="align-self: flex-end; max-width: 380px; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px 14px 4px 14px; background: #e7eefc; font-size: 15px; line-height: 22px">AAAAH! 💍✨ Que bom saber que você quer casar na Moving! Vou te passar todas as informações.<span style="padding: 7px; border-radius: 6px; border: 1px solid #848077; background: #ffffff; text-align: center; font-size: 13px; font-weight: 600">QUERO SABER COMO PARTICIPAR</span><span style="font-size: 11px; color: #565a61">Automação · Casamento por DM automático</span></div>
+<div style="align-self: flex-start; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: #ffffff; border: 1px solid #e3e0d9; font-size: 13px; color: #565a61">Tocou em <strong style="color: #1f2226">QUERO SABER COMO PARTICIPAR</strong></div>
+<div style="align-self: flex-end; max-width: 380px; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px 14px 4px 14px; background: #e7eefc; font-size: 15px; line-height: 22px">Quer saber como funciona a inscrição? Vou te encaminhar para o WhatsApp da equipe. 👇<span style="padding: 7px; border-radius: 6px; border: 1px solid #848077; background: #ffffff; text-align: center; font-size: 13px; font-weight: 600">QUERO ME INSCREVER</span></div>
+<div style="align-self: flex-start; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: #ffffff; border: 1px solid #e3e0d9; font-size: 13px; color: #565a61">Tocou em <strong style="color: #1f2226">QUERO ME INSCREVER</strong> · abriu o link</div>
+</div>
+<div style="display: flex; gap: 8px; padding: 16px 24px; background: #ffffff; border-top: 1px solid #e3e0d9"><label style="flex-grow: 1; display: flex; align-items: center; height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid #848077; border-radius: 10px"><input type="text" aria-label="Mensagem" placeholder="Responder como @movingfestival" style="flex-grow: 1; border: 0; outline: none; font-family: inherit; font-size: 15px; background: transparent"></label><button type="button" style="height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: #1f5fd6; color: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600">Enviar</button></div>
+</main>
+<aside aria-label="Dados do contato" style="width: 300px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; padding: 24px; background: #ffffff; border-left: 1px solid #e3e0d9">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><span style="width: 64px; height: 64px; border-radius: 999px; background: #e7eefc; color: #1f5fd6; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700">J</span><div style="font-size: 17px; font-weight: 600">@juliana.exemplo</div><div style="font-size: 13px; color: #17774a; font-weight: 600">Segue o perfil</div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="font-size: 13px; font-weight: 600; color: #565a61">Etiquetas</div><div style="display: flex; flex-wrap: wrap; gap: 6px"><span style="padding: 3px 8px; border-radius: 6px; background: #efede8; font-size: 12px; font-weight: 600">lead-quente ×</span><span style="padding: 3px 8px; border-radius: 6px; background: #efede8; font-size: 12px; font-weight: 600">casamento-2026 ×</span><button type="button" style="padding: 3px 8px; border-radius: 6px; border: 1px dashed #848077; background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; color: #1f5fd6">+ Etiqueta</button></div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="font-size: 13px; font-weight: 600; color: #565a61">Campos</div>
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #565a61">first_name</span><span>Juliana</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #565a61">email</span><span style="color: #6b6f76">—</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #565a61">telefone</span><span style="color: #6b6f76">—</span></div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="font-size: 13px; font-weight: 600; color: #565a61">Passou por</div><div style="font-size: 13px">Casamento por DM automático</div><div style="font-size: 12px; color: #6b6f76">Primeiro contato há 2 minutos</div></div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

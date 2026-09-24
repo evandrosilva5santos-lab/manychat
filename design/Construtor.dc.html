@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Builder simples</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>body{margin:0;background:#f7f6f3}a{color:#1f5fd6;text-decoration:none}a:hover{color:#184cb0}</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; display: flex; background: #f7f6f3; color: #1f2226; font-family: 'Plus Jakarta Sans', sans-serif">
+<dc-import name="Sidebar" active="automacoes" hint-size="72px,960px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<header style="height: 68px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e3e0d9">
+<nav aria-label="Caminho" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #565a61"><a href="Automacoes.dc.html">Automações</a><span aria-hidden="true">›</span><span>Moving 2026</span><span aria-hidden="true">›</span><span style="font-size: 15px; font-weight: 600; color: #1f2226">[2026] Casamento por DM automático</span></nav>
+<span style="padding: 3px 8px; border-radius: 6px; background: #e3f3ea; color: #17774a; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.04em">AO VIVO</span>
+<div style="flex-grow: 1"></div>
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #848077; background: #ffffff; color: #b83a2c; font-family: inherit; font-size: 15px; font-weight: 600">Parar</button>
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: #1f5fd6; color: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600">Publicar alterações</button>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<section aria-label="Receita da automação" style="width: 440px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; padding: 24px; background: #ffffff; border-right: 1px solid #e3e0d9; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em">Quando alguém faz um comentário</h2>
+<div role="radiogroup" aria-label="Onde" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button type="button" role="radio" aria-checked="true" style="height: 44px; border-radius: 10px; border: 2px solid #1f5fd6; background: #e7eefc; color: #1f5fd6; font-family: inherit; font-size: 13px; font-weight: 600">Qualquer publicação ou Reel</button>
+<button type="button" role="radio" aria-checked="false" style="height: 44px; border-radius: 10px; border: 1px solid #848077; background: #ffffff; color: #565a61; font-family: inherit; font-size: 13px; font-weight: 600">Publicação específica</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em">E esse comentário possui</h2>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #565a61">Palavra ou expressão
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; box-sizing: border-box; border: 1px solid #848077; border-radius: 10px"><span style="padding: 3px 8px; border-radius: 6px; background: #efede8; color: #1f2226; font-size: 13px; font-weight: 600">casamento</span><span style="padding: 3px 8px; border-radius: 6px; background: #efede8; color: #1f2226; font-size: 13px; font-weight: 600">quero casar</span><span style="color: #6b6f76; font-size: 13px">Adicionar…</span></span></label>
+<div style="display: flex; align-items: center; justify-content: space-between; font-size: 15px">Responder o comentário em público<span role="switch" aria-checked="true" aria-label="Responder em público" style="width: 40px; height: 24px; border-radius: 999px; background: #1f5fd6; padding: 3px; box-sizing: border-box; display: flex; justify-content: flex-end"><span style="width: 18px; height: 18px; border-radius: 999px; background: #ffffff"></span></span></div>
+<div style="font-size: 13px; line-height: 18px; color: #565a61">3 variações: “Que bom que você vai casar na Moving”, “Aaaah, que alegria!”, “Que demais! Vem saber como participar”</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em">Eles receberão</h2>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #e3e0d9; border-radius: 14px">
+<div style="font-size: 13px; font-weight: 600; color: #565a61">Mensagem de boas-vindas</div>
+<div style="font-size: 15px; line-height: 22px">AAAAH! 💍✨ Que bom saber que você quer casar na Moving, <span style="padding: 1px 6px; border-radius: 6px; background: #e7eefc; color: #1f5fd6; font-family: 'JetBrains Mono', monospace; font-size: 12px">{{fnVar}}</span>!</div>
+<div style="padding: 8px; border-radius: 6px; border: 1px solid #848077; text-align: center; font-size: 13px; font-weight: 600">QUERO SABER COMO PARTICIPAR</div>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid #e3e0d9; border-radius: 14px; font-size: 15px">Pedir pra seguir antes do link<span role="switch" aria-checked="true" aria-label="Pedir pra seguir" style="width: 40px; height: 24px; border-radius: 999px; background: #1f5fd6; padding: 3px; box-sizing: border-box; display: flex; justify-content: flex-end"><span style="width: 18px; height: 18px; border-radius: 999px; background: #ffffff"></span></span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #e3e0d9; border-radius: 14px">
+<div style="font-size: 13px; font-weight: 600; color: #565a61">DM com link</div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 6px; border: 1px solid #848077; font-size: 13px; font-weight: 600">QUERO ME INSCREVER<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #6b6f76">wa.me/5551…</span></div>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid #e3e0d9; border-radius: 14px; font-size: 15px">Lembrete se o link não for aberto<span role="switch" aria-checked="true" aria-label="Lembrete" style="width: 40px; height: 24px; border-radius: 999px; background: #1f5fd6; padding: 3px; box-sizing: border-box; display: flex; justify-content: flex-end"><span style="width: 18px; height: 18px; border-radius: 999px; background: #ffffff"></span></span></div>
+</div>
+</section>
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; padding: 24px">
+<div role="tablist" aria-label="Painel" style="display: flex; gap: 24px; border-bottom: 1px solid #e3e0d9">
+<button type="button" role="tab" aria-selected="true" style="padding: 0 0 12px; border: 0; border-bottom: 2px solid #1f5fd6; background: transparent; color: #1f5fd6; font-family: inherit; font-size: 15px; font-weight: 600">Insights</button>
+<button type="button" role="tab" aria-selected="false" style="padding: 0 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #565a61; font-family: inherit; font-size: 15px; font-weight: 600">Visualização</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)"><div style="font-size: 13px; color: #565a61">Envios</div><div style="font-size: 32px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums">3</div></div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)"><div style="font-size: 13px; color: #565a61">Cliques no link</div><div style="font-size: 32px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums">2</div></div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)"><div style="font-size: 13px; color: #565a61">CTR</div><div style="font-size: 32px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums">67%</div></div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)"><div style="font-size: 13px; color: #565a61">E-mails</div><div style="font-size: 32px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; color: #6b6f76">—</div></div>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: flex; gap: 24px">
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)">
+<h2 style="margin: 0; font-size: 22px; line-height: 30px; font-weight: 700">Próximo passo recomendado</h2>
+<div style="display: flex; gap: 12px; padding: 16px; background: #e7eefc; border-radius: 10px">
+<svg style="flex-shrink: 0" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1f5fd6" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 6L2 7"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 4px"><div style="font-size: 15px; font-weight: 600">Peça o e-mail por DM</div><div style="font-size: 13px; line-height: 18px; color: #565a61">Você ainda não tem como falar com quem não clicou no link. Ligue a etapa de e-mail nesta automação.</div></div>
+</div>
+<h2 style="margin: 8px 0 0; font-size: 17px; line-height: 24px; font-weight: 600">Últimos contatos</h2>
+<a href="Conversa.dc.html" style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e3e0d9; color: #1f2226; font-size: 15px"><span>@juliana.exemplo</span><span style="font-size: 13px; color: #17774a; font-weight: 600">Clicou no link</span></a>
+<a href="Conversa.dc.html" style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e3e0d9; color: #1f2226; font-size: 15px"><span>@rafael.exemplo</span><span style="font-size: 13px; color: #17774a; font-weight: 600">Clicou no link</span></a>
+<a href="Conversa.dc.html" style="display: flex; justify-content: space-between; padding: 12px 0; color: #1f2226; font-size: 15px"><span>@carla.exemplo</span><span style="font-size: 13px; color: #8f5a06; font-weight: 600">Não segue o perfil</span></a>
+</div>
+<div aria-label="Pré-visualização da DM" style="width: 340px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06); overflow: hidden">
+<div style="display: flex; align-items: center; gap: 10px; padding: 16px; border-bottom: 1px solid #e3e0d9"><div style="width: 32px; height: 32px; border-radius: 999px; background: #efede8"></div><div style="font-size: 15px; font-weight: 600">movingfestival</div></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 16px; background: #f7f6f3">
+<div style="align-self: flex-end; padding: 8px 12px; border-radius: 14px 14px 4px 14px; background: #1f5fd6; color: #ffffff; font-size: 13px">casamento</div>
+<div style="align-self: flex-start; max-width: 260px; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px 14px 14px 4px; background: #ffffff; border: 1px solid #e3e0d9; font-size: 13px; line-height: 18px">AAAAH! 💍✨ Que bom saber que você quer casar na Moving! Vou te passar todas as informações.<span style="padding: 7px; border-radius: 6px; border: 1px solid #848077; text-align: center; font-weight: 600">QUERO SABER COMO PARTICIPAR</span></div>
+<div style="align-self: flex-start; max-width: 260px; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px 14px 14px 4px; background: #ffffff; border: 1px solid #e3e0d9; font-size: 13px; line-height: 18px">Quer saber como funciona a inscrição? Vou te encaminhar para o WhatsApp da equipe. 👇<span style="padding: 7px; border-radius: 6px; border: 1px solid #848077; text-align: center; font-weight: 600">QUERO ME INSCREVER</span></div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return { fnVar: '{{first_name}}' }; }
+}
+</script>
+</body>
+</html>

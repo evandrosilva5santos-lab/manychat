@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Builder avançado</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>body{margin:0;background:#f7f6f3}a{color:#1f5fd6;text-decoration:none}a:hover{color:#184cb0}</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; display: flex; background: #f7f6f3; color: #1f2226; font-family: 'Plus Jakarta Sans', sans-serif">
+<dc-import name="Sidebar" active="automacoes" hint-size="72px,960px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: #fbe9e6; border-bottom: 1px solid #e3e0d9; font-size: 13px; color: #1f2226">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b83a2c" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+<span style="flex-grow: 1"><strong>Token de acesso da Meta expirou</strong> — esta automação está parada.</span>
+<a href="Ajustes.dc.html" style="font-weight: 600">Reconectar</a>
+</div>
+<header style="height: 68px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e3e0d9">
+<nav aria-label="Caminho" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #565a61"><a href="Automacoes.dc.html">Automações</a><span aria-hidden="true">›</span><span>[CAPT] Lança nível 1</span><span aria-hidden="true">›</span><span>Entregáveis T5</span><span aria-hidden="true">›</span><span style="font-size: 15px; font-weight: 600; color: #1f2226">Captação story Astrix</span></nav>
+<span style="padding: 3px 8px; border-radius: 6px; background: #fbe9e6; color: #b83a2c; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.04em">PARADO</span>
+<div style="flex-grow: 1"></div>
+<span style="font-size: 13px; color: #6b6f76">Salvo há 2 minutos</span>
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #848077; background: #ffffff; color: #1f2226; font-family: inherit; font-size: 15px; font-weight: 600">Testar no Instagram</button>
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: #1f5fd6; color: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600">Publicar</button>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<div style="position: relative; flex-grow: 1; overflow: hidden; background-color: #eeece6; background-image: radial-gradient(#d6d2c8 1.2px, transparent 1.2px); background-size: 16px 16px">
+<svg width="1068" height="824" viewBox="0 0 1068 824" fill="none" aria-hidden="true" style="position: absolute; left: 0; top: 0">
+<path d="M264 150 C292 150 292 170 320 170" stroke="#9a968c" stroke-width="2"></path>
+<path d="M560 222 C588 222 588 160 616 160" stroke="#1f5fd6" stroke-width="2.5"></path>
+<path d="M836 136 C860 136 860 100 884 100" stroke="#9a968c" stroke-width="2"></path>
+<path d="M836 184 C860 184 860 400 884 400" stroke="#9a968c" stroke-width="2"></path>
+<path d="M1000 186 L1000 236" stroke="#9a968c" stroke-width="2"></path>
+</svg>
+<div style="position: absolute; left: 24px; top: 20px; display: flex; gap: 8px">
+<button type="button" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #848077; background: #ffffff; color: #1f2226; font-family: inherit; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(31,34,38,0.06)">+ Adicionar caixinha</button>
+</div>
+<div style="position: absolute; left: 44px; top: 90px; width: 220px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #17774a; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9z"></path></svg></span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #17774a">GATILHO</span></div>
+<div style="font-size: 13px; line-height: 18px">O usuário responde ao story com “EU QUERO”</div>
+<div style="font-size: 13px; color: #6b6f76">157 entradas</div>
+<span aria-hidden="true" style="position: absolute; right: -6px; top: 54px; width: 10px; height: 10px; border-radius: 999px; background: #ffffff; border: 2px solid #9a968c"></span>
+</div>
+<div style="position: absolute; left: 320px; top: 80px; width: 240px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #ffffff; border: 2px solid #1f5fd6; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #1f5fd6; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #1f5fd6">MENSAGEM</span></div>
+<div style="font-size: 13px; line-height: 18px">Antes de liberar, confirma que você já segue o perfil 👀</div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-radius: 6px; border: 1px solid #848077; font-size: 13px; font-weight: 600">DESBLOQUEAR<span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: #1f5fd6"></span></div>
+<div style="font-size: 12px; color: #6b6f76; font-variant-numeric: tabular-nums">142 enviadas · 98% abertas · 85% clicaram</div>
+</div>
+<div style="position: absolute; left: 616px; top: 100px; width: 220px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #0e6f78; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v12M18 9a9 9 0 0 1-9 9M18 3v6"></path></svg></span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #0e6f78">CONDIÇÃO</span></div>
+<div style="font-size: 13px; line-height: 18px">Segue o perfil?</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600"><span style="color: #17774a">Sim · 118</span><span style="color: #565a61">Não · 24</span></div>
+</div>
+<div style="position: absolute; left: 884px; top: 30px; width: 170px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #1f5fd6; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h14v12H2zM20 9v8"></path></svg></span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #1f5fd6">CARROSSEL</span></div>
+<div style="display: flex; gap: 4px"><span style="flex-grow: 1; height: 44px; border-radius: 6px; background: #efede8"></span><span style="flex-grow: 1; height: 44px; border-radius: 6px; background: #efede8"></span><span style="width: 16px; height: 44px; border-radius: 6px; background: #efede8"></span></div>
+<div style="font-size: 12px; color: #6b6f76">3 cards · 87% abertas</div>
+</div>
+<div style="position: absolute; left: 884px; top: 236px; width: 170px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #b4481a; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2H4v8l10 10 8-8Z"></path></svg></span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #b4481a">AÇÃO</span></div>
+<div style="font-size: 13px; line-height: 18px">Adicionar tag <span style="padding: 1px 6px; border-radius: 6px; background: #efede8; font-weight: 600">lead-quente</span></div>
+</div>
+<div style="position: absolute; left: 884px; top: 360px; width: 170px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #8f5a06; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #8f5a06">ESPERA</span></div>
+<div style="font-size: 13px; line-height: 18px">Aguardar 10 minutos, depois lembrar</div>
+</div>
+<div aria-label="Anotação" style="position: absolute; left: 44px; top: 260px; width: 220px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #fbf0dc; border: 1px solid #e3e0d9; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #8f5a06">ANOTAÇÃO</div>
+<div style="font-size: 13px; line-height: 18px">Story do dia 22/09. Quem responde “EU QUERO” recebe o material depois de confirmar que segue.</div>
+</div>
+<div style="position: absolute; left: 320px; top: 360px; width: 400px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 10px; box-shadow: 0 1px 3px rgba(31,34,38,0.08), 0 4px 12px rgba(31,34,38,0.06)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #1f5fd6; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h14v12H2zM20 9v8"></path></svg></span><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #1f5fd6">CARROSSEL · 4 CARDS DO CATÁLOGO</span></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="height: 70px; border-radius: 6px; background: #1f2226"></span><span style="font-size: 11px; font-weight: 600">DDX</span><span style="padding: 3px; border-radius: 6px; border: 1px solid #848077; text-align: center; font-size: 10px; font-weight: 600">ESCOLHER</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="height: 70px; border-radius: 6px; background: #1f2226"></span><span style="font-size: 11px; font-weight: 600">Negócio</span><span style="padding: 3px; border-radius: 6px; border: 1px solid #848077; text-align: center; font-size: 10px; font-weight: 600">ESCOLHER</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="height: 70px; border-radius: 6px; background: #1f2226"></span><span style="font-size: 11px; font-weight: 600">Profissão</span><span style="padding: 3px; border-radius: 6px; border: 1px solid #848077; text-align: center; font-size: 10px; font-weight: 600">ESCOLHER</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="height: 70px; border-radius: 6px; background: #1f2226"></span><span style="font-size: 11px; font-weight: 600">Outros</span><span style="padding: 3px; border-radius: 6px; border: 1px solid #848077; text-align: center; font-size: 10px; font-weight: 600">ESCOLHER</span></div>
+</div>
+<div style="font-size: 12px; color: #6b6f76">Cada botão é uma saída própria do nó</div>
+</div>
+<div style="position: absolute; right: 24px; bottom: 24px; display: flex; flex-direction: column; background: #ffffff; border: 1px solid #848077; border-radius: 10px; overflow: hidden">
+<button type="button" aria-label="Aproximar" style="width: 44px; height: 44px; border: 0; border-bottom: 1px solid #e3e0d9; background: transparent; color: #1f2226; font-size: 20px">+</button>
+<button type="button" aria-label="Afastar" style="width: 44px; height: 44px; border: 0; background: transparent; color: #1f2226; font-size: 20px">−</button>
+</div>
+</div>
+<aside aria-label="Propriedades" style="width: 300px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #ffffff; border-left: 1px solid #e3e0d9">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 6px; background: #1f5fd6"></span><h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 600">Mensagem #1</h2></div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #565a61">Texto
+<textarea rows="4" style="resize: none; padding: 12px; border: 1px solid #848077; border-radius: 10px; color: #1f2226; font-family: inherit; font-size: 15px; line-height: 22px">Antes de liberar, confirma que você já segue o perfil 👀</textarea></label>
+<div style="font-size: 13px; color: #565a61">Botões (1 de 3)</div>
+<div style="display: flex; justify-content: space-between; padding: 10px 12px; border: 1px solid #848077; border-radius: 10px; font-size: 13px; font-weight: 600">DESBLOQUEAR<span style="font-weight: 400; color: #6b6f76">→ Condição</span></div>
+<button type="button" style="height: 40px; border-radius: 10px; border: 1px dashed #848077; background: transparent; color: #1f5fd6; font-family: inherit; font-size: 15px; font-weight: 600">Adicionar botão</button>
+<div style="font-size: 13px; line-height: 18px; color: #565a61">Botão fixo: continua visível mesmo depois que o lead manda outras mensagens.</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

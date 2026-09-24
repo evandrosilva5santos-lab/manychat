@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ajustes — conexão com a Meta</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>body{margin:0;background:#f7f6f3}a{color:#1f5fd6;text-decoration:none}a:hover{color:#184cb0}</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; display: flex; background: #f7f6f3; color: #1f2226; font-family: 'Plus Jakarta Sans', sans-serif">
+<dc-import name="Sidebar" active="ajustes" hint-size="72px,960px"></dc-import>
+<nav aria-label="Ajustes" style="width: 240px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 32px 16px; background: #ffffff; border-right: 1px solid #e3e0d9">
+<h1 style="margin: 0 0 16px 8px; font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em">Ajustes</h1>
+<a href="#" aria-current="page" style="padding: 10px 12px; border-radius: 10px; background: #efede8; color: #1f5fd6; font-size: 15px; font-weight: 600">Conexão com a Meta</a>
+<a href="#" style="padding: 10px 12px; border-radius: 10px; color: #565a61; font-size: 15px; font-weight: 600">Equipe</a>
+<a href="#" style="padding: 10px 12px; border-radius: 10px; color: #565a61; font-size: 15px; font-weight: 600">Etiquetas e campos</a>
+<a href="#" style="padding: 10px 12px; border-radius: 10px; color: #565a61; font-size: 15px; font-weight: 600">Senha e login</a>
+</nav>
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; padding: 32px 40px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #fbf0dc; border-radius: 14px">
+<svg style="flex-shrink: 0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8f5a06" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+<div style="flex-grow: 1; font-size: 15px; line-height: 22px"><strong>O token de acesso vence em 3 dias</strong> — depois disso as automações param. Reconecte agora pra renovar.</div>
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: #1f5fd6; color: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600">Reconectar</button>
+</div>
+<section style="display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)">
+<h2 style="margin: 0; font-size: 22px; line-height: 30px; font-weight: 700">Conta do Instagram</h2>
+<div style="display: flex; align-items: center; gap: 12px"><span style="width: 44px; height: 44px; border-radius: 999px; background: #efede8"></span><div style="flex-grow: 1"><div style="font-size: 17px; line-height: 24px; font-weight: 600">@movingfestival</div><div style="font-size: 13px; color: #565a61">Conta profissional · conectada pelo app “Fluxo – Moving” no Meta for Developers</div></div><span style="padding: 3px 8px; border-radius: 6px; background: #e3f3ea; color: #17774a; font-size: 11px; font-weight: 600; letter-spacing: 0.04em">CONECTADA</span><button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #848077; background: #ffffff; color: #b83a2c; font-family: inherit; font-size: 15px; font-weight: 600">Desconectar</button></div>
+</section>
+<section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 24px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)">
+<h2 style="grid-column: span 2; margin: 0; font-size: 22px; line-height: 30px; font-weight: 700">Chaves de acesso</h2>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #565a61">ID da conta do Instagram<input type="text" value="17841400000000000" readonly style="height: 44px; padding: 0 12px; border: 1px solid #848077; border-radius: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #1f2226; background: #f7f6f3"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #565a61">Token de acesso<input type="password" value="EAAGm0PX4ZCpsBA000000" readonly style="height: 44px; padding: 0 12px; border: 1px solid #848077; border-radius: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #1f2226; background: #f7f6f3"></label>
+<div style="grid-column: span 2; font-size: 13px; line-height: 18px; color: #565a61">Guardado criptografado. Nunca aparece inteiro na tela nem no código do site.</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 14px; box-shadow: 0 1px 2px rgba(31,34,38,0.06)">
+<h2 style="margin: 0; font-size: 22px; line-height: 30px; font-weight: 700">Webhook</h2>
+<div style="font-size: 13px; line-height: 18px; color: #565a61">Cole este endereço no app da Meta, em Instagram › Webhooks, pra ela mandar comentários e DMs pra cá.</div>
+<div style="display: flex; gap: 8px"><div style="flex-grow: 1; display: flex; align-items: center; height: 44px; padding: 0 12px; border: 1px solid #848077; border-radius: 10px; background: #f7f6f3; font-family: 'JetBrains Mono', monospace; font-size: 12px">https://fluxo.startinc.com.br/api/webhooks/instagram</div><button type="button" style="height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #848077; background: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600; color: #1f2226">Copiar</button></div>
+<div style="display: flex; gap: 24px; font-size: 15px">
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked style="width: 18px; height: 18px; accent-color: #1f5fd6">comments</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked style="width: 18px; height: 18px; accent-color: #1f5fd6">messages</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked style="width: 18px; height: 18px; accent-color: #1f5fd6">messaging_postbacks</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #1f5fd6">story_insights</label>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #17774a; font-weight: 600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Último evento recebido há 2 minutos</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

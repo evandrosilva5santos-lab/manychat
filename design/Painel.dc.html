@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Painel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>body{margin:0;background:#f7f6f3}a{color:#1f5fd6;text-decoration:none}a:hover{color:#184cb0}</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; display: flex; background: #f7f6f3; color: #1f2226; font-family: 'Plus Jakarta Sans', sans-serif">
+<dc-import name="Sidebar" active="painel" hint-size="72px,960px"></dc-import>
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; padding: 32px 40px">
+<div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #FBF0DC; border: 1px solid #EBCB91; border-radius: 14px">
+<svg style="flex-shrink: 0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8f5a06" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+<div style="flex-grow: 1; font-size: 14px; line-height: 1.5"><span style="font-weight: 700">A Meta pediu permissão nova.</span> Sem ela suas automações podem parar de responder.</div>
+<a href="Ajustes.dc.html" style="padding: 8px 14px; border-radius: 10px; background: #8f5a06; color: #ffffff; font-size: 13px; font-weight: 700">Atualizar permissões</a>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em">Bom dia, Evandro</h1>
+<p style="margin: 0; font-size: 15px; color: #565a61">O que aconteceu no seu Instagram nas últimas 24 horas.</p>
+</div>
+<a href="Construtor.dc.html" style="height: 44px; padding: 0 18px; border-radius: 12px; background: #1f5fd6; color: #ffffff; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Nova automação</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 16px"><div style="font-size: 13px; font-weight: 600; color: #565a61">Contatos</div><div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 32px; line-height: 36px; font-weight: 700; font-variant-numeric: tabular-nums">157</div><div style="font-size: 13px; color: #17774a; font-weight: 600">+32 hoje</div></div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 16px"><div style="font-size: 13px; font-weight: 600; color: #565a61">Mensagens enviadas</div><div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 32px; line-height: 36px; font-weight: 700; font-variant-numeric: tabular-nums">412</div><div style="font-size: 13px; color: #565a61">nas últimas 24h</div></div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 16px"><div style="font-size: 13px; font-weight: 600; color: #565a61">Automações ao vivo</div><div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 32px; line-height: 36px; font-weight: 700; font-variant-numeric: tabular-nums">4</div><div style="font-size: 13px; color: #565a61">1 parada · 1 rascunho</div></div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 16px"><div style="font-size: 13px; font-weight: 600; color: #565a61">Taxa de clique</div><div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 32px; line-height: 36px; font-weight: 700; color: #1f5fd6; font-variant-numeric: tabular-nums">67%</div><div style="font-size: 13px; color: #565a61">média das automações</div></div>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; min-height: 0">
+<div style="display: flex; flex-direction: column; gap: 16px; padding: 22px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 16px">
+<div style="display: flex; justify-content: space-between; align-items: center"><div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px; font-weight: 700">Mensagens por dia</div><div style="font-size: 13px; color: #565a61">Últimos 14 dias</div></div>
+<div style="flex-grow: 1; display: flex; align-items: flex-end; gap: 10px; padding-top: 10px; border-bottom: 1px solid #e3e0d9">
+<div style="flex-grow: 1; height: 30%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 42%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 38%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 55%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 48%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 36%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 44%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 60%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 58%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 70%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 64%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 76%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 82%; border-radius: 6px 6px 0 0; background: #C9D6F8"></div>
+<div style="flex-grow: 1; height: 92%; border-radius: 6px 6px 0 0; background: #1f5fd6"></div>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #565a61"><span>11 set</span><span>Hoje</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 22px; background: #ffffff; border: 1px solid #e3e0d9; border-radius: 16px">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px"><div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px; font-weight: 700">Últimas conversas</div><a href="Conversa.dc.html" style="font-size: 13px; font-weight: 700">Ver todas</a></div>
+<a href="Conversa.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #efede8; color: #1f2226"><div style="width: 38px; height: 38px; border-radius: 999px; background: #e7eefc; color: #1f5fd6; display: flex; align-items: center; justify-content: center; font-weight: 700">J</div><div style="flex-grow: 1; min-width: 0"><div style="font-size: 14px; font-weight: 700">@juliana.exemplo</div><div style="font-size: 13px; color: #565a61; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Tocou em “Quero me inscrever”</div></div><div style="font-size: 12px; color: #565a61">2 min</div></a>
+<a href="Conversa.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #efede8; color: #1f2226"><div style="width: 38px; height: 38px; border-radius: 999px; background: #e3f3ea; color: #17774a; display: flex; align-items: center; justify-content: center; font-weight: 700">R</div><div style="flex-grow: 1; min-width: 0"><div style="font-size: 14px; font-weight: 700">@rafael.exemplo</div><div style="font-size: 13px; color: #565a61; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Comentou “Casamento”</div></div><div style="font-size: 12px; color: #565a61">9 min</div></a>
+<a href="Conversa.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #efede8; color: #1f2226"><div style="width: 38px; height: 38px; border-radius: 999px; background: #FBF0DC; color: #8f5a06; display: flex; align-items: center; justify-content: center; font-weight: 700">C</div><div style="flex-grow: 1; min-width: 0"><div style="font-size: 14px; font-weight: 700">@carla.exemplo</div><div style="font-size: 13px; color: #565a61; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Ainda não segue o perfil</div></div><div style="font-size: 12px; color: #565a61">14 min</div></a>
+<a href="Conversa.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; color: #1f2226"><div style="width: 38px; height: 38px; border-radius: 999px; background: #efede8; color: #565a61; display: flex; align-items: center; justify-content: center; font-weight: 700">P</div><div style="flex-grow: 1; min-width: 0"><div style="font-size: 14px; font-weight: 700">@paulo.exemplo</div><div style="font-size: 13px; color: #565a61; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Mandou “oi” por DM</div></div><div style="font-size: 12px; color: #565a61">31 min</div></a>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

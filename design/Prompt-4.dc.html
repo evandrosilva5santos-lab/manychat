@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prompt bônus — parte 4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>body{margin:0;background:#080a09;font-family:'Space Grotesk',sans-serif;color:#eaefee}</style>
+</helmet>
+<div style="width: 1080px; height: 1350px; box-sizing: border-box; padding: 80px 88px; display: flex; flex-direction: column; gap: 40px; background: #080a09; color: #eaefee; font-family: 'Space Grotesk', sans-serif">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<div style="display: flex; align-items: center; gap: 14px">
+<div style="width: 44px; height: 44px; border-radius: 8px; background: #0d251d; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#44d5a4" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></div>
+<div style="font-family: Sora, sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #eaefee">Seu próprio ManyChat</div>
+</div>
+<div style="font-family: Sora, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 0.18em; color: #9ba09e">14 / 15</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="font-family: Sora, sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.18em; color: #44d5a4">PROMPT BÔNUS · 4 DE 4</div>
+<h1 style="margin: 0; font-family: Sora, sans-serif; font-size: 56px; line-height: 1.04; font-weight: 800; letter-spacing: -0.03em; color: #eaefee">Botões, painel e deploy</h1>
+</div>
+<div style="display: flex; flex-direction: column; gap: 13px; padding: 30px 34px; background: #0f1413; border: 1px solid #1c1f1e; border-radius: 16px">
+<div style="display: flex; gap: 14px; font-size: 20px; line-height: 1.5; color: #d6dbd9"><span style="flex-shrink: 0; font-weight: 700; color: #44d5a4">4.</span><span>Os botões: use o formato de botão FIXO na mensagem (button template / interactive button), nunca quick reply — quero que todo botão do sistema seja desse tipo, sem exceção, porque preciso que ele continue visível mesmo depois do lead mandar outras mensagens.</span></div>
+<div style="display: flex; gap: 14px; font-size: 20px; line-height: 1.5; color: #d6dbd9"><span style="flex-shrink: 0; font-weight: 700; color: #44d5a4">5.</span><span>O carrossel/catálogo: um novo tipo de nó que manda uma mensagem com vários cards deslizantes, cada um com imagem, título, descrição e botão (link externo ou próximo passo do fluxo). Os cards vêm de uma tabela reutilizável, não são recriados a cada fluxo.</span></div>
+<div style="display: flex; gap: 14px; font-size: 20px; line-height: 1.5; color: #d6dbd9"><span style="flex-shrink: 0; font-weight: 700; color: #44d5a4">6.</span><span>Painel com lista de contatos, filtro por etiqueta e histórico de conversa de cada um.</span></div>
+<div style="display: flex; gap: 14px; font-size: 20px; line-height: 1.5; color: #d6dbd9"><span style="flex-shrink: 0; font-weight: 700; color: #44d5a4">7.</span><span>Configuração do app no Meta for Developers: me explique passo a passo como criar o app, adicionar o produto Instagram, conectar uma conta de teste e pegar as chaves de acesso (token e ID da conta).</span></div>
+<div style="display: flex; gap: 14px; font-size: 20px; line-height: 1.5; color: #d6dbd9"><span style="flex-shrink: 0; font-weight: 700; color: #44d5a4">8.</span><span>Deploy na Vercel e configuração do webhook, com teste real numa conta do Instagram.</span></div>
+<div style="margin-top: 6px; padding-top: 16px; border-top: 1px solid #1c1f1e; font-size: 20px; line-height: 1.5; color: #d6dbd9">Em cada etapa, antes de escrever qualquer código, me explique rapidamente o que vamos fazer e por quê — quero entender o que está sendo construído, não só copiar e colar. Se alguma decisão minha for limitada pela própria API do Instagram (tipo limite de botões por mensagem), me avise antes de eu esbarrar nisso e sugira a alternativa.</div>
+</div>
+<div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 28px; border-top: 1px solid #1c1f1e">
+<div style="font-size: 20px; font-weight: 500; color: #9ba09e">@euguilhermepasin</div>
+<div style="display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; color: #44d5a4">Arraste<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1080,"height":1350}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
