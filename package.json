@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test": "vitest run"
+    "test": "vitest run",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

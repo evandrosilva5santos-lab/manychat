@@ -20,6 +20,7 @@ Sistema próprio de automação de conversas para Instagram (comentário → DM 
   - `etapa-1-banco.md` — explicação do banco de dados (Etapa 1)
   - `etapa-2-editor.md` — como funciona o editor visual (Etapa 2)
   - `etapa-2b-builder-simples.md` — automação rápida (igual ao easy builder do ManyChat)
+  - `deploy-vercel.md` — como colocar no ar (Vercel + Supabase próprio, com senha)
 - `prisma/schema.prisma` — modelo do banco de dados; `prisma/seed.ts` — fluxo de exemplo
 - `src/` — app Next.js
   - `app/fluxos/` — lista de automações e editor (`/fluxos/[id]`), com as ações de salvar em `actions.ts`
