@@ -353,9 +353,12 @@ export class InstagramGraphClient {
     }
 
     try {
-      const response = await fetch(`${GRAPH_API_BASE}/me?fields=id,name,username`, {
-        headers: { Authorization: `Bearer ${this.accessToken}` },
-      });
+      const response = await fetch(
+        `${GRAPH_API_BASE}/me?fields=id,name,instagram_business_account{id,username,name}`,
+        {
+          headers: { Authorization: `Bearer ${this.accessToken}` },
+        }
+      );
       const data = await response.json();
       if (!response.ok) {
         return {
@@ -363,10 +366,18 @@ export class InstagramGraphClient {
           error: data?.error?.message || "Token da Meta inválido ou expirado.",
         };
       }
+      if (data.instagram_business_account) {
+        return {
+          valid: true,
+          igUserId: data.instagram_business_account.id,
+          username: data.instagram_business_account.username,
+          name: data.instagram_business_account.name || data.name,
+        };
+      }
       return {
         valid: true,
         igUserId: data.id,
-        username: data.username,
+        username: data.name || "Instagram Account",
         name: data.name,
       };
     } catch (err: any) {
