@@ -3,11 +3,12 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { appDatabaseUrl } from "../src/lib/db-url";
 import { toSavePlan } from "../src/lib/flow/convert";
 import { compileRecipe, type Recipe } from "../src/lib/flow/recipe";
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: appDatabaseUrl() }),
 });
 
 async function main() {
