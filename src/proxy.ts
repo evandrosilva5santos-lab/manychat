@@ -15,6 +15,13 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Webhooks da Meta e links de rastreamento devem ser sempre públicos (sem Basic Auth)
+  if (pathname.startsWith("/api/webhook") || pathname.startsWith("/api/l")) {
+    return NextResponse.next();
+  }
+
   const password = process.env.SITE_PASSWORD;
   const user = process.env.SITE_USER || "fluxo";
 
@@ -36,8 +43,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Tudo, menos os arquivos internos do Next e o ícone.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Tudo, menos os arquivos internos do Next, webhooks públicos e ícone.
+  matcher: ["/((?!api/webhook|api/l|_next/static|_next/image|favicon.ico).*)"],
 };
 
 export default proxy;
