@@ -98,7 +98,7 @@ async function main() {
       flowId: flow.id,
       type: "DELAY",
       positionX: 960,
-      positionY: 280,
+      positionY: 480,
       data: { seconds: 600 },
     },
   });
@@ -126,6 +126,8 @@ async function main() {
       keywords: ["eu quero"],
       match: "CONTAINS",
       startNodeId: gate.id,
+      positionX: 0,
+      positionY: 120,
     },
   });
 

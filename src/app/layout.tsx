@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import "../../design-system/components/bundle.css";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({

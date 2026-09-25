@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="flex flex-1 items-center justify-center p-6">
@@ -7,9 +9,11 @@ export default function Home() {
           Automação de conversas para Instagram
         </h1>
         <p className="text-ink-muted">
-          Etapa 1 pronta: o banco de dados está modelado. Próximo passo: o editor
-          visual de fluxos.
+          Etapa 2 pronta: já dá pra montar fluxos arrastando caixinhas. Próximo passo: o motor que responde sozinho.
         </p>
+        <Link href="/fluxos" className="fx-btn fx-btn-primary self-start">
+          Abrir minhas automações
+        </Link>
       </div>
     </main>
   );
