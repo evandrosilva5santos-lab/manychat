@@ -45,11 +45,7 @@ O site começa vazio. Clique em **Automação rápida** para criar a primeira.
 
 ## Branch
 
-O código está na branch `claude/friendly-euler-lkfig3`. Você pode:
-- abrir o link de **Preview** dessa branch, que a Vercel gera sozinha; ou
-- em **Settings → Git → Production Branch**, colocar essa branch.
-
-Depois de juntar tudo na `main`, volte a usar a `main`.
+A Vercel publica a branch **`main`** como produção, e ela já tem todo o código. As mudanças novas chegam na `main` por Pull Request. Cada PR também ganha um link de **Preview** próprio pra você testar antes.
 
 ## Alternativa: banco criado direto no Supabase
 
