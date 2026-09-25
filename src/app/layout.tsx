@@ -15,8 +15,10 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["500"],
 });
 
+import { Sidebar } from "@/components/layout/Sidebar";
+
 export const metadata: Metadata = {
-  title: "Fluxo",
+  title: "Fluxo · Automação de conversas",
   description: "Automação de conversas para Instagram",
 };
 
@@ -27,7 +29,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-theme="light"
       className={`${jakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-row overflow-hidden bg-surface-100 text-ink">
+        <Sidebar />
+        <div className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

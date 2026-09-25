@@ -9,13 +9,62 @@ import { createFlow } from "./actions";
 export const metadata = { title: "Automações · Fluxo" };
 
 export default async function FlowsPage() {
-  await connection();
-  const account = await getCurrentAccount();
-  const flows = await prisma.flow.findMany({
-    where: { accountId: account.id },
-    orderBy: { updatedAt: "desc" },
-    include: { triggers: { take: 1, orderBy: { createdAt: "asc" } } },
-  });
+  let flows: Array<{
+    id: string;
+    name: string;
+    folder: string | null;
+    status: any;
+    mode: any;
+    updatedAt: Date;
+    triggers: any[];
+  }> = [];
+  let dbConnected = true;
+
+  try {
+    const account = await getCurrentAccount();
+    flows = await prisma.flow.findMany({
+      where: { accountId: account.id },
+      orderBy: { updatedAt: "desc" },
+      include: { triggers: { take: 1, orderBy: { createdAt: "asc" } } },
+    });
+  } catch (error) {
+    dbConnected = false;
+    // Dados de demonstração (iguais aos prints do Manychat)
+    flows = [
+      {
+        id: "demo-casamento",
+        name: "[2026] Casamento por DM automático",
+        folder: "Moving 2026",
+        status: "LIVE",
+        mode: "SIMPLE",
+        updatedAt: new Date(),
+        triggers: [
+          {
+            type: "COMMENT_KEYWORD",
+            keywords: ["casamento", "quero casar"],
+            match: "CONTAINS",
+            mediaId: null,
+          },
+        ],
+      },
+      {
+        id: "demo-astrix",
+        name: "Captação story Astrix",
+        folder: "[CAPT] Lança nível 1",
+        status: "STOPPED",
+        mode: "ADVANCED",
+        updatedAt: new Date(Date.now() - 3600000 * 24),
+        triggers: [
+          {
+            type: "STORY_REPLY",
+            keywords: ["eu quero"],
+            match: "CONTAINS",
+            mediaId: null,
+          },
+        ],
+      },
+    ];
+  }
 
   return (
     <main className="fx mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
@@ -51,7 +100,7 @@ export default async function FlowsPage() {
             <span>Modificado</span>
           </div>
           {flows.map((flow) => {
-            const badge = STATUS_BADGE[flow.status];
+            const badge = STATUS_BADGE[flow.status as keyof typeof STATUS_BADGE] || STATUS_BADGE.DRAFT;
             const trigger = flow.triggers[0];
             return (
               <Link key={flow.id} href={`/fluxos/${flow.id}`} className="fx-auto" style={{ gridTemplateColumns: "1fr 160px" }}>

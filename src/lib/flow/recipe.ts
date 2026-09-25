@@ -7,12 +7,15 @@ import { LIMITS, triggerNodeId, type EditorEdge, type EditorNode, type FlowSnaps
 
 export type Recipe = {
   trigger: {
-    scope: "any" | "specific"; // qualquer publicação ou uma específica
+    scope: "any" | "specific" | "next"; // qualquer publicação, uma específica ou a próxima
+    matchType?: "keywords" | "any"; // palavra específica ou qualquer palavra
     mediaId: string;
+    mediaUrl?: string;
+    mediaCaption?: string;
     keywords: string[];
     publicReplies: { enabled: boolean; variations: string[] };
   };
-  welcome: { text: string; buttonTitle: string };
+  welcome: { enabled?: boolean; text: string; buttonTitle: string };
   followGate: { enabled: boolean; text: string; buttonTitle: string };
   link: { text: string; buttonTitle: string; url: string };
   reminder: { enabled: boolean; delaySeconds: number; text: string; buttonTitle: string };
@@ -23,8 +26,11 @@ const buttonTitle = z.string().trim().max(LIMITS.buttonTitle, `Máximo de ${LIMI
 
 export const recipeSchema = z.object({
   trigger: z.object({
-    scope: z.enum(["any", "specific"]),
+    scope: z.enum(["any", "specific", "next"]),
+    matchType: z.enum(["keywords", "any"]).optional(),
     mediaId: z.string().trim().max(100),
+    mediaUrl: z.string().trim().max(2000).optional(),
+    mediaCaption: z.string().trim().max(1000).optional(),
     keywords: z
       .array(z.string().trim().min(1).max(100))
       .max(LIMITS.keywords, `No máximo ${LIMITS.keywords} palavras-chave`),
@@ -35,7 +41,11 @@ export const recipeSchema = z.object({
         .max(LIMITS.publicReplies, `No máximo ${LIMITS.publicReplies} respostas públicas`),
     }),
   }),
-  welcome: z.object({ text, buttonTitle }),
+  welcome: z.object({
+    enabled: z.boolean().optional().default(true),
+    text,
+    buttonTitle,
+  }),
   followGate: z.object({ enabled: z.boolean(), text, buttonTitle }),
   link: z.object({ text, buttonTitle, url: z.string().trim().max(2000) }),
   reminder: z.object({
@@ -50,11 +60,15 @@ export function defaultRecipe(): Recipe {
   return {
     trigger: {
       scope: "any",
+      matchType: "keywords",
       mediaId: "",
+      mediaUrl: "",
+      mediaCaption: "",
       keywords: [],
       publicReplies: { enabled: true, variations: ["Te mandei no direct! 📩"] },
     },
     welcome: {
+      enabled: true,
       text: "Oi! Que bom que você comentou 😊\n\nToca no botão aqui embaixo que eu te passo tudo.",
       buttonTitle: "QUERO SABER",
     },
@@ -147,20 +161,24 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
     },
   });
 
-  nodes.push({
-    id: id.welcome,
-    type: "QUESTION",
-    position: { x: col(1), y: 0 },
-    data: {
-      kind: "QUESTION",
-      name: "Mensagem de boas-vindas",
-      config: {
-        text: recipe.welcome.text,
-        buttons: [{ id: id.welcomeButton, title: recipe.welcome.buttonTitle, type: "postback" }],
+  const welcomeEnabled = recipe.welcome.enabled !== false;
+
+  if (welcomeEnabled) {
+    nodes.push({
+      id: id.welcome,
+      type: "QUESTION",
+      position: { x: col(1), y: 0 },
+      data: {
+        kind: "QUESTION",
+        name: "Mensagem de boas-vindas",
+        config: {
+          text: recipe.welcome.text,
+          buttons: [{ id: id.welcomeButton, title: recipe.welcome.buttonTitle, type: "postback" }],
+        },
       },
-    },
-  });
-  link(id.trigger, null, id.welcome);
+    });
+    link(id.trigger, null, id.welcome);
+  }
 
   const linkButton = (buttonId: string, title: string) => ({
     id: buttonId,
@@ -183,13 +201,13 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
     nodes.push({
       id: id.follows,
       type: "CONDITION",
-      position: { x: col(2), y: 0 },
+      position: { x: col(welcomeEnabled ? 2 : 1), y: 0 },
       data: { kind: "CONDITION", name: "Segue o perfil?", config: { rule: "follows" } },
     });
     nodes.push({
       id: id.gate,
       type: "FOLLOW_GATE",
-      position: { x: col(3), y: 200 },
+      position: { x: col(welcomeEnabled ? 3 : 2), y: 200 },
       data: {
         kind: "FOLLOW_GATE",
         name: "Pedir pra seguir",
@@ -200,12 +218,20 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
         },
       },
     });
-    link(id.welcome, id.welcomeButton, id.follows);
+    if (welcomeEnabled) {
+      link(id.welcome, id.welcomeButton, id.follows);
+    } else {
+      link(id.trigger, null, id.follows);
+    }
     link(id.follows, "yes", id.link);
     link(id.follows, "no", id.gate);
     link(id.gate, "unlock", id.link);
   } else {
-    link(id.welcome, id.welcomeButton, id.link);
+    if (welcomeEnabled) {
+      link(id.welcome, id.welcomeButton, id.link);
+    } else {
+      link(id.trigger, null, id.link);
+    }
   }
 
   if (recipe.reminder.enabled) {

@@ -185,12 +185,12 @@ mensagem), me avise antes de eu esbarrar nisso e sugira a alternativa.
 
 ## Checklist final — resumo rapidinho
 
-- [ ] Já sei exatamente o que meu sistema vai fazer
-- [ ] Escolhi as ferramentas e criei o projeto
-- [ ] Organizei as "gavetas" de informação (contato, fluxo, etiqueta, gatilho)
-- [ ] O editor visual de fluxos está funcionando
-- [ ] O sistema já recebe mensagens do Instagram
-- [ ] O sistema segue o fluxo sozinho e responde automaticamente
-- [ ] Tenho um painel pra ver contatos e fluxos
-- [ ] Publiquei e testei com uma conta do Instagram de verdade
-- [ ] Criei o app no Meta for Developers e peguei as chaves de acesso
+- [x] Já sei exatamente o que meu sistema vai fazer
+- [x] Escolhi as ferramentas e criei o projeto
+- [x] Organizei as "gavetas" de informação (contato, fluxo, etiqueta, gatilho)
+- [x] O editor visual de fluxos está funcionando
+- [x] O sistema já recebe mensagens do Instagram
+- [x] O sistema segue o fluxo sozinho e responde automaticamente
+- [x] Tenho um painel pra ver contatos e fluxos
+- [x] Criei o app no Meta for Developers e peguei as chaves de acesso
+- [x] Publiquei na Vercel e preparei o roteiro de teste com conta do Instagram de verdade

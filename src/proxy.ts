@@ -39,3 +39,5 @@ export const config = {
   // Tudo, menos os arquivos internos do Next e o ícone.
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+
+export default proxy;
