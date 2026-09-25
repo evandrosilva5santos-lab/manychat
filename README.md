@@ -68,12 +68,12 @@ Next.js (App Router) + TypeScript · PostgreSQL + Prisma (Supabase como hospedag
 - [x] 1. Modelagem do banco de dados (schema Prisma) — ver `docs/etapa-1-banco.md`
 - [x] 2. Editor visual de fluxos com React Flow — ver `docs/etapa-2-editor.md`
   - [x] Builder simples (automação rápida) — ver `docs/etapa-2b-builder-simples.md`
-- [ ] 3. Motor de automação (webhook do Instagram)
-- [ ] 4. Botões fixos (button template, nunca quick reply)
-- [ ] 5. Carrossel/catálogo de cards
-- [ ] 6. Painel de contatos, etiquetas e histórico
-- [ ] 7. App no Meta for Developers
-- [ ] 8. Deploy na Vercel + webhook + teste real
+- [x] 3. Motor de automação (webhook do Instagram, runner, anti-loop) — ver `docs/etapa-3-motor.md`
+- [x] 4. Botões fixos (button template, nunca quick reply) — ver `docs/etapa-4-botoes.md`
+- [x] 5. Carrossel/catálogo de cards reutilizáveis — ver `docs/etapa-5-carrossel.md`
+- [x] 6. Painel de contatos, etiquetas e histórico (Live Inbox com Janela de 24h) — ver `docs/etapa-6-contatos-conversas.md`
+- [x] 7. App no Meta for Developers, auto-renovação de token e App Review — ver `docs/etapa-7-meta-app.md`
+- [x] 8. Deploy na Vercel + webhook + roteiro de teste real — ver `docs/etapa-8-deploy-teste.md`
 
 ## Rodando localmente
 
