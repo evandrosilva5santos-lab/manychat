@@ -23,7 +23,8 @@ import type { FlowStatus } from "@/generated/prisma/enums";
 import { createTag, renameFlow, saveFlow } from "@/app/fluxos/actions";
 import { lintFlow, type Problem } from "@/lib/flow/lint";
 import { hasInput, newId, newNodeData, outputHandles, type CatalogLookup } from "@/lib/flow/nodes";
-import { STATUS_BADGE, timeAgo } from "@/lib/format";
+import { STATUS_BADGE } from "@/lib/format";
+import { SaveStatus, useAutosave } from "@/components/ui/useAutosave";
 import {
   triggerNodeId,
   type EditorEdge,
@@ -44,9 +45,6 @@ const nodeTypes: NodeTypes = Object.fromEntries(
   ),
 );
 
-const SAVE_DELAY_MS = 1000;
-
-type SaveState = { status: "saved" | "pending" | "saving" | "error"; at?: Date; error?: string };
 
 type Props = {
   flow: { id: string; name: string; folder: string | null; status: FlowStatus };
@@ -84,9 +82,6 @@ function Editor({ flow, initial, tags: initialTags, catalog }: Props) {
   const [viewport, setViewport] = useState<Viewport | null>(initial.viewport);
   const [tags, setTags] = useState(initialTags);
   const [name, setName] = useState(flow.name);
-  const [save, setSave] = useState<SaveState>({ status: "saved" });
-  const [saveTick, setSaveTick] = useState(0); // força nova tentativa depois de um envio
-  const [, setClock] = useState(0); // atualiza o "Salvo há X"
   const savedName = useRef(flow.name);
 
   const catalogLookup: CatalogLookup = useMemo(() => {
@@ -119,48 +114,7 @@ function Editor({ flow, initial, tags: initialTags, catalog }: Props) {
   }, [problems]);
 
   // ── Salvamento automático ─────────────────────────────────────────────────
-  const serialized = useMemo(() => JSON.stringify(snapshot), [snapshot]);
-  const lastSaved = useRef(serialized);
-  const inFlight = useRef(false);
-
-  useEffect(() => {
-    if (serialized === lastSaved.current) return;
-    setSave((current) => (current.status === "saving" ? current : { status: "pending" }));
-    const timer = setTimeout(async () => {
-      if (inFlight.current) return; // quando o envio atual terminar, o efeito roda de novo
-      inFlight.current = true;
-      setSave({ status: "saving" });
-      const payload = JSON.parse(serialized) as FlowSnapshot;
-      try {
-        const result = await saveFlow(flow.id, payload);
-        if (result.ok) {
-          lastSaved.current = serialized;
-          setSave({ status: "saved", at: new Date(result.savedAt) });
-          setSaveTick((tick) => tick + 1); // se mudou algo durante o envio, salva de novo
-        } else {
-          setSave({ status: "error", error: result.error }); // tenta de novo na próxima mudança
-        }
-      } catch {
-        setSave({ status: "error", error: "sem conexão com o servidor" });
-      } finally {
-        inFlight.current = false;
-      }
-    }, SAVE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [serialized, saveTick, flow.id]);
-
-  // Atualiza o "Salvo há X" a cada 30s e avisa antes de fechar com mudança pendente.
-  useEffect(() => {
-    const interval = setInterval(() => setClock((tick) => tick + 1), 30_000);
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (serialized !== lastSaved.current) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("beforeunload", beforeUnload);
-    };
-  }, [serialized]);
+  const { state: save, reportError } = useAutosave(snapshot, (payload) => saveFlow(flow.id, payload));
 
   // ── Ligações ──────────────────────────────────────────────────────────────
   const isValidConnection: IsValidConnection = useCallback(
@@ -247,7 +201,7 @@ function Editor({ flow, initial, tags: initialTags, catalog }: Props) {
   const onCreateTag = useCallback(async (tagName: string) => {
     const result = await createTag(tagName);
     if ("error" in result) {
-      setSave({ status: "error", error: result.error });
+      reportError(result.error);
       return null;
     }
     setTags((current) =>
@@ -256,28 +210,17 @@ function Editor({ flow, initial, tags: initialTags, catalog }: Props) {
         : [...current, result].sort((a, b) => a.name.localeCompare(b.name)),
     );
     return result;
-  }, []);
+  }, [reportError]);
 
   const commitName = async () => {
     const clean = name.trim();
     if (!clean || clean === savedName.current) return setName(savedName.current);
     const result = await renameFlow(flow.id, clean);
     if (result.ok) savedName.current = clean;
-    else setSave({ status: "error", error: result.error });
+    else reportError(result.error);
   };
 
   const badge = STATUS_BADGE[flow.status];
-  const saveLabel =
-    save.status === "saving"
-      ? "Salvando…"
-      : save.status === "pending"
-        ? "Alterações não salvas"
-        : save.status === "error"
-          ? `Não foi possível salvar: ${save.error}`
-          : save.at
-            ? `Salvo ${timeAgo(save.at)}`
-            : "Tudo salvo";
-
   return (
     <EditorContext.Provider value={{ catalog, catalogLookup, tags, problemsByNode }}>
       <div className="fx flex h-dvh flex-col">
@@ -304,13 +247,7 @@ function Editor({ flow, initial, tags: initialTags, catalog }: Props) {
             aria-label="Nome do fluxo"
           />
           <span className={`fx-badge ${badge.className}`}>{badge.label}</span>
-          <span
-            className={`max-w-80 truncate text-sm ${save.status === "error" ? "text-danger" : "text-ink-subtle"}`}
-            role="status"
-            data-save-status={save.status}
-          >
-            {saveLabel}
-          </span>
+          <SaveStatus state={save} />
           {problems.length > 0 && (
             <span className="fx-badge fx-badge-warn" title={problems.map((problem) => problem.message).join("\n")}>
               {problems.length} {problems.length === 1 ? "aviso" : "avisos"}

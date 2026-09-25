@@ -133,6 +133,9 @@ model Flow {
   mode      FlowMode   @default(ADVANCED)
   /// Zoom e posição da tela do editor, pra reabrir do mesmo jeito.
   viewport  Json?
+  /// Receita do builder simples (só quando mode = SIMPLE). As caixinhas
+  /// são geradas a partir dela a cada salvamento.
+  recipe    Json?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -227,24 +230,24 @@ enum KeywordMatch {
 
 /// O que faz o fluxo começar.
 model Trigger {
-  id          String       @id @default(cuid())
-  flowId      String
-  type        TriggerType
-  keywords    String[] // ["casamento", "eu quero"]
-  match       KeywordMatch @default(CONTAINS)
+  id            String       @id @default(cuid())
+  flowId        String
+  type          TriggerType
+  keywords      String[] // ["casamento", "eu quero"]
+  match         KeywordMatch @default(CONTAINS)
   /// Post/reel/story específico. null = vale pra qualquer publicação.
-  mediaId     String?
+  mediaId       String?
   /// Payload do botão (só para BUTTON_CLICK).
-  payload     String?
-  /// Resposta pública no comentário ("Te mandei no direct!"), opcional.
-  publicReply String?
+  payload       String?
+  /// Respostas públicas no comentário (até 5); o motor sorteia uma.
+  publicReplies String[]     @default([])
   /// Caixinha onde o fluxo começa. null = a primeira sem linha chegando.
-  startNodeId String?
+  startNodeId   String?
   /// Posição da caixinha de gatilho no editor.
-  positionX   Float        @default(0)
-  positionY   Float        @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  positionX     Float        @default(0)
+  positionY     Float        @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   flow      Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
   startNode Node?     @relation("TriggerStart", fields: [startNodeId], references: [id], onDelete: SetNull)

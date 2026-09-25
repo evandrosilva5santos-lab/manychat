@@ -1,7 +1,8 @@
 "use client";
 // Painel da direita: edita a caixinha selecionada.
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
+import { useNodes } from "@xyflow/react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { KeywordMatch, TriggerType } from "@/generated/prisma/enums";
 import { KIND_META, newId } from "@/lib/flow/nodes";
 import type { Problem } from "@/lib/flow/lint";
@@ -14,72 +15,11 @@ import {
   type EditorNodeDataOf,
   type NodeConfigMap,
 } from "@/lib/flow/types";
+import { ButtonTitle, Field, FIXED_BUTTON_HINT, KeywordInput, TextArea, TextVariations } from "@/components/ui/fields";
 import { useEditor, type FlowNode, type TagOption } from "./context";
 
 type SetConfig<K extends EditorKind> = (config: NodeConfigMap[K]) => void;
 type FormProps<K extends EditorKind> = { data: EditorNodeDataOf<K>; setConfig: SetConfig<K> };
-
-// ── Pecinhas de formulário ───────────────────────────────────────────────────
-
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
-  return (
-    <label className="fx-field">
-      <span className="fx-label">{label}</span>
-      {children}
-      {hint && <span className="text-xs text-ink-subtle">{hint}</span>}
-    </label>
-  );
-}
-
-function TextArea({
-  label,
-  value,
-  onChange,
-  max = LIMITS.text,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  max?: number;
-  placeholder?: string;
-}) {
-  return (
-    <label className="fx-field">
-      <span className="fx-label">{label}</span>
-      <textarea
-        className="fx-textarea"
-        value={value}
-        maxLength={max}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <span className="fx-counter">
-        {value.length}/{max}
-      </span>
-    </label>
-  );
-}
-
-function ButtonTitle({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        className="fx-input"
-        value={value}
-        maxLength={LIMITS.buttonTitle}
-        placeholder="TEXTO DO BOTÃO"
-        onChange={(event) => onChange(event.target.value.toUpperCase())}
-        aria-label="Texto do botão"
-      />
-      <span className="fx-counter w-12 flex-none">
-        {value.length}/{LIMITS.buttonTitle}
-      </span>
-    </div>
-  );
-}
-
-const FIXED_BUTTON_HINT = "Botão fixo: continua visível mesmo depois que o lead manda outras mensagens.";
 
 // ── Um formulário por tipo ───────────────────────────────────────────────────
 
@@ -98,15 +38,6 @@ const MATCHES: { value: KeywordMatch; label: string }[] = [
 
 function TriggerForm({ data, setConfig }: FormProps<"TRIGGER">) {
   const config = data.config;
-  const [draft, setDraft] = useState("");
-  const addKeyword = () => {
-    const word = draft.trim().toLowerCase();
-    if (word && !config.keywords.includes(word) && config.keywords.length < LIMITS.keywords) {
-      setConfig({ ...config, keywords: [...config.keywords, word] });
-    }
-    setDraft("");
-  };
-
   return (
     <>
       <Field label="Quando alguém…">
@@ -149,38 +80,7 @@ function TriggerForm({ data, setConfig }: FormProps<"TRIGGER">) {
           {config.match !== "ANY" && (
             <div className="fx-field">
               <span className="fx-label">Palavras-chave</span>
-              <div className="flex flex-wrap gap-2">
-                {config.keywords.map((word) => (
-                  <span key={word} className="fx-chip">
-                    {word}
-                    <button
-                      type="button"
-                      aria-label={`Remover ${word}`}
-                      onClick={() => setConfig({ ...config, keywords: config.keywords.filter((k) => k !== word) })}
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  className="fx-input"
-                  value={draft}
-                  placeholder="ex.: eu quero"
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addKeyword();
-                    }
-                  }}
-                  aria-label="Nova palavra-chave"
-                />
-                <button type="button" className="fx-btn fx-btn-sm" onClick={addKeyword}>
-                  Adicionar
-                </button>
-              </div>
+              <KeywordInput keywords={config.keywords} onChange={(keywords) => setConfig({ ...config, keywords })} />
             </div>
           )}
           {config.type !== "DM_KEYWORD" && (
@@ -196,12 +96,17 @@ function TriggerForm({ data, setConfig }: FormProps<"TRIGGER">) {
             </Field>
           )}
           {config.type === "COMMENT_KEYWORD" && (
-            <TextArea
-              label="Resposta pública no comentário (opcional)"
-              value={config.publicReply ?? ""}
-              placeholder="Te mandei no direct!"
-              onChange={(publicReply) => setConfig({ ...config, publicReply })}
-            />
+            <div className="fx-field">
+              <span className="fx-label">Respostas públicas no comentário (opcional)</span>
+              <TextVariations
+                values={config.publicReplies}
+                max={LIMITS.publicReplies}
+                placeholder="Te mandei no direct!"
+                addLabel="Adicionar resposta"
+                onChange={(publicReplies) => setConfig({ ...config, publicReplies })}
+              />
+              <span className="text-xs text-ink-subtle">Cada comentário recebe uma delas, sorteada.</span>
+            </div>
           )}
         </>
       )}
@@ -351,6 +256,25 @@ function TagSelect({
   );
 }
 
+/** Escolhe uma das caixinhas de pergunta que têm botão de link. */
+function LinkNodeSelect({ value, onChange }: { value?: string; onChange: (nodeId?: string) => void }) {
+  const options = useNodes<FlowNode>().filter(
+    (node) => node.data.kind === "QUESTION" && node.data.config.buttons.some((button) => button.type === "web_url"),
+  );
+  return (
+    <Field label="Mensagem com o link">
+      <select className="fx-input" value={value ?? ""} onChange={(event) => onChange(event.target.value || undefined)}>
+        <option value="">Escolha…</option>
+        {options.map((node) => (
+          <option key={node.id} value={node.id}>
+            {node.data.name || (node.data.kind === "QUESTION" ? node.data.config.text.slice(0, 40) : "") || "Mensagem"}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
 function ConditionForm({
   data,
   setConfig,
@@ -368,8 +292,10 @@ function ConditionForm({
           <option value="follows">O contato segue o perfil</option>
           <option value="has_tag">O contato tem uma etiqueta</option>
           <option value="reply_contains">A última resposta contém um texto</option>
+          <option value="link_clicked">O contato abriu o link de uma mensagem</option>
         </select>
       </Field>
+      {config.rule === "link_clicked" && <LinkNodeSelect value={config.nodeId} onChange={(nodeId) => setConfig({ ...config, nodeId })} />}
       {config.rule === "has_tag" && (
         <TagSelect value={config.tagId} onChange={(tagId) => setConfig({ ...config, tagId })} onCreateTag={onCreateTag} />
       )}

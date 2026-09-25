@@ -58,6 +58,7 @@ function StepNodeView({ id, data, selected }: NodeProps<FlowNode>) {
       singleOut = true;
       break;
     case "QUESTION":
+      singleOut = outputs.length === 1 && outputs[0].id === null;
       body = (
         <>
           <Message text={data.config.text} placeholder="Escreva a pergunta…" />
@@ -91,7 +92,9 @@ function StepNodeView({ id, data, selected }: NodeProps<FlowNode>) {
           ? "Segue o perfil?"
           : data.config.rule === "has_tag"
             ? `Tem a etiqueta ${tagName(data.config.tagId) ?? "…"}?`
-            : `A resposta contém “${data.config.value || "…"}”?`;
+            : data.config.rule === "link_clicked"
+              ? "Abriu o link?"
+              : `A resposta contém “${data.config.value || "…"}”?`;
       body = (
         <>
           <div className="font-semibold">{question}</div>
@@ -171,7 +174,7 @@ function StepNodeView({ id, data, selected }: NodeProps<FlowNode>) {
       <div className="fx-node-body">{body}</div>
       {singleOut && (
         <div className="fx-node-foot relative">
-          Próximo passo
+          {outputs[0]?.label ?? "Próximo passo"}
           <Out id={null} inset={1} />
         </div>
       )}

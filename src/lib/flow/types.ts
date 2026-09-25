@@ -7,7 +7,8 @@ export const LIMITS = {
   cards: 10, // cards por carrossel (generic template)
   buttonTitle: 20, // rótulo do botão
   text: 1000, // texto de uma DM
-  keywords: 20, // palavras-chave por gatilho (limite nosso, pra lista não virar bagunça)
+  keywords: 15, // palavras-chave por gatilho (mesmo limite do ManyChat)
+  publicReplies: 5, // variações de resposta pública no comentário
 } as const;
 
 export type ButtonType = "postback" | "web_url";
@@ -15,7 +16,7 @@ export type ButtonType = "postback" | "web_url";
 /** Botão fixo da DM. Botões postback viram uma saída própria da caixinha. */
 export type DmButton = { id: string; title: string; type: ButtonType; url?: string };
 
-export type ConditionRule = "follows" | "has_tag" | "reply_contains";
+export type ConditionRule = "follows" | "has_tag" | "reply_contains" | "link_clicked";
 
 /** Card do carrossel: `id` é a linha em CarouselCard (e o id da saída). */
 export type CarouselCardRef = { id: string; catalogItemId: string };
@@ -24,7 +25,8 @@ export type CarouselCardRef = { id: string; catalogItemId: string };
 export type NodeConfigMap = {
   MESSAGE: { text: string };
   QUESTION: { text: string; buttons: DmButton[] };
-  CONDITION: { rule: ConditionRule; tagId?: string; value?: string };
+  /** link_clicked: `nodeId` = caixinha cujo botão de link deve ter sido aberto. */
+  CONDITION: { rule: ConditionRule; tagId?: string; value?: string; nodeId?: string };
   DELAY: { seconds: number };
   ADD_TAG: { tagId?: string };
   CAROUSEL: { cards: CarouselCardRef[] };
@@ -36,7 +38,7 @@ export type NodeConfigMap = {
     match: KeywordMatch;
     mediaId?: string;
     payload?: string;
-    publicReply?: string;
+    publicReplies: string[];
   };
 };
 

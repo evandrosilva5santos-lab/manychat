@@ -34,7 +34,7 @@ export const newId = () => crypto.randomUUID();
 
 export function defaultConfig<K extends EditorKind>(kind: K): NodeConfigMap[K] {
   const defaults: { [P in EditorKind]: () => NodeConfigMap[P] } = {
-    TRIGGER: () => ({ type: "COMMENT_KEYWORD", keywords: [], match: "CONTAINS" }),
+    TRIGGER: () => ({ type: "COMMENT_KEYWORD", keywords: [], match: "CONTAINS", publicReplies: [] }),
     MESSAGE: () => ({ text: "" }),
     QUESTION: () => ({
       text: "",
@@ -74,10 +74,12 @@ export function outputHandles(data: EditorNodeData, catalog: CatalogLookup): Out
     case "DELAY":
     case "ADD_TAG":
       return [{ id: null, label: "Próximo passo" }];
-    case "QUESTION":
-      return data.config.buttons
-        .filter((button) => button.type === "postback")
-        .map((button) => ({ id: button.id, label: button.title || "Botão" }));
+    case "QUESTION": {
+      const postbacks = data.config.buttons.filter((button) => button.type === "postback");
+      // Só botões de link: a mensagem segue direto pro próximo passo depois de enviada.
+      if (postbacks.length === 0) return [{ id: null, label: "Depois de enviar" }];
+      return postbacks.map((button) => ({ id: button.id, label: button.title || "Botão" }));
+    }
     case "CONDITION":
       return [
         { id: "yes", label: "Sim" },

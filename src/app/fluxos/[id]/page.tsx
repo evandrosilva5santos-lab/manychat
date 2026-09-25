@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { FlowEditor } from "@/components/flow-editor/FlowEditor";
+import { SimpleBuilder } from "@/components/simple-builder/SimpleBuilder";
+import { readRecipe } from "@/lib/flow/recipe";
 import { getCurrentAccount } from "@/lib/account";
 import { fromDb } from "@/lib/flow/convert";
 import { prisma } from "@/lib/prisma";
@@ -17,6 +19,9 @@ export default async function FlowEditorPage(props: PageProps<"/fluxos/[id]">) {
   });
   if (!flow) notFound();
 
+  const info = { id: flow.id, name: flow.name, folder: flow.folder, status: flow.status };
+  if (flow.mode === "SIMPLE") return <SimpleBuilder flow={info} initial={readRecipe(flow.recipe)} />;
+
   const [tags, catalog] = await Promise.all([
     prisma.tag.findMany({ where: { accountId: account.id }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.catalogItem.findMany({
@@ -28,7 +33,7 @@ export default async function FlowEditorPage(props: PageProps<"/fluxos/[id]">) {
 
   return (
     <FlowEditor
-      flow={{ id: flow.id, name: flow.name, folder: flow.folder, status: flow.status }}
+      flow={info}
       initial={fromDb(flow)}
       tags={tags}
       catalog={catalog}

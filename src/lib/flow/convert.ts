@@ -37,7 +37,7 @@ export type DbTrigger = {
   match: KeywordMatch;
   mediaId: string | null;
   payload: string | null;
-  publicReply: string | null;
+  publicReplies: string[];
   startNodeId: string | null;
   positionX: number;
   positionY: number;
@@ -81,7 +81,7 @@ export function fromDb(flow: DbFlow): FlowSnapshot {
           match: trigger.match,
           mediaId: undef(trigger.mediaId),
           payload: undef(trigger.payload),
-          publicReply: undef(trigger.publicReply),
+          publicReplies: trigger.publicReplies,
         }),
       },
     });
@@ -163,11 +163,7 @@ export type SavePlan = {
   }[];
   carouselCards: { id: string; nodeId: string; catalogItemId: string; position: number }[];
   edges: { sourceNodeId: string; sourceHandle: string | null; targetNodeId: string }[];
-  triggers: (Omit<DbTrigger, "mediaId" | "payload" | "publicReply"> & {
-    mediaId: string | null;
-    payload: string | null;
-    publicReply: string | null;
-  })[];
+  triggers: DbTrigger[];
 };
 
 const orNull = (value: string | undefined) => (value && value.trim() ? value.trim() : null);
@@ -188,7 +184,7 @@ export function toSavePlan(snapshot: FlowSnapshot, catalog: CatalogLookup): Save
         match: data.config.match,
         mediaId: orNull(data.config.mediaId),
         payload: orNull(data.config.payload),
-        publicReply: orNull(data.config.publicReply),
+        publicReplies: data.config.publicReplies.map((reply) => reply.trim()).filter(Boolean),
         startNodeId: start?.target ?? null,
         positionX: node.position.x,
         positionY: node.position.y,

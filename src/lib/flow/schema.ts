@@ -35,8 +35,9 @@ export const configSchemas = {
       .max(LIMITS.buttons, `O Instagram aceita no máximo ${LIMITS.buttons} botões por mensagem`),
   }),
   CONDITION: z.object({
-    rule: z.enum(["follows", "has_tag", "reply_contains"]),
+    rule: z.enum(["follows", "has_tag", "reply_contains", "link_clicked"]),
     tagId: id.optional(),
+    nodeId: id.optional(),
     value: z.string().max(200).optional(),
   }),
   DELAY: z.object({ seconds: z.number().int().min(1).max(60 * 60 * 24 * 7) }),
@@ -58,11 +59,15 @@ export const configSchemas = {
   NOTE: z.object({ text: z.string().max(2000) }),
   TRIGGER: z.object({
     type: z.enum(Object.values(TriggerType) as [TriggerType, ...TriggerType[]]),
-    keywords: z.array(z.string().trim().min(1).max(100)).max(LIMITS.keywords),
+    keywords: z
+      .array(z.string().trim().min(1).max(100))
+      .max(LIMITS.keywords, `No máximo ${LIMITS.keywords} palavras-chave`),
     match: z.enum(Object.values(KeywordMatch) as [KeywordMatch, ...KeywordMatch[]]),
     mediaId: z.string().max(100).optional(),
     payload: z.string().max(1000).optional(),
-    publicReply: z.string().max(LIMITS.text).optional(),
+    publicReplies: z
+      .array(z.string().max(LIMITS.text))
+      .max(LIMITS.publicReplies, `No máximo ${LIMITS.publicReplies} respostas públicas`),
   }),
 } as const;
 

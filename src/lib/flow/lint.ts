@@ -43,6 +43,12 @@ export function lintFlow(nodes: EditorNode[], edges: EditorEdge[]): Problem[] {
         break;
       case "CONDITION":
         if (data.config.rule === "has_tag" && !data.config.tagId) add(node.id, "Escolha a etiqueta da condição");
+        if (data.config.rule === "link_clicked") {
+          const target = nodes.find((other) => other.id === data.config.nodeId);
+          const hasLink =
+            target?.data.kind === "QUESTION" && target.data.config.buttons.some((button) => button.type === "web_url");
+          if (!hasLink) add(node.id, "Escolha a mensagem com o botão de link");
+        }
         if (data.config.rule === "reply_contains" && !data.config.value?.trim()) {
           add(node.id, "Escreva o texto que a resposta deve conter");
         }

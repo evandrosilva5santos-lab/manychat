@@ -21,7 +21,7 @@ const dbFlow: DbFlow = {
       match: "CONTAINS",
       mediaId: null,
       payload: null,
-      publicReply: null,
+      publicReplies: ["Te mandei no direct!"],
       startNodeId: "gate",
       positionX: 0,
       positionY: 0,

@@ -19,10 +19,12 @@ Sistema próprio de automação de conversas para Instagram (comentário → DM 
   - `guia-passo-a-passo.md` — "Como Criar seu Próprio ManyChat" (@euguilhermepasin), com o prompt bônus e o checklist
   - `etapa-1-banco.md` — explicação do banco de dados (Etapa 1)
   - `etapa-2-editor.md` — como funciona o editor visual (Etapa 2)
+  - `etapa-2b-builder-simples.md` — automação rápida (igual ao easy builder do ManyChat)
 - `prisma/schema.prisma` — modelo do banco de dados; `prisma/seed.ts` — fluxo de exemplo
 - `src/` — app Next.js
   - `app/fluxos/` — lista de automações e editor (`/fluxos/[id]`), com as ações de salvar em `actions.ts`
   - `components/flow-editor/` — editor visual (React Flow): paleta, caixinhas, painel de propriedades
+  - `components/simple-builder/` — builder simples (automação rápida: comentário → DM → link)
   - `lib/flow/` — regras do fluxo sem React: tipos, limites do Instagram, validação e conversão banco ↔ editor
 
 > Os arquivos `.dc.html` carregam `./support.js`, o runtime do canvas de Design do Claude, que não faz parte do repositório. Fora do canvas, use `design/Fluxo-telas-do-app.html`.
@@ -64,6 +66,7 @@ Next.js (App Router) + TypeScript · PostgreSQL + Prisma (Supabase como hospedag
 
 - [x] 1. Modelagem do banco de dados (schema Prisma) — ver `docs/etapa-1-banco.md`
 - [x] 2. Editor visual de fluxos com React Flow — ver `docs/etapa-2-editor.md`
+  - [x] Builder simples (automação rápida) — ver `docs/etapa-2b-builder-simples.md`
 - [ ] 3. Motor de automação (webhook do Instagram)
 - [ ] 4. Botões fixos (button template, nunca quick reply)
 - [ ] 5. Carrossel/catálogo de cards
@@ -77,7 +80,7 @@ Next.js (App Router) + TypeScript · PostgreSQL + Prisma (Supabase como hospedag
 cp .env.example .env   # preencha DATABASE_URL e DIRECT_URL
 npm install
 npx prisma migrate dev          # cria as tabelas
-npx prisma db seed              # fluxo de exemplo "Captação story Astrix"
+npx prisma db seed              # exemplos: automação rápida e fluxo avançado
 npm run dev                     # abra http://localhost:3000/fluxos
 ```
 
