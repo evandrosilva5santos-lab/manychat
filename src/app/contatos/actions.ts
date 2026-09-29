@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
 import { check24hWindow } from "@/lib/meta/window";
+import fs from "fs/promises";
+import path from "path";
+
+const DATA_DIR = path.join(process.cwd(), ".data");
+const CONTACTS_FILE = path.join(DATA_DIR, "contacts.json");
 
 export type ContactListItem = {
   id: string;
@@ -156,19 +161,24 @@ export async function listContacts(params: {
       });
     }
 
-    // Se o banco estiver vazio ou offline, usa memória
-    return filterMemoryContacts(params);
+    // Se o banco estiver vazio ou offline, usa storage local
+    const stored = await readStoredContacts();
+    return filterMemoryContacts(stored, params);
   } catch {
-    return filterMemoryContacts(params);
+    const stored = await readStoredContacts();
+    return filterMemoryContacts(stored, params);
   }
 }
 
-function filterMemoryContacts(params: {
-  search?: string;
-  tagId?: string;
-  followFilter?: "all" | "following" | "not_following";
-}): ContactListItem[] {
-  return memoryContacts.filter((c) => {
+function filterMemoryContacts(
+  list: ContactListItem[],
+  params: {
+    search?: string;
+    tagId?: string;
+    followFilter?: "all" | "following" | "not_following";
+  }
+): ContactListItem[] {
+  return list.filter((c) => {
     if (params.search) {
       const q = params.search.toLowerCase();
       const matchName = c.name?.toLowerCase().includes(q);
@@ -230,6 +240,97 @@ export async function addTagToContact(
       return { ok: true };
     }
     return { ok: false, error: "Contato ou etiqueta não encontrada." };
+  }
+}
+
+async function readStoredContacts(): Promise<ContactListItem[]> {
+  try {
+    const raw = await fs.readFile(CONTACTS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch {}
+  return memoryContacts;
+}
+
+async function writeStoredContacts(list: ContactListItem[]) {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true }).catch(() => {});
+    await fs.writeFile(CONTACTS_FILE, JSON.stringify(list, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Erro ao salvar contatos:", err);
+  }
+}
+
+/**
+ * Cria um novo contato/lead manualmente para teste ou CRM
+ */
+export async function createContact(data: {
+  name: string;
+  username: string;
+  followsAccount?: boolean;
+  tagId?: string;
+}): Promise<{ ok: true; contact: ContactListItem } | { ok: false; error: string }> {
+  try {
+    const cleanName = data.name.trim();
+    const cleanUsername = data.username.trim().replace(/^@/, "");
+
+    if (!cleanName || !cleanUsername) {
+      return { ok: false, error: "Nome e @username são obrigatórios." };
+    }
+
+    const account = await getCurrentAccount();
+    const newId = `cont_${Date.now()}`;
+    const igsid = `igsid_${cleanUsername}_${Date.now()}`;
+    const nowIso = new Date().toISOString();
+
+    const selectedTag = data.tagId ? memoryTags.find((t) => t.id === data.tagId) : null;
+    const tags = selectedTag ? [selectedTag] : [{ id: "tag-1", name: "lead-quente" }];
+
+    const newContact: ContactListItem = {
+      id: newId,
+      igsid,
+      username: cleanUsername,
+      name: cleanName,
+      profilePicUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
+      followsAccount: data.followsAccount ?? true,
+      lastInboundAt: nowIso,
+      lastInteractionAt: nowIso,
+      is24hActive: true,
+      remainingHours24h: 24,
+      sourceFlowName: "Cadastro Manual (Teste)",
+      tags,
+      createdAt: nowIso,
+    };
+
+    try {
+      await prisma.contact.create({
+        data: {
+          id: newId,
+          accountId: account.id,
+          igsid,
+          username: cleanUsername,
+          name: cleanName,
+          followsAccount: newContact.followsAccount,
+          lastInboundAt: new Date(),
+          lastInteractionAt: new Date(),
+        },
+      });
+    } catch {
+      // Fallback local
+    }
+
+    const current = await readStoredContacts();
+    current.unshift(newContact);
+    memoryContacts = current;
+    await writeStoredContacts(current);
+
+    revalidatePath("/contatos");
+    revalidatePath("/conversas");
+    revalidatePath("/");
+
+    return { ok: true, contact: newContact };
+  } catch (err: any) {
+    return { ok: false, error: err.message || "Erro ao criar contato." };
   }
 }
 

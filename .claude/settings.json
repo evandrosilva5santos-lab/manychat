@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "run_command:npm run verify",
+      "run_command:npm test",
+      "run_command:npx tsc --noEmit",
+      "run_command:curl *",
+      "view_file:*",
+      "replace_file_content:*",
+      "write_to_file:*"
+    ],
+    "deny": [
+      "run_command:rm -rf /",
+      "run_command:rm -rf .git",
+      "write_to_file:PRD.md",
+      "replace_file_content:PRD.md"
+    ]
+  },
+  "rules": [
+    "Always check execution/CURRENT_TASK.md before starting work.",
+    "Follow the 9-step ECC lifecycle: Plan, Research, Test, Implement, Review, Verify, Document, Memory, Handoff.",
+    "Do NOT modify files in FORBIDDEN FILES.",
+    "Always run `npm run verify` before declaring any task DONE.",
+    "Development server runs on port 3007 exclusively."
+  ]
+}

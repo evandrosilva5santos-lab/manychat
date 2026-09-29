@@ -20,6 +20,7 @@ import {
 import {
   addTagToContact,
   removeTagFromContact,
+  createContact,
   type ContactListItem,
 } from "./actions";
 
@@ -41,6 +42,40 @@ export function ContactsClient({
 
   // Modal para adicionar etiqueta rápida
   const [tagModalContact, setTagModalContact] = useState<ContactListItem | null>(null);
+
+  // Modal para criar novo contato de teste
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactUsername, setNewContactUsername] = useState("");
+  const [newContactFollows, setNewContactFollows] = useState(true);
+  const [newContactTagId, setNewContactTagId] = useState(availableTags[0]?.id || "tag-1");
+  const [createError, setCreateError] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newContactName.trim() || !newContactUsername.trim()) {
+      setCreateError("Nome e @username são obrigatórios.");
+      return;
+    }
+    setCreateError("");
+    setIsCreating(true);
+    const res = await createContact({
+      name: newContactName,
+      username: newContactUsername,
+      followsAccount: newContactFollows,
+      tagId: newContactTagId,
+    });
+    setIsCreating(false);
+    if (res.ok) {
+      setContacts((prev) => [res.contact, ...prev]);
+      setCreateModalOpen(false);
+      setNewContactName("");
+      setNewContactUsername("");
+    } else {
+      setCreateError(res.error || "Erro ao cadastrar contato.");
+    }
+  };
 
   // Filtragem
   const filteredContacts = contacts.filter((c) => {
@@ -120,6 +155,17 @@ export function ContactsClient({
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setCreateError("");
+                setCreateModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-accent/90 active:scale-[0.98] cursor-pointer"
+            >
+              <Plus size={17} />
+              + Novo Contato
+            </button>
             <Link
               href="/conversas"
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-primary-hover active:scale-[0.98]"
@@ -407,6 +453,106 @@ export function ContactsClient({
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Criar Novo Contato / Lead */}
+      {createModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface-200 p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Plus size={16} />
+                </div>
+                <h3 className="text-base font-bold text-ink">Novo Contato / Lead</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(false)}
+                className="rounded-lg p-1.5 text-ink-subtle hover:bg-surface-300 hover:text-ink transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateContact} className="mt-4 space-y-4">
+              {createError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-medium">
+                  {createError}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink">Nome Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={newContactName}
+                  onChange={(e) => setNewContactName(e.target.value)}
+                  placeholder="Ex: Vanessa Guimarães"
+                  className="w-full h-10 px-3.5 rounded-xl border border-border bg-surface-100 text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink">Instagram @username *</label>
+                <input
+                  type="text"
+                  required
+                  value={newContactUsername}
+                  onChange={(e) => setNewContactUsername(e.target.value)}
+                  placeholder="Ex: vanessa.noiva"
+                  className="w-full h-10 px-3.5 rounded-xl border border-border bg-surface-100 text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink">Etiqueta Inicial</label>
+                <select
+                  value={newContactTagId}
+                  onChange={(e) => setNewContactTagId(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-border bg-surface-100 text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                >
+                  {availableTags.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-surface-100 cursor-pointer hover:border-primary/40 transition">
+                <input
+                  type="checkbox"
+                  checked={newContactFollows}
+                  onChange={(e) => setNewContactFollows(e.target.checked)}
+                  className="rounded text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-ink">Já segue o perfil no Instagram</span>
+                  <span className="text-[11px] text-ink-muted">Libera respostas com Follow Gate ativado</span>
+                </div>
+              </label>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setCreateModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-ink-muted hover:bg-surface-300 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-5 py-2 rounded-xl bg-primary text-xs font-bold text-white shadow-xs hover:bg-primary-hover active:scale-[0.98] transition cursor-pointer disabled:opacity-50"
+                >
+                  {isCreating ? "Salvando..." : "Salvar Contato"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
