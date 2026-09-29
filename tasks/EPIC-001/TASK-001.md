@@ -22,14 +22,14 @@ TASK-001: Seletor Visual de Publicações do Instagram
 
 ---
 
-## 2. Especificação Detalhada das Nano Tasks (Padrão ECC Rico)
+## 2. Especificação Detalhada das Nano Tasks (25 Campos Canônicos)
 
 ### 🟢 NANO-001: Implementar método `getUserMedia` e Rota `GET /api/instagram/media`
 
 - **ID:** `NANO-001`
 - **TITLE:** Adicionar busca de mídia no `InstagramGraphClient` (`src/lib/meta/graph.ts`) e rota `GET /api/instagram/media` com fallback mock defensivo.
-- **RISK LEVEL:** `HIGH` (Envolve comunicação com API externa da Meta e criação de nova rota de API).
 - **OBJECTIVE:** Permitir que o backend consulte as últimas publicações/reels da conta conectada da Meta via Graph API v21.0 ou retorne mock inteligente defensivo caso sem token/offline, servindo dados normalizados para a interface.
+- **CONTEXT:** Atualmente o `src/lib/meta/graph.ts` possui métodos de envio de mensagens e perfil, mas não possui busca de posts (`/{ig-user-id}/media`). A rota `/api/instagram/media` fornecerá os dados formatados para o componente visual.
 - **SOURCE REQUIREMENT:** `PRD.md` Seção 3 (Módulo 2), `docs/DECISIONS.md` (`ADR-004`) e `PRD_TRACEABILITY.md` (`REQ-005`).
 - **BUSINESS CONTEXT:** O criador de conteúdo precisa selecionar a publicação exata sobre a qual fez o Reels para automatizar o envio da DM com o link correto, sem digitar IDs complexos ou links manualmente.
 - **TECHNICAL CONTEXT:** `src/lib/meta/graph.ts` já implementa métodos de envio de mensagens e perfil. O endpoint `GET /{ig-user-id}/media` da Meta Graph API v21.0 retorna as mídias da conta. É necessário criar uma rota Next.js App Router em `src/app/api/instagram/media/route.ts`.
@@ -50,7 +50,7 @@ TASK-001: Seletor Visual de Publicações do Instagram
 - **RESEARCH QUESTIONS:**
   - Qual a estrutura de campos aceita por `GET /{ig-user-id}/media` na Graph API v21.0? (`id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count`).
   - Como o `InstagramGraphClient` trata fallback quando `!this.accessToken || process.env.NODE_ENV === "test"`? (Retorna objeto com `mock: true`).
-- **IMPLEMENTATION ACTION:**
+- **EXACT ACTION:**
   1. Em `src/lib/meta/graph.ts`:
      - Declarar e exportar o tipo:
        ```typescript
@@ -90,14 +90,10 @@ TASK-001: Seletor Visual de Publicações do Instagram
 - **TEST STRATEGY:**
   - *Test Before:* `curl -s http://localhost:3007/api/instagram/media` falha com 404 (rota ainda não existe).
   - *Test After:* `curl -s http://localhost:3007/api/instagram/media` retorna 200 com JSON válido contendo `success: true`.
-- **VALIDATION STRATEGY:**
-  - *Level 1 (Local):* `npx tsc --noEmit` passa sem nenhum erro.
-  - *Level 2 (Integration):* A rota responde localmente na porta 3007 com payload JSON no formato esperado pelo cliente.
-  - *Level 3 (Requirement):* Fornece a infraestrutura necessária para alimentar o seletor visual de posts exigido no PRD Módulo 2.
-- **REVIEW STRATEGY:** Fresh context review focado em:
-  - Ausência de `any`.
-  - Verificação de vazamento de credenciais nos headers ou retornos.
-  - Tratamento defensivo de exceções (`try/catch`).
+- **VALIDATION METHOD:**
+  - Executar `npm run verify` (`vitest run && tsc --noEmit`).
+  - Executar `curl -s http://localhost:3007/api/instagram/media` confirmando status 200 e payload esperado.
+- **RISKS:** Conexão externa à Meta API cair ou ter timeout $\rightarrow$ mitigado pelo bloco `try/catch` com fallback para lista mock.
 - **SECURITY CONSIDERATIONS:**
   - O `IG_ACCESS_TOKEN` nunca é exposto no payload retornado para o navegador.
   - Limite de quantidade (`limit = 25`) para evitar sobrecarga de memória.
@@ -107,7 +103,7 @@ TASK-001: Seletor Visual de Publicações do Instagram
   - Nenhuma alteração visual nesta etapa (escopo restrito ao backend).
 - **DOCUMENTATION IMPACT:** Atualizar `state/CHANGELOG.md` e mover para `DONE` em `execution/TASK_QUEUE.md`.
 - **MEMORY IMPACT:** Se surgir comportamento inesperado na Meta API, registrar em `docs/PRD_ISSUES.md`.
-- **NEXT TASK:** `NANO-002`.
+- **NEXT NANO TASK:** `NANO-002`.
 
 ---
 
@@ -115,8 +111,8 @@ TASK-001: Seletor Visual de Publicações do Instagram
 
 - **ID:** `NANO-002`
 - **TITLE:** Criar suíte de testes unitários para `getUserMedia` no Vitest
-- **RISK LEVEL:** `MEDIUM` (Criação de novos testes no motor Vitest).
 - **OBJECTIVE:** Garantir cobertura automatizada para o método `getUserMedia`, cobrindo cenários de sucesso mock, parsing de campos e tratamento de erros.
+- **CONTEXT:** Toda nova funcionalidade deve ser blindada por testes antes de avançar para a interface visual.
 - **SOURCE REQUIREMENT:** `docs/RULES.md` (`REG-TEST-002`) e metodologia ECC (Test-First/TDD).
 - **BUSINESS CONTEXT:** Prevenir que futuras alterações quebrem a integração com a listagem de posts da Meta.
 - **TECHNICAL CONTEXT:** Utilizar o framework Vitest já configurado no projeto (`vitest.config.mts`).
@@ -128,21 +124,18 @@ TASK-001: Seletor Visual de Publicações do Instagram
   - Todos os arquivos fora de testes.
 - **RESEARCH REQUIRED:** Não.
 - **RESEARCH QUESTIONS:** Nenhuma.
-- **IMPLEMENTATION ACTION:** Criar arquivo `src/lib/meta/graph.test.ts` com testes cobrindo `defaultGraphClient.getUserMedia()`.
+- **EXACT ACTION:** Criar arquivo `src/lib/meta/graph.test.ts` com testes cobrindo `defaultGraphClient.getUserMedia()`.
 - **EXPECTED RESULT:** `npm test` executa 4 arquivos de teste com 100% de aprovação.
 - **ACCEPTANCE CRITERIA:** Todos os testes novos passam sem warnings.
 - **TEST STRATEGY:** TDD (escrever testes com asserções para o mock e validações).
-- **VALIDATION STRATEGY:**
-  - *Level 1:* Execução do Vitest isolado em `src/lib/meta/graph.test.ts`.
-  - *Level 2:* Execução de toda a suíte `npm test`.
-  - *Level 3:* Atendimento à política de qualidade ECC.
-- **REVIEW STRATEGY:** Garantir que os testes não façam requisições HTTP reais externas em ambiente de teste.
+- **VALIDATION METHOD:** `npm run verify` passando com 100% dos testes verdes.
+- **RISKS:** Mocks mal formatados divergirem da API real $\rightarrow$ mitigado pelo schema de tipos TypeScript.
 - **SECURITY CONSIDERATIONS:** Não incluir tokens reais em arquivos de teste.
 - **PERFORMANCE CONSIDERATIONS:** Testes rápidos (< 200ms).
 - **DESIGN CONSIDERATIONS:** N/A.
 - **DOCUMENTATION IMPACT:** Registrar cobertura em `state/CHANGELOG.md`.
 - **MEMORY IMPACT:** N/A.
-- **NEXT TASK:** `NANO-003`.
+- **NEXT NANO TASK:** `NANO-003`.
 
 ---
 
@@ -150,8 +143,8 @@ TASK-001: Seletor Visual de Publicações do Instagram
 
 - **ID:** `NANO-003`
 - **TITLE:** Integrar `PostPicker.tsx` com `fetch('/api/instagram/media')`, abas de filtro e skeleton animado
-- **RISK LEVEL:** `MEDIUM` (Alteração de componente de UI com consumo de API).
 - **OBJECTIVE:** Fazer com que o seletor visual exiba as postagens reais retornadas pela API, com opção de filtrar por Reels, Carrossel ou Imagem, e skeleton suave de carregamento.
+- **CONTEXT:** O componente atual possui UI estática com `MOCK_POSTS`. Deve consumir a API com reatividade.
 - **SOURCE REQUIREMENT:** `PRD.md` Seção 3 (Módulo 2) e `docs/DESIGN.md` Seção 5.2.
 - **BUSINESS CONTEXT:** Experiência de uso fluida para o infoprodutor selecionar o post sem fricção.
 - **TECHNICAL CONTEXT:** Componente Client Component (`"use client"`) em `src/components/simple-builder/PostPicker.tsx`.
@@ -165,7 +158,7 @@ TASK-001: Seletor Visual de Publicações do Instagram
   - `prisma/*`
 - **RESEARCH REQUIRED:** Sim (verificar se Tailwind v4 suporta `animate-pulse` nativo sem plugins).
 - **RESEARCH QUESTIONS:** O componente `PostPicker` preserva a seleção ao fechar o modal? (Sim, via callback `onSelect`).
-- **IMPLEMENTATION ACTION:**
+- **EXACT ACTION:**
   - Adicionar estado de loading (`isLoading: boolean`) e lista dinâmica (`posts: InstagramMediaItem[]`).
   - Adicionar `useEffect` que executa `fetch('/api/instagram/media')` ao montar o componente.
   - Implementar abas de filtro no modal: `Todos`, `Reels`, `Carrosséis`, `Fotos`.
@@ -176,17 +169,14 @@ TASK-001: Seletor Visual de Publicações do Instagram
   - Botão de fallback manual ("Ou cole o link direto") preservado.
   - Zero erros de compilação ou console.
 - **TEST STRATEGY:** Teste visual no browser em `http://localhost:3007/fluxos/[id]`.
-- **VALIDATION STRATEGY:**
-  - *Level 1:* Renderização correta sem erros no console do navegador.
-  - *Level 2:* Integração com o `SimpleBuilder.tsx` atualizando o estado do gatilho.
-  - *Level 3:* Conformidade com o design ManyChat documentado no PRD.
-- **REVIEW STRATEGY:** Checar fidelidade aos tokens de cor e ausência de travamentos de UI.
+- **VALIDATION METHOD:** `npm run verify` e inspeção visual da UI no navegador.
+- **RISKS:** Imagens externas com CORS bloqueado $\rightarrow$ mitigado usando `img` padrão ou proxies locais.
 - **SECURITY CONSIDERATIONS:** Sanitização de URLs de imagens externas.
 - **PERFORMANCE CONSIDERATIONS:** Imagens com `loading="lazy"`.
 - **DESIGN CONSIDERATIONS:** Seguir rigorosamente o padrão de grade de 3 colunas e cards de 68px de `docs/DESIGN.md`.
 - **DOCUMENTATION IMPACT:** Registrar atualização de UI em `state/CHANGELOG.md`.
 - **MEMORY IMPACT:** N/A.
-- **NEXT TASK:** `NANO-004`.
+- **NEXT NANO TASK:** `NANO-004`.
 
 ---
 
@@ -194,8 +184,8 @@ TASK-001: Seletor Visual de Publicações do Instagram
 
 - **ID:** `NANO-004`
 - **TITLE:** Ajustar `matcher.ts` para verificar `mediaId` em comentários quando `scope === 'specific'`
-- **RISK LEVEL:** `HIGH` (Toca na lógica central de roteamento de eventos da automação).
 - **OBJECTIVE:** Garantir que automações vinculadas a uma publicação específica só disparem se o comentário foi realizado exatamente naquele `mediaId`.
+- **CONTEXT:** O motor precisa distinguir se a automação deve disparar para qualquer post ou apenas para o post selecionado.
 - **SOURCE REQUIREMENT:** `docs/PRD_ISSUES.md` (`ISSUE-002`) e `PRD_TRACEABILITY.md` (`REQ-010`).
 - **BUSINESS CONTEXT:** Evitar disparos indevidos em posts aleatórios da conta quando o criador configurou o fluxo para um único vídeo.
 - **TECHNICAL CONTEXT:** `src/lib/engine/matcher.ts` processa eventos de webhook e localiza o fluxo ativo correspondente.
@@ -209,7 +199,7 @@ TASK-001: Seletor Visual de Publicações do Instagram
   - `src/app/globals.css`
 - **RESEARCH REQUIRED:** Sim (analisar como `matcher.ts` lida com `trigger.scope` e `trigger.mediaId`).
 - **RESEARCH QUESTIONS:** O webhook de comentário sempre envia `entry[0].changes[0].value.media.id`? (Sim, padrão Meta Graph API v21.0).
-- **IMPLEMENTATION ACTION:**
+- **EXACT ACTION:**
   - No `matcher.ts`, dentro da verificação de gatilhos do tipo comentário:
     - Se `trigger.scope === 'specific'`, verificar se `eventMediaId === trigger.mediaId`. Caso discorde, ignorar o fluxo.
   - No `src/lib/engine/engine.test.ts`, adicionar cenários de teste validando o filtro por post específico.
@@ -218,14 +208,11 @@ TASK-001: Seletor Visual de Publicações do Instagram
   - Testes unitários cobrem match positivo e match negativo por `mediaId`.
   - 100% dos testes passando no Vitest (`npm test`).
 - **TEST STRATEGY:** TDD (escrever testes com asserções de match específico antes e fazê-los passar).
-- **VALIDATION STRATEGY:**
-  - *Level 1:* Testes unitários do matcher passando.
-  - *Level 2:* Integração com o `FlowRunner`.
-  - *Level 3:* Atendimento estrito à regra de negócio do PRD Módulo 3.
-- **REVIEW STRATEGY:** Garantir que fluxos com `scope: "any"` continuem funcionando sem quebras (regressão zero).
+- **VALIDATION METHOD:** `npm run verify` com nova suite de matching por `mediaId` passando 100%.
+- **RISKS:** Quebrar fluxos que usam `scope === 'any'` $\rightarrow$ mitigado por testes de regressão.
 - **SECURITY CONSIDERATIONS:** Validação de string segura sem risco de bypass.
 - **PERFORMANCE CONSIDERATIONS:** Checagem em memória $O(1)$ sem consultas extras ao banco.
 - **DESIGN CONSIDERATIONS:** N/A.
 - **DOCUMENTATION IMPACT:** Registrar encerramento do `EPIC-001` em `state/CHANGELOG.md`.
 - **MEMORY IMPACT:** Fechar `ISSUE-002` em `docs/PRD_ISSUES.md`.
-- **NEXT TASK:** Conclusão do EPIC-001 e Handoff para o EPIC-002.
+- **NEXT NANO TASK:** Conclusão do EPIC-001 e Handoff para o EPIC-002.
