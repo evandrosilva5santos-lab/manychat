@@ -2,7 +2,7 @@ import { getMetaSettings } from "./actions";
 import { SettingsClient } from "./SettingsClient";
 
 export const metadata = {
-  title: "Ajustes & Conexão Meta · ManyChat",
+  title: "Ajustes & Conexão Meta · Fluxo",
   description: "Configuração do app no Meta for Developers, tokens de acesso, webhooks e revisão de permissões.",
 };
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
+import { deleteStoredCatalogItem, getStoredCatalog, saveStoredCatalogItem } from "@/lib/storage/store";
 
 export type CardButtonType = "URL" | "POSTBACK";
 
@@ -147,10 +148,19 @@ export async function listCatalogItems(): Promise<CatalogItemWithUsages[]> {
         })),
       }));
     }
-    return memoryCatalog;
+    const stored = await getStoredCatalog();
+    return stored.map((s) => ({
+      ...s,
+      createdAt: new Date(s.createdAt),
+      updatedAt: new Date(s.updatedAt),
+    }));
   } catch (err) {
-    console.warn("Usando catálogo em memória devido a erro de conexão no banco:", err);
-    return memoryCatalog;
+    const stored = await getStoredCatalog();
+    return stored.map((s) => ({
+      ...s,
+      createdAt: new Date(s.createdAt),
+      updatedAt: new Date(s.updatedAt),
+    }));
   }
 }
 
@@ -187,6 +197,11 @@ export async function createCatalogItem(
       usageCount: 0,
       usages: [],
     };
+    await saveStoredCatalogItem({
+      ...result,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+    });
     revalidatePath("/catalogo");
     return { ok: true, item: result };
   } catch {
@@ -199,7 +214,11 @@ export async function createCatalogItem(
       usageCount: 0,
       usages: [],
     };
-    memoryCatalog.unshift(mockItem);
+    await saveStoredCatalogItem({
+      ...mockItem,
+      createdAt: mockItem.createdAt.toISOString(),
+      updatedAt: mockItem.updatedAt.toISOString(),
+    });
     revalidatePath("/catalogo");
     return { ok: true, item: mockItem };
   }
@@ -253,15 +272,24 @@ export async function updateCatalogItem(
     revalidatePath("/catalogo");
     return { ok: true, item: result };
   } catch {
-    const idx = memoryCatalog.findIndex((c) => c.id === id);
-    if (idx !== -1) {
-      memoryCatalog[idx] = {
-        ...memoryCatalog[idx],
+    const stored = await getStoredCatalog();
+    const item = stored.find((c) => c.id === id);
+    if (item) {
+      const updatedItem = {
+        ...item,
         ...sanitized,
-        updatedAt: new Date(),
+        updatedAt: new Date().toISOString(),
       };
+      await saveStoredCatalogItem(updatedItem);
       revalidatePath("/catalogo");
-      return { ok: true, item: memoryCatalog[idx] };
+      return {
+        ok: true,
+        item: {
+          ...updatedItem,
+          createdAt: new Date(updatedItem.createdAt),
+          updatedAt: new Date(updatedItem.updatedAt),
+        },
+      };
     }
     return { ok: false, error: "Card não encontrado no catálogo." };
   }
@@ -297,21 +325,12 @@ export async function deleteCatalogItem(id: string): Promise<{ ok: true } | { ok
     }
 
     await prisma.catalogItem.delete({ where: { id } });
+    await deleteStoredCatalogItem(id);
     revalidatePath("/catalogo");
     return { ok: true };
   } catch {
-    const idx = memoryCatalog.findIndex((c) => c.id === id);
-    if (idx !== -1) {
-      if (memoryCatalog[idx].usageCount > 0) {
-        return {
-          ok: false,
-          error: `Este card está em uso em ${memoryCatalog[idx].usageCount} fluxo(s) e não pode ser excluído para evitar quebrar carrosséis ativos.`,
-        };
-      }
-      memoryCatalog.splice(idx, 1);
-      revalidatePath("/catalogo");
-      return { ok: true };
-    }
-    return { ok: false, error: "Card não encontrado." };
+    await deleteStoredCatalogItem(id);
+    revalidatePath("/catalogo");
+    return { ok: true };
   }
 }

@@ -5,95 +5,66 @@
 > **Framework:** Everything Claude Code (ECC)  
 > **Agente Autorizado:** `CLAUDE` (Claude Code)  
 > **Orquestrador Emissor:** `ANTIGRAVITY`  
+> **Data de Emissão:** 29/09/2026 02:55  
 
 ---
 
 ## 🎯 Ficha Canônica da Nano Task Autorizada
 
-- **ID:** `NANO-001`
-- **TITLE:** Adicionar busca de mídia no `InstagramGraphClient` (`src/lib/meta/graph.ts`) e rota `GET /api/instagram/media` com fallback mock defensivo.
-- **OBJECTIVE:** Permitir que o backend consulte as últimas publicações/reels da conta conectada da Meta via Graph API v21.0 ou retorne mock inteligente defensivo caso sem token/offline, servindo dados normalizados para a interface.
-- **CONTEXT:** Atualmente o `src/lib/meta/graph.ts` possui métodos de envio de mensagens e perfil, mas não possui busca de posts (`/{ig-user-id}/media`). A rota `/api/instagram/media` fornecerá os dados formatados para o componente visual.
-- **SOURCE REQUIREMENT:** `PRD.md` Seção 3 (Módulo 2), `docs/DECISIONS.md` (`ADR-004`) e `PRD_TRACEABILITY.md` (`REQ-005`).
-- **BUSINESS CONTEXT:** O criador de conteúdo precisa selecionar a publicação exata sobre a qual fez o Reels para automatizar o envio da DM com o link correto, sem digitar IDs complexos ou links manualmente.
-- **TECHNICAL CONTEXT:** `src/lib/meta/graph.ts` já implementa métodos de envio de mensagens e perfil. O endpoint `GET /{ig-user-id}/media` da Meta Graph API v21.0 retorna as mídias da conta. É necessário criar uma rota Next.js App Router em `src/app/api/instagram/media/route.ts`.
+- **ID:** `NANO-002`
+- **TITLE:** Criar suíte de testes unitários para `getUserMedia` e rota `/api/instagram/media` no Vitest
+- **OBJECTIVE:** Garantir cobertura automatizada e robusta para o método `getUserMedia` de `InstagramGraphClient` e para a rota `GET /api/instagram/media`, cobrindo cenários de sucesso com mock, normalização de campos, query params de paginação (`limit`), e tratamento defensivo de falhas de conexão/erros.
+- **CONTEXT:** A `NANO-001` adicionou o tipo `InstagramMediaItem`, o método `getUserMedia` e a rota `GET /api/instagram/media`. Conforme a regra invariante `REG-TEST-002` e os princípios ECC, nenhuma funcionalidade avança para a interface visual sem testes unitários rigorosos no Vitest.
+- **SOURCE REQUIREMENT:** `docs/RULES.md` (`REG-TEST-002`), `PRD.md` Módulo 2 e Metodologia ECC (TDD).
+- **BUSINESS CONTEXT:** Prevenir que alterações futuras quebrem a integração com a listagem de posts da Meta, assegurando que o modal visual de seleção de posts sempre receba dados íntegros e consistentes.
+- **TECHNICAL CONTEXT:** Criar o arquivo `src/lib/meta/graph.test.ts` usando Vitest (`describe`, `it`, `expect`, `vi`, `beforeEach`, `afterEach`). Utilizar a configuração existente em `vitest.config.mts`.
 - **PRECONDITIONS:**
-  - Repositório limpo com `npm test` passando 46/46 testes.
-  - Porta `3007` disponível.
-- **DEPENDENCIES:** Nenhuma (Primeira nano task da esteira).
+  - `NANO-001` concluída e validada.
+  - Zero erros em `npx tsc --noEmit`.
+- **DEPENDENCIES:** `NANO-001`.
 - **ALLOWED FILES:**
-  - `src/lib/meta/graph.ts`
-  - `src/app/api/instagram/media/route.ts`
+  - `src/lib/meta/graph.test.ts`
 - **FORBIDDEN FILES:**
   - `PRD.md` (Imutável)
-  - `src/components/simple-builder/PostPicker.tsx` (Alterado apenas na NANO-003)
-  - `src/lib/engine/engine.ts`
-  - `prisma/schema.prisma`
+  - `src/components/*`
+  - `src/app/api/webhook/*`
+  - `prisma/*`
   - `package.json`
-- **RESEARCH REQUIRED:** Sim.
-- **RESEARCH QUESTIONS:**
-  - Qual a estrutura de campos aceita por `GET /{ig-user-id}/media` na Graph API v21.0? (`id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count`).
-  - Como o `InstagramGraphClient` trata fallback quando `!this.accessToken || process.env.NODE_ENV === "test"`? (Retorna objeto com `mock: true`).
+- **RESEARCH REQUIRED:** Não.
+- **RESEARCH QUESTIONS:** Nenhuma.
 - **EXACT ACTION:**
-  1. Em `src/lib/meta/graph.ts`:
-     - Declarar e exportar o tipo:
-       ```typescript
-       export type InstagramMediaItem = {
-         id: string;
-         caption?: string;
-         mediaType: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
-         mediaUrl?: string;
-         thumbnailUrl?: string;
-         permalink?: string;
-         timestamp?: string;
-         likeCount?: number;
-         commentsCount?: number;
-       };
-       ```
-     - Adicionar o método na classe `InstagramGraphClient`:
-       ```typescript
-       async getUserMedia(igUserId?: string, limit = 25): Promise<{
-         success: boolean;
-         data: InstagramMediaItem[];
-         mock?: boolean;
-         error?: string;
-       }>
-       ```
-     - Caso sem token ou em teste, retornar lista mock rica estruturada com `mock: true`.
-     - Caso exista token, executar fetch em `${GRAPH_API_BASE}/${targetUserId}/media` com Bearer Token. Tratar `!response.ok` defensivamente com fallback.
-  2. Em `src/app/api/instagram/media/route.ts`:
-     - Implementar handler `export async function GET(req: Request)`.
-     - Chamar `defaultGraphClient.getUserMedia()`.
-     - Retornar `NextResponse.json(result, { status: result.success ? 200 : 500 })`.
-- **EXPECTED RESULT:** Requisição HTTP `GET http://localhost:3007/api/instagram/media` retorna JSON com status 200 contendo `{ success: true, data: [...] }`.
+  1. Criar `src/lib/meta/graph.test.ts`:
+     - Testar `defaultGraphClient.getUserMedia()` em ambiente sem token / teste (retorna `success: true`, `mock: true`, array com 3 itens).
+     - Testar integridade dos campos normalizados de cada post (`id`, `caption`, `mediaType`, `timestamp`, `likeCount`, `commentsCount`).
+     - Testar chamada com token simulado usando `vi.spyOn(globalThis, "fetch")` para validar a URL correta (`https://graph.facebook.com/v21.0/me/media`), parâmetros `fields` e `limit`, e headers de autenticação (`Bearer <token>`).
+     - Testar comportamento defensivo quando o `fetch` retorna erro HTTP 400 ou rejeição de rede (deve retornar `success: false` com string amigável em `error` sem disparar `unhandledRejection`).
+  2. Testar a rota de API `GET /api/instagram/media`:
+     - Importar o handler `GET` de `@/app/api/instagram/media/route`.
+     - Executar com requisição simulada `new Request("http://localhost:3007/api/instagram/media")` e validar status HTTP 200 com payload JSON `{ success: true, data: [...] }`.
+     - Validar que query param `?limit=10` é repassado ao cliente.
+- **EXPECTED RESULT:** `npm test` executa agora 5 suites de testes com 100% de aprovação (todos os testes verdes).
 - **ACCEPTANCE CRITERIA:**
-  - Retorna array de posts com campos normalizados.
-  - Não quebra caso a Meta esteja offline ou sem token (retorna fallback gracioso).
-  - Zero erros de tipagem com `npx tsc --noEmit`.
-  - Suíte de 46 testes existentes permanece 100% verde (`npm test`).
+  - `src/lib/meta/graph.test.ts` adicionado com testes claros, declarativos e isolados.
+  - Nenhum mock vaza estado para outros testes (`afterEach(() => vi.restoreAllMocks())`).
+  - `npx tsc --noEmit` conclui com 0 erros.
+  - `npm test` conclui com todos os testes passando em tempo inferior a 2 segundos.
 - **TEST STRATEGY:**
-  - *Test Before:* `curl -s http://localhost:3007/api/instagram/media` falha com 404 (rota ainda não existe).
-  - *Test After:* `curl -s http://localhost:3007/api/instagram/media` retorna 200 com JSON válido contendo `success: true`.
+  - Executar `npx vitest run src/lib/meta/graph.test.ts`.
 - **VALIDATION METHOD:**
-  - Executar `npm run verify` (`vitest run && tsc --noEmit`).
-  - Executar `curl -s http://localhost:3007/api/instagram/media` confirmando status 200 e payload esperado.
-- **RISKS:** Conexão externa à Meta API cair ou ter timeout $\rightarrow$ mitigado pelo bloco `try/catch` com fallback para lista mock.
-- **SECURITY CONSIDERATIONS:**
-  - O `IG_ACCESS_TOKEN` nunca é exposto no payload retornado para o navegador.
-  - Limite de quantidade (`limit = 25`) para evitar sobrecarga de memória.
-- **PERFORMANCE CONSIDERATIONS:**
-  - Busca de campos essenciais sem overhead de requisições N+1.
-- **DESIGN CONSIDERATIONS:**
-  - Nenhuma alteração visual nesta etapa (escopo restrito ao backend).
-- **DOCUMENTATION IMPACT:** Atualizar `state/CHANGELOG.md` e mover para `DONE` em `execution/TASK_QUEUE.md`.
-- **MEMORY IMPACT:** Se surgir comportamento inesperado na Meta API, registrar em `docs/PRD_ISSUES.md`.
-- **NEXT NANO TASK:** `NANO-002`.
+  - `npm run verify` (`vitest run && tsc --noEmit`).
+- **RISKS:** Mocks poluírem o escopo global $\rightarrow$ mitigado por `vi.restoreAllMocks()` no `afterEach`.
+- **SECURITY CONSIDERATIONS:** Jamais incluir tokens de acesso reais em arquivos de teste.
+- **PERFORMANCE CONSIDERATIONS:** Testes estritamente em memória sem chamadas externas lentas.
+- **DESIGN CONSIDERATIONS:** N/A.
+- **DOCUMENTATION IMPACT:** Registrar em `state/CHANGELOG.md` e atualizar `execution/TASK_QUEUE.md`.
+- **MEMORY IMPACT:** N/A.
+- **NEXT NANO TASK:** `NANO-003` (Conectar `PostPicker.tsx` com `fetch('/api/instagram/media')`).
 
 ---
 
 ## 🛑 Protocolo de Execução do Claude Code
 1. Leia `CLAUDE.md` e `AGENTS.md`.
 2. Execute o ciclo ECC: Research $\rightarrow$ Plan $\rightarrow$ Test $\rightarrow$ Implement $\rightarrow$ Review $\rightarrow$ Verify.
-3. Altere estritamente os `ALLOWED FILES`.
+3. Modifique estritamente o arquivo autorizado em `ALLOWED FILES` (`src/lib/meta/graph.test.ts`).
 4. Valide com `npm run verify`.
-5. Atualize `state/CHANGELOG.md`, `state/STATUS.md` e prepare `state/HANDOFF.md`.
+5. Atualize `state/CHANGELOG.md`, `state/STATUS.md` e emita o `state/HANDOFF.md`.

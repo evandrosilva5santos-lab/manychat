@@ -92,6 +92,32 @@ describe("limites da receita", () => {
     expect(lintRecipe(recipe())).toEqual([]);
   });
 
+  it("aceita até 3 botões na DM e compila todos", () => {
+    const r = recipe((r) => {
+      r.link.buttons = [
+        { title: "LINK 1", url: "https://example.com/1" },
+        { title: "LINK 2", url: "https://example.com/2" },
+        { title: "LINK 3", url: "https://example.com/3" },
+      ];
+    });
+    expect(recipeSchema.safeParse(r).success).toBe(true);
+    const snapshot = compileRecipe(FLOW, r);
+    const linkNode = snapshot.nodes.find((n) => n.id === `${FLOW}-link`);
+    expect(linkNode?.data.kind === "QUESTION" && linkNode.data.config.buttons).toHaveLength(3);
+  });
+
+  it("recusa mais de 3 botões na DM (limite da Meta)", () => {
+    const r = recipe((r) => {
+      r.link.buttons = [
+        { title: "LINK 1", url: "https://example.com/1" },
+        { title: "LINK 2", url: "https://example.com/2" },
+        { title: "LINK 3", url: "https://example.com/3" },
+        { title: "LINK 4", url: "https://example.com/4" },
+      ];
+    });
+    expect(recipeSchema.safeParse(r).success).toBe(false);
+  });
+
   it("receita estragada no banco volta pro padrão", () => {
     expect(readRecipe("lixo")).toEqual(defaultRecipe());
     expect(readRecipe({ welcome: { text: "Oi" } }).welcome.text).toBe("Oi");

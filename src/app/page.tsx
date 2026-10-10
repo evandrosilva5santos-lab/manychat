@@ -9,32 +9,49 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
+import { getStoredContacts, getStoredMessages, listStoredFlows } from "@/lib/storage/store";
 
 export const metadata = {
   title: "Painel · Fluxo",
   description: "Visão geral e métricas das suas automações do Instagram",
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [contacts, flows] = await Promise.all([
+    getStoredContacts(),
+    listStoredFlows(),
+  ]);
+
+  const liveFlows = flows.filter((f) => f.status === "LIVE").length;
+  const stoppedFlows = flows.filter((f) => f.status === "STOPPED").length;
+  const draftFlows = flows.filter((f) => f.status === "DRAFT").length;
+  const active24h = contacts.filter((c) => c.is24hActive).length;
+
+  let totalSentMessages = 0;
+  for (const c of contacts) {
+    const msgs = await getStoredMessages(c.id);
+    totalSentMessages += msgs.filter((m) => m.direction === "OUT").length;
+  }
+
   const stats = [
     {
       label: "Contatos",
-      value: "157",
-      sub: "+32 hoje",
+      value: String(contacts.length),
+      sub: `${active24h} ativos na janela 24h`,
       subColor: "text-emerald-500 font-semibold",
       icon: Users,
     },
     {
       label: "Mensagens enviadas",
-      value: "412",
-      sub: "nas últimas 24h",
+      value: String(totalSentMessages),
+      sub: "automáticas e respostas",
       subColor: "text-ink-muted",
       icon: MessageSquare,
     },
     {
       label: "Automações ao vivo",
-      value: "2",
-      sub: "1 parada · 1 rascunho",
+      value: String(liveFlows),
+      sub: `${stoppedFlows} parada${stoppedFlows !== 1 ? "s" : ""} · ${draftFlows} rascunho${draftFlows !== 1 ? "s" : ""}`,
       subColor: "text-ink-muted",
       icon: Zap,
     },
@@ -47,36 +64,26 @@ export default function DashboardPage() {
     },
   ];
 
-  const recentChats = [
-    {
-      avatar: "J",
-      color: "bg-blue-500/10 text-blue-500",
-      username: "@juliana.exemplo",
-      action: "Tocou em “Quero me inscrever”",
-      time: "2 min",
-    },
-    {
-      avatar: "R",
-      color: "bg-emerald-500/10 text-emerald-500",
-      username: "@rafael.exemplo",
-      action: "Comentou “Casamento”",
-      time: "9 min",
-    },
-    {
-      avatar: "C",
-      color: "bg-amber-500/10 text-amber-500",
-      username: "@carla.exemplo",
-      action: "Ainda não segue o perfil (Follow Gate)",
-      time: "14 min",
-    },
-    {
-      avatar: "P",
-      color: "bg-purple-500/10 text-purple-500",
-      username: "@paulo.exemplo",
-      action: "Mandou “oi” por DM",
-      time: "31 min",
-    },
+  const colors = [
+    "bg-blue-500/10 text-blue-500",
+    "bg-emerald-500/10 text-emerald-500",
+    "bg-amber-500/10 text-amber-500",
+    "bg-purple-500/10 text-purple-500",
   ];
+
+  const recentChats = await Promise.all(
+    contacts.slice(0, 4).map(async (c, idx) => {
+      const msgs = await getStoredMessages(c.id);
+      const lastMsg = msgs[msgs.length - 1];
+      return {
+        avatar: c.name?.slice(0, 1) || c.username?.slice(0, 1).toUpperCase() || "IG",
+        color: colors[idx % colors.length],
+        username: `@${c.username}`,
+        action: lastMsg?.text ? lastMsg.text.replace(/\n+/g, " ").slice(0, 42) : "Interagiu com automação",
+        time: c.remainingHours24h > 0 ? `${24 - c.remainingHours24h}h atrás` : "ontem",
+      };
+    })
+  );
 
   const chartBars = [30, 42, 38, 55, 48, 36, 44, 60, 58, 70, 64, 76, 82, 92];
 

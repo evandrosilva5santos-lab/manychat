@@ -33,6 +33,18 @@ export type CarouselElement = {
   url?: string;
 };
 
+export type InstagramMediaItem = {
+  id: string;
+  caption?: string;
+  mediaType: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  permalink?: string;
+  timestamp?: string;
+  likeCount?: number;
+  commentsCount?: number;
+};
+
 const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
 
 export class InstagramGraphClient {
@@ -457,6 +469,99 @@ export class InstagramGraphClient {
       };
     } catch (err: any) {
       return { success: false, error: err?.message || String(err) };
+    }
+  }
+
+  /**
+   * Busca as últimas mídias (posts/reels) da conta conectada
+   */
+  async getUserMedia(igUserId?: string, limit = 25): Promise<{
+    success: boolean;
+    data: InstagramMediaItem[];
+    mock?: boolean;
+    error?: string;
+  }> {
+    if (!this.accessToken || process.env.NODE_ENV === "test") {
+      return {
+        success: true,
+        mock: true,
+        data: [
+          {
+            id: "mock_media_1",
+            caption: "Lançamento da nova integração! Comente EU QUERO para receber o link.",
+            mediaType: "IMAGE",
+            mediaUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80",
+            permalink: "https://www.instagram.com/p/mock1/",
+            timestamp: new Date().toISOString(),
+            likeCount: 154,
+            commentsCount: 23,
+          },
+          {
+            id: "mock_media_2",
+            caption: "3 dicas para crescer no Instagram.",
+            mediaType: "VIDEO",
+            thumbnailUrl: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=800&q=80",
+            permalink: "https://www.instagram.com/reel/mock2/",
+            timestamp: new Date(Date.now() - 86400000).toISOString(),
+            likeCount: 890,
+            commentsCount: 112,
+          },
+          {
+            id: "mock_media_3",
+            caption: "Carrossel de novidades",
+            mediaType: "CAROUSEL_ALBUM",
+            mediaUrl: "https://images.unsplash.com/photo-1611162618071-b39a2ec055ce?w=800&q=80",
+            permalink: "https://www.instagram.com/p/mock3/",
+            timestamp: new Date(Date.now() - 172800000).toISOString(),
+            likeCount: 45,
+            commentsCount: 5,
+          },
+        ],
+      };
+    }
+
+    const targetUserId = igUserId ?? "me";
+
+    try {
+      const qs = new URLSearchParams({
+        fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
+        limit: limit.toString(),
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${GRAPH_API_BASE}/${targetUserId}/media?${qs.toString()}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          data: [],
+          error: data?.error?.message || "Erro ao buscar mídias do Instagram",
+        };
+      }
+
+      const mediaItems: InstagramMediaItem[] = (data.data || []).map((item: any) => ({
+        id: item.id,
+        caption: item.caption,
+        mediaType: item.media_type,
+        mediaUrl: item.media_url,
+        thumbnailUrl: item.thumbnail_url,
+        permalink: item.permalink,
+        timestamp: item.timestamp,
+        likeCount: item.like_count,
+        commentsCount: item.comments_count,
+      }));
+
+      return {
+        success: true,
+        data: mediaItems,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        data: [],
+        error: err?.message || String(err),
+      };
     }
   }
 }

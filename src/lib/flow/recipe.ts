@@ -5,10 +5,18 @@
 import { z } from "zod";
 import { LIMITS, triggerNodeId, type EditorEdge, type EditorNode, type FlowSnapshot } from "./types";
 
+export type RecipeButton = {
+  id?: string;
+  title: string;
+  url: string;
+};
+
 export type Recipe = {
   trigger: {
     scope: "any" | "specific" | "next"; // qualquer publicação, uma específica ou a próxima
     matchType?: "keywords" | "any"; // palavra específica ou qualquer palavra
+    matchCondition?: "CONTAINS" | "EXACT";
+    negativeKeywords?: string[];
     mediaId: string;
     mediaUrl?: string;
     mediaCaption?: string;
@@ -17,17 +25,30 @@ export type Recipe = {
   };
   welcome: { enabled?: boolean; text: string; buttonTitle: string };
   followGate: { enabled: boolean; text: string; buttonTitle: string };
-  link: { text: string; buttonTitle: string; url: string };
+  link: {
+    text: string;
+    buttonTitle: string;
+    url: string;
+    buttons?: RecipeButton[];
+  };
   reminder: { enabled: boolean; delaySeconds: number; text: string; buttonTitle: string };
 };
 
 const text = z.string().max(LIMITS.text, `Máximo de ${LIMITS.text} caracteres`);
 const buttonTitle = z.string().trim().max(LIMITS.buttonTitle, `Máximo de ${LIMITS.buttonTitle} caracteres no botão`);
 
+export const recipeButtonSchema = z.object({
+  id: z.string().optional(),
+  title: buttonTitle,
+  url: z.string().trim().max(2000),
+});
+
 export const recipeSchema = z.object({
   trigger: z.object({
     scope: z.enum(["any", "specific", "next"]),
     matchType: z.enum(["keywords", "any"]).optional(),
+    matchCondition: z.enum(["CONTAINS", "EXACT"]).optional(),
+    negativeKeywords: z.array(z.string().trim().min(1).max(100)).max(15).optional(),
     mediaId: z.string().trim().max(100),
     mediaUrl: z.string().trim().max(2000).optional(),
     mediaCaption: z.string().trim().max(1000).optional(),
@@ -47,7 +68,12 @@ export const recipeSchema = z.object({
     buttonTitle,
   }),
   followGate: z.object({ enabled: z.boolean(), text, buttonTitle }),
-  link: z.object({ text, buttonTitle, url: z.string().trim().max(2000) }),
+  link: z.object({
+    text,
+    buttonTitle,
+    url: z.string().trim().max(2000),
+    buttons: z.array(recipeButtonSchema).max(3, "No máximo 3 botões na DM (limite da Meta)").optional(),
+  }),
   reminder: z.object({
     enabled: z.boolean(),
     delaySeconds: z.number().int().min(60).max(60 * 60 * 24 * 7),
@@ -103,7 +129,21 @@ export function readRecipe(raw: unknown): Recipe {
     },
     welcome: { ...base.welcome, ...value.welcome },
     followGate: { ...base.followGate, ...value.followGate },
-    link: { ...base.link, ...value.link },
+    link: {
+      ...base.link,
+      ...value.link,
+      buttons:
+        value.link?.buttons && value.link.buttons.length > 0
+          ? value.link.buttons
+          : value.link?.buttonTitle || value.link?.url
+          ? [
+              {
+                title: value.link.buttonTitle || base.link.buttonTitle,
+                url: value.link.url || base.link.url,
+              },
+            ]
+          : undefined,
+    },
     reminder: { ...base.reminder, ...value.reminder },
   };
   const parsed = recipeSchema.safeParse(merged);
@@ -152,7 +192,7 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
       config: {
         type: "COMMENT_KEYWORD",
         keywords: recipe.trigger.keywords,
-        match: "CONTAINS",
+        match: recipe.trigger.matchCondition || "CONTAINS",
         mediaId: recipe.trigger.scope === "specific" ? recipe.trigger.mediaId : undefined,
         publicReplies: recipe.trigger.publicReplies.enabled
           ? recipe.trigger.publicReplies.variations.filter((reply) => reply.trim())
@@ -180,12 +220,18 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
     link(id.trigger, null, id.welcome);
   }
 
-  const linkButton = (buttonId: string, title: string) => ({
-    id: buttonId,
-    title,
+  const rawButtons =
+    recipe.link.buttons && recipe.link.buttons.length > 0
+      ? recipe.link.buttons
+      : [{ id: id.linkButton, title: recipe.link.buttonTitle, url: recipe.link.url }];
+
+  const linkButtons = rawButtons.slice(0, 3).map((btn, idx) => ({
+    id: btn.id || (idx === 0 ? id.linkButton : `${id.linkButton}-${idx}`),
+    title: btn.title,
     type: "web_url" as const,
-    url: recipe.link.url,
-  });
+    url: btn.url,
+  }));
+
   nodes.push({
     id: id.link,
     type: "QUESTION",
@@ -193,7 +239,7 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
     data: {
       kind: "QUESTION",
       name: "DM com o link",
-      config: { text: recipe.link.text, buttons: [linkButton(id.linkButton, recipe.link.buttonTitle)] },
+      config: { text: recipe.link.text, buttons: linkButtons },
     },
   });
 
@@ -236,6 +282,7 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
 
   if (recipe.reminder.enabled) {
     const x = recipe.followGate.enabled ? 5 : 3;
+    const reminderUrl = linkButtons[0]?.url || recipe.link.url;
     nodes.push({
       id: id.wait,
       type: "DELAY",
@@ -257,7 +304,7 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
         name: "Lembrete",
         config: {
           text: recipe.reminder.text,
-          buttons: [linkButton(id.reminderButton, recipe.reminder.buttonTitle)],
+          buttons: [{ id: id.reminderButton, title: recipe.reminder.buttonTitle, type: "web_url", url: reminderUrl }],
         },
       },
     });
@@ -293,8 +340,18 @@ export function lintRecipe(recipe: Recipe): RecipeProblem[] {
     if (!recipe.followGate.buttonTitle.trim()) add("followGate", "Dê um texto ao botão de tentar de novo");
   }
   if (!recipe.link.text.trim()) add("link", "Escreva a mensagem do link");
-  if (!recipe.link.buttonTitle.trim()) add("link", "Dê um texto ao botão do link");
-  if (!isHttps(recipe.link.url)) add("link", "O link precisa começar com https://");
+
+  const buttonsToValidate =
+    recipe.link.buttons && recipe.link.buttons.length > 0
+      ? recipe.link.buttons
+      : [{ title: recipe.link.buttonTitle, url: recipe.link.url }];
+
+  for (const [idx, btn] of buttonsToValidate.entries()) {
+    const label = buttonsToValidate.length > 1 ? ` (${idx + 1}º botão)` : "";
+    if (!btn.title.trim()) add("link", `Dê um texto ao botão do link${label}`);
+    if (!isHttps(btn.url)) add("link", `O link precisa começar com https://${label}`);
+  }
+
   if (recipe.reminder.enabled) {
     if (!recipe.reminder.text.trim()) add("reminder", "Escreva o lembrete");
     if (!recipe.reminder.buttonTitle.trim()) add("reminder", "Dê um texto ao botão do lembrete");

@@ -13,8 +13,8 @@ import {
   LayoutGrid,
 } from "lucide-react";
 
-/** Ícone de Trevo / Automação característico do ManyChat */
-function ManyChatAutomationIcon({
+/** Ícone de Trevo / Automação característico do Fluxo */
+function FlowAutomationIcon({
   size = 20,
   className = "",
 }: {
@@ -45,8 +45,8 @@ function ManyChatAutomationIcon({
   );
 }
 
-/** Ícone AI em caixinha estilizada do ManyChat */
-function ManyChatAiIcon({ className = "" }: { className?: string }) {
+/** Ícone AI em caixinha estilizada do Fluxo */
+function FlowAiIcon({ className = "" }: { className?: string }) {
   return (
     <div
       className={`flex h-5 w-5 items-center justify-center rounded-[5px] border-[1.5px] border-current text-[9.5px] font-black tracking-tight leading-none select-none ${className}`}
@@ -56,17 +56,24 @@ function ManyChatAiIcon({ className = "" }: { className?: string }) {
   );
 }
 
-/** Logo oficial estilizado 'M' do ManyChat */
-function ManyChatLogo() {
+/** Logo estilizado do Fluxo */
+function FluxoLogo() {
   return (
     <svg
-      width="26"
-      height="26"
+      width="28"
+      height="28"
       viewBox="0 0 32 32"
-      fill="currentColor"
-      className="text-ink"
+      fill="none"
+      className="text-primary"
     >
-      <path d="M5 24V8h4.5l6.5 8.5L22.5 8H27v16h-4.5V14.5L16 23l-6.5-8.5V24H5z" />
+      <rect width="32" height="32" rx="8" fill="currentColor" fillOpacity="0.1" />
+      <path
+        d="M17.5 7L9 18H16L14.5 25L23 14H16L17.5 7Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -78,10 +85,10 @@ const NAV_ITEMS = [
     id: "automacoes",
     label: "Automações",
     href: "/fluxos",
-    customIcon: ManyChatAutomationIcon,
+    customIcon: FlowAutomationIcon,
   },
   { id: "catalogo", label: "Catálogo", href: "/catalogo", icon: LayoutGrid },
-  { id: "ai", label: "Agentes de IA", href: "/ai", customIcon: ManyChatAiIcon },
+  { id: "ai", label: "Agentes de IA", href: "/ai", customIcon: FlowAiIcon },
   {
     id: "conversas",
     label: "Conversas",
@@ -102,15 +109,15 @@ export function Sidebar() {
       style={{ width: "68px" }}
       aria-label="Menu principal"
     >
-      {/* Top: Logo 'M' e Badge PRO gradiente colorido */}
+      {/* Top: Logo Fluxo e Badge PRO */}
       <div className="flex flex-col items-center gap-3 w-full">
         <Link
           href="/"
           className="flex flex-col items-center justify-center group transition-transform hover:scale-105"
-          title="ManyChat"
+          title="Fluxo"
         >
           <div className="flex h-9 w-9 items-center justify-center">
-            <ManyChatLogo />
+            <FluxoLogo />
           </div>
           {/* Badge PRO idêntico ao print com gradiente arco-íris */}
           <div className="mt-1 flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-amber-400 p-[1.5px] shadow-xs">

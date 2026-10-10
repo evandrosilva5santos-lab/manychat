@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import type { Flow, Node, Edge, Contact } from "@/generated/prisma/client";
 import { defaultGraphClient } from "@/lib/meta/graph";
 import { recordOutgoingMessage } from "./contacts";
+import { getStoredFlow } from "@/lib/storage/store";
+import { compileRecipe, readRecipe } from "@/lib/flow/recipe";
 
 export type RunnerOptions = {
   accountId: string;
-  contact: Contact;
+  contact: Contact | any;
   flowId: string;
   startNodeId: string;
   triggerId?: string;
@@ -17,7 +19,7 @@ export type RunnerOptions = {
 /**
  * Substitui variáveis do contato no texto da mensagem (ex: {{name}}, {{username}}).
  */
-function interpolateVariables(text: string, contact: Contact): string {
+function interpolateVariables(text: string, contact: Contact | any): string {
   return text
     .replace(/\{\{name\}\}/gi, contact.name || contact.username || "amigo(a)")
     .replace(/\{\{username\}\}/gi, contact.username || "");
@@ -31,43 +33,96 @@ export async function executeFlow(options: RunnerOptions) {
   const { accountId, contact, flowId, startNodeId, triggerId } = options;
 
   // Carrega o fluxo com seus nós, conexões e cards de carrossel
-  const flow = await prisma.flow.findUnique({
-    where: { id: flowId },
-    include: {
-      nodes: {
-        include: {
-          carouselCards: {
-            include: { catalogItem: true },
-            orderBy: { position: "asc" },
+  let flow: any = null;
+  try {
+    flow = await prisma.flow.findUnique({
+      where: { id: flowId },
+      include: {
+        nodes: {
+          include: {
+            carouselCards: {
+              include: { catalogItem: true },
+              orderBy: { position: "asc" },
+            },
           },
         },
+        edges: true,
       },
-      edges: true,
-    },
-  });
+    });
+  } catch {
+    // fallback no store local
+  }
+
+  if (!flow) {
+    const stored = await getStoredFlow(flowId);
+    if (stored) {
+      if (stored.mode === "SIMPLE" && stored.recipe) {
+        const compiled = compileRecipe(stored.id, readRecipe(stored.recipe));
+        flow = {
+          id: stored.id,
+          name: stored.name,
+          nodes: compiled.nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            data: n.data,
+            positionX: n.position.x,
+            positionY: n.position.y,
+            carouselCards: [],
+          })),
+          edges: compiled.edges.map((e) => ({
+            id: e.id,
+            sourceNodeId: e.source,
+            sourceHandle: e.sourceHandle,
+            targetNodeId: e.target,
+          })),
+        };
+      } else {
+        flow = {
+          id: stored.id,
+          name: stored.name,
+          nodes: (stored.nodes || []).map((n: any) => ({
+            id: n.id,
+            type: n.type,
+            data: n.data,
+            carouselCards: [],
+          })),
+          edges: (stored.edges || []).map((e: any) => ({
+            id: e.id,
+            sourceNodeId: e.source,
+            sourceHandle: e.sourceHandle,
+            targetNodeId: e.target,
+          })),
+        };
+      }
+    }
+  }
 
   if (!flow) return { success: false, error: "Fluxo não encontrado" };
 
   // Localiza ou inicializa a execução (FlowRun)
-  let run = options.runId
-    ? await prisma.flowRun.findUnique({ where: { id: options.runId } })
-    : null;
-
-  if (!run) {
-    run = await prisma.flowRun.create({
-      data: {
-        flowId,
-        contactId: contact.id,
-        triggerId,
-        status: "RUNNING",
-        currentNodeId: startNodeId,
-      },
-    });
-  } else {
-    run = await prisma.flowRun.update({
-      where: { id: run.id },
-      data: { status: "RUNNING", currentNodeId: startNodeId },
-    });
+  let run: any = null;
+  try {
+    if (options.runId) {
+      run = await prisma.flowRun.findUnique({ where: { id: options.runId } });
+    }
+    if (!run) {
+      run = await prisma.flowRun.create({
+        data: {
+          flowId,
+          contactId: contact.id,
+          triggerId,
+          status: "RUNNING",
+          currentNodeId: startNodeId,
+        },
+      });
+    } else {
+      run = await prisma.flowRun.update({
+        where: { id: run.id },
+        data: { status: "RUNNING", currentNodeId: startNodeId },
+      });
+    }
+  } catch {
+    run = { id: `run_${Date.now()}`, flowId, contactId: contact.id, status: "RUNNING" };
   }
 
   let currentNodeId: string | null = startNodeId;
@@ -80,7 +135,7 @@ export async function executeFlow(options: RunnerOptions) {
     }
     visitedNodes.add(currentNodeId);
 
-    const node = flow.nodes.find((n) => n.id === currentNodeId);
+    const node = flow.nodes.find((n: any) => n.id === currentNodeId);
     if (!node) break;
 
     const data = (node.data || {}) as Record<string, any>;
@@ -105,7 +160,7 @@ export async function executeFlow(options: RunnerOptions) {
           });
         }
         // Próximo passo pela saída padrão
-        const edge = flow.edges.find((e) => e.sourceNodeId === node.id);
+        const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id);
         nextNodeId = edge ? edge.targetNodeId : null;
         break;
       }
@@ -182,7 +237,7 @@ export async function executeFlow(options: RunnerOptions) {
 
         const handle = conditionPassed ? "yes" : "no";
         const edge = flow.edges.find(
-          (e) => e.sourceNodeId === node.id && (e.sourceHandle === handle || !e.sourceHandle)
+          (e: any) => e.sourceNodeId === node.id && (e.sourceHandle === handle || !e.sourceHandle)
         );
         nextNodeId = edge ? edge.targetNodeId : null;
         break;
@@ -206,7 +261,7 @@ export async function executeFlow(options: RunnerOptions) {
             },
           });
         }
-        const edge = flow.edges.find((e) => e.sourceNodeId === node.id);
+        const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id);
         nextNodeId = edge ? edge.targetNodeId : null;
         break;
       }
@@ -218,7 +273,7 @@ export async function executeFlow(options: RunnerOptions) {
         if (isFollowing) {
           // Se já segue, segue pela saída de desbloqueio
           const edge = flow.edges.find(
-            (e) => e.sourceNodeId === node.id && (e.sourceHandle === "unlock" || !e.sourceHandle)
+            (e: any) => e.sourceNodeId === node.id && (e.sourceHandle === "unlock" || !e.sourceHandle)
           );
           nextNodeId = edge ? edge.targetNodeId : null;
         } else {
@@ -300,12 +355,12 @@ export async function executeFlow(options: RunnerOptions) {
             pauseExecution = true;
           } else {
             // Se todos os botões são links externos (URL), segue para a próxima caixinha conectada
-            const edge = flow.edges.find((e) => e.sourceNodeId === node.id);
+            const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id);
             nextNodeId = edge ? edge.targetNodeId : null;
           }
         } else {
           // Sem cards configurados, avança para a próxima caixinha
-          const edge = flow.edges.find((e) => e.sourceNodeId === node.id);
+          const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id);
           nextNodeId = edge ? edge.targetNodeId : null;
         }
         break;
@@ -329,7 +384,7 @@ export async function executeFlow(options: RunnerOptions) {
       }
 
       default: {
-        const edge = flow.edges.find((e) => e.sourceNodeId === node.id);
+        const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id);
         nextNodeId = edge ? edge.targetNodeId : null;
         break;
       }

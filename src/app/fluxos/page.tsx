@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { connection } from "next/server";
 import { Workflow, Zap } from "lucide-react";
 import { getCurrentAccount } from "@/lib/account";
 import { describeTrigger, STATUS_BADGE, timeAgo } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
-import { createFlow } from "./actions";
+import { listStoredFlows } from "@/lib/storage/store";
 
 export const metadata = { title: "Automações · Fluxo" };
 
@@ -18,52 +17,31 @@ export default async function FlowsPage() {
     updatedAt: Date;
     triggers: any[];
   }> = [];
-  let dbConnected = true;
 
   try {
     const account = await getCurrentAccount();
-    flows = await prisma.flow.findMany({
+    const dbFlows = await prisma.flow.findMany({
       where: { accountId: account.id },
       orderBy: { updatedAt: "desc" },
       include: { triggers: { take: 1, orderBy: { createdAt: "asc" } } },
     });
+    if (dbFlows.length > 0) {
+      flows = dbFlows;
+    } else {
+      const stored = await listStoredFlows();
+      flows = stored.map((f) => ({
+        ...f,
+        updatedAt: new Date(f.updatedAt),
+        triggers: f.triggers || [],
+      }));
+    }
   } catch (error) {
-    dbConnected = false;
-    // Dados de demonstração (iguais aos prints do Manychat)
-    flows = [
-      {
-        id: "demo-casamento",
-        name: "[2026] Casamento por DM automático",
-        folder: "Moving 2026",
-        status: "LIVE",
-        mode: "SIMPLE",
-        updatedAt: new Date(),
-        triggers: [
-          {
-            type: "COMMENT_KEYWORD",
-            keywords: ["casamento", "quero casar"],
-            match: "CONTAINS",
-            mediaId: null,
-          },
-        ],
-      },
-      {
-        id: "demo-astrix",
-        name: "Captação story Astrix",
-        folder: "[CAPT] Lança nível 1",
-        status: "STOPPED",
-        mode: "ADVANCED",
-        updatedAt: new Date(Date.now() - 3600000 * 24),
-        triggers: [
-          {
-            type: "STORY_REPLY",
-            keywords: ["eu quero"],
-            match: "CONTAINS",
-            mediaId: null,
-          },
-        ],
-      },
-    ];
+    const stored = await listStoredFlows();
+    flows = stored.map((f) => ({
+      ...f,
+      updatedAt: new Date(f.updatedAt),
+      triggers: f.triggers || [],
+    }));
   }
 
   return (
@@ -76,16 +54,12 @@ export default async function FlowsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <form action={createFlow.bind(null, "ADVANCED")}>
-            <button type="submit" className="fx-btn">
-              <Workflow size={18} aria-hidden /> Fluxo avançado
-            </button>
-          </form>
-          <form action={createFlow.bind(null, "SIMPLE")}>
-            <button type="submit" className="fx-btn fx-btn-primary">
-              <Zap size={18} aria-hidden /> Automação rápida
-            </button>
-          </form>
+          <Link href="/fluxos/novo?mode=ADVANCED" className="fx-btn">
+            <Workflow size={18} aria-hidden /> Fluxo avançado
+          </Link>
+          <Link href="/fluxos/novo" className="fx-btn fx-btn-primary">
+            <Zap size={18} aria-hidden /> Automação rápida
+          </Link>
         </div>
       </header>
 

@@ -27,7 +27,7 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
   const account = await getCurrentAccount();
   const hasAccessToken = Boolean(process.env.IG_ACCESS_TOKEN);
   const hasAppSecret = Boolean(process.env.META_APP_SECRET || process.env.IG_APP_SECRET);
-  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || "token_verificacao_manychat_secreto";
+  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || "token_verificacao_fluxo_secreto";
 
   return {
     account: {

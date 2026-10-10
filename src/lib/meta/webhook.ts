@@ -1,4 +1,34 @@
 import crypto from "crypto";
+import { z } from "zod";
+
+const identifier = z.string().min(1);
+const webhookEntrySchema = z.object({
+  id: identifier,
+  time: z.number().finite().nonnegative().optional(),
+  changes: z.array(z.unknown()).optional(),
+  messaging: z.array(z.unknown()).optional(),
+});
+export const instagramWebhookSchema = z.object({
+  object: z.literal("instagram"),
+  entry: z.array(z.unknown()),
+});
+const commentSchema = z.object({
+  field: z.literal("comments"),
+  value: z.object({
+    id: identifier,
+    text: z.string().default(""),
+    from: z.object({ id: identifier, username: z.string().optional() }),
+    media: z.object({ id: identifier }).optional(),
+    created_time: z.number().finite().nonnegative().optional(),
+  }),
+});
+const messagingSchema = z.object({
+  sender: z.object({ id: identifier }),
+  recipient: z.object({ id: identifier }).optional(),
+  timestamp: z.number().finite().nonnegative().optional(),
+  postback: z.object({ title: z.string().default(""), payload: identifier }).optional(),
+  message: z.object({ mid: identifier, text: z.string().optional(), is_echo: z.boolean().optional() }).optional(),
+});
 
 export type NormalizedWebhookEvent =
   | {
@@ -39,7 +69,7 @@ export function verifyWebhookChallenge(
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === expectedVerifyToken && challenge) {
+  if (expectedVerifyToken && mode === "subscribe" && token === expectedVerifyToken && challenge) {
     return challenge;
   }
   return null;
@@ -54,14 +84,13 @@ export function verifyMetaHmacSignature(
   appSecret: string
 ): boolean {
   if (!signatureHeader || !appSecret) {
-    // Se o segredo não estiver configurado localmente em dev, permite prosseguir
-    return process.env.NODE_ENV !== "production";
-  }
-
-  const [prefix, signature] = signatureHeader.split("=");
-  if (prefix !== "sha256" || !signature) {
     return false;
   }
+
+  if (!/^sha256=[a-fA-F0-9]{64}$/.test(signatureHeader)) {
+    return false;
+  }
+  const signature = signatureHeader.slice(7);
 
   const expectedHmac = crypto
     .createHmac("sha256", appSecret)
@@ -81,22 +110,26 @@ export function verifyMetaHmacSignature(
 /**
  * Normaliza os eventos brutos da Meta em estruturas limpas e tipadas.
  */
-export function parseInstagramWebhookPayload(body: any): NormalizedWebhookEvent[] {
+export function parseInstagramWebhookPayload(body: unknown): NormalizedWebhookEvent[] {
   const events: NormalizedWebhookEvent[] = [];
-
-  if (!body || body.object !== "instagram" || !Array.isArray(body.entry)) {
+  const parsed = instagramWebhookSchema.safeParse(body);
+  if (!parsed.success) {
     return events;
   }
 
-  for (const entry of body.entry) {
+  for (const rawEntry of parsed.data.entry) {
+    const parsedEntry = webhookEntrySchema.safeParse(rawEntry);
+    if (!parsedEntry.success) continue;
+    const entry = parsedEntry.data;
     const igUserId = entry.id;
     const time = entry.time || Date.now();
 
     // 1. Comentários (changes -> field: "comments")
     if (Array.isArray(entry.changes)) {
       for (const change of entry.changes) {
-        if (change.field === "comments" && change.value) {
-          const val = change.value;
+        const parsedChange = commentSchema.safeParse(change);
+        if (parsedChange.success) {
+          const val = parsedChange.data.value;
           // Ignora comentários feitos pelo próprio dono da conta (evita loops e disparos para si mesmo)
           if (val.from?.id === igUserId) continue;
 
@@ -116,10 +149,13 @@ export function parseInstagramWebhookPayload(body: any): NormalizedWebhookEvent[
 
     // 2. Mensagens e Cliques de Botão (messaging)
     if (Array.isArray(entry.messaging)) {
-      for (const msg of entry.messaging) {
+      for (const rawMessage of entry.messaging) {
+        const parsedMessage = messagingSchema.safeParse(rawMessage);
+        if (!parsedMessage.success) continue;
+        const msg = parsedMessage.data;
         const userIgsid = msg.sender?.id;
         // Ignora mensagens enviadas pela própria conta
-        if (userIgsid === igUserId) continue;
+        if (userIgsid === igUserId || msg.message?.is_echo || (msg.recipient && msg.recipient.id !== igUserId)) continue;
 
         // Clique num botão fixo (postback)
         if (msg.postback) {

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 const DEMO_ACCOUNT = {
   id: "demo-account",
-  igUserId: "pending",
+  igUserId: "17841400123456789",
   username: "movingfestival",
   name: "Moving Festival",
   profilePicUrl: null,

@@ -40,7 +40,7 @@ export const configSchemas = {
     nodeId: id.optional(),
     value: z.string().max(200).optional(),
   }),
-  DELAY: z.object({ seconds: z.number().int().min(1).max(60 * 60 * 24 * 7) }),
+  DELAY: z.object({ seconds: z.number().int().min(1).max(60 * 60 * 23, "A espera deve ser de no máximo 23 horas") }),
   ADD_TAG: z.object({ tagId: id.optional() }),
   CAROUSEL: z.object({
     cards: z

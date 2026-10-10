@@ -422,12 +422,23 @@ export function DmPreview({
                     {recipe.link.text ||
                       "AAAAH! 💍🥹\nEntão você também sonha em viver esse momento com a Moving!\n\nQuer saber como funciona a inscrição para o casamento? Vou te encaminhar para o WhatsApp da equipe. 👇"}
                   </div>
-                  {recipe.link.buttonTitle && (
-                    <div className="border-t border-white/10 bg-[#323238]/60 p-2 text-center text-[11px] font-bold text-white uppercase tracking-wider flex items-center justify-center gap-1">
-                      <span>{recipe.link.buttonTitle}</span>
-                      <ExternalLink size={11} className="text-white/70" />
-                    </div>
-                  )}
+                  {(() => {
+                    const rawBtns =
+                      recipe.link.buttons && recipe.link.buttons.length > 0
+                        ? recipe.link.buttons
+                        : recipe.link.buttonTitle
+                        ? [{ title: recipe.link.buttonTitle, url: recipe.link.url }]
+                        : [];
+                    return rawBtns.map((btn, idx) => (
+                      <div
+                        key={idx}
+                        className="border-t border-white/10 bg-[#323238]/60 p-2 text-center text-[11px] font-bold text-white uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#323238] transition-colors"
+                      >
+                        <span className="truncate max-w-[200px]">{btn.title}</span>
+                        <ExternalLink size={11} className="text-white/70 flex-none" />
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 

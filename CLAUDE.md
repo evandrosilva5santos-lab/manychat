@@ -16,31 +16,28 @@ O projeto já foi integralmente auditado, mapeado e fatiado pelo Antigravity e e
 Abra e leia imediatamente o arquivo:
 - `execution/CURRENT_TASK.md`
 
-A tarefa atual autorizada é: **`NANO-001`** (Adicionar método `getUserMedia` em `src/lib/meta/graph.ts` e criar a rota `GET /api/instagram/media`).
+A tarefa atual autorizada é: **`NANO-002`** (Criar suíte de testes unitários para `getUserMedia` e a rota `GET /api/instagram/media` no Vitest em `src/lib/meta/graph.test.ts`).
 
 ### Passo 2: Verifique os Arquivos Permitidos
-Na `NANO-001`, você SOMENTE tem autorização para modificar/criar:
-- `src/lib/meta/graph.ts`
-- `src/app/api/instagram/media/route.ts`
+Na `NANO-002`, você SOMENTE tem autorização para modificar/criar:
+- `src/lib/meta/graph.test.ts`
 
 NÃO altere `PRD.md`, `PostPicker.tsx` ou qualquer outro arquivo nesta etapa.
 
 ### Passo 3: Execute a Ação
-1. Em `src/lib/meta/graph.ts`:
-   - Adicione o tipo `InstagramMediaItem`.
-   - Adicione o método `getUserMedia` na classe `InstagramGraphClient` com suporte a fallback mock e chamada real à Meta Graph API v21.0.
-2. Em `src/app/api/instagram/media/route.ts`:
-   - Crie o handler `export async function GET(req: Request)` que chama `defaultGraphClient.getUserMedia()` e retorna `NextResponse.json(...)`.
+1. Em `src/lib/meta/graph.test.ts`:
+   - Importe `InstagramGraphClient`, `defaultGraphClient` e `GET` de `src/app/api/instagram/media/route`.
+   - Cubra cenários sem token (mock inteligente), cenários com fetch simulado (headers e query params) e tratamento defensivo de erro HTTP.
+   - Teste a rota `GET` simulando requisições com status HTTP 200.
 
 ### Passo 4: Valide
 - Execute `npx tsc --noEmit`.
 - Execute `npm test`.
-- Teste localmente com `curl http://localhost:3007/api/instagram/media`.
 
 ### Passo 5: Atualize o Estado
 - Registre o que fez em `state/CHANGELOG.md`.
-- Mova `NANO-001` para `DONE` em `execution/TASK_QUEUE.md`.
+- Mova `NANO-002` para `DONE` em `execution/TASK_QUEUE.md`.
 - Atualize `state/STATUS.md`.
-- Prepare o próximo passo autorizando `NANO-002` em `execution/CURRENT_TASK.md`.
+- Prepare o próximo passo autorizando `NANO-003` em `execution/CURRENT_TASK.md`.
 
 Para regras detalhadas de governança, consulte `AGENTS.md` e `execution/EXECUTION_RULES.md`.

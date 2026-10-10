@@ -2,7 +2,7 @@ import { listCatalogItems } from "./actions";
 import { CatalogClient } from "./CatalogClient";
 
 export const metadata = {
-  title: "Catálogo de Cards · ManyChat",
+  title: "Catálogo de Cards · Fluxo",
   description: "Gerencie cards visuais reutilizáveis para envio de carrosséis no Direct do Instagram.",
 };
 

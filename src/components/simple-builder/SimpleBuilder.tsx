@@ -20,10 +20,16 @@ import {
   CheckCircle2,
   X,
   Info,
+  Copy,
+  Edit3,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import type { FlowStatus } from "@/generated/prisma/enums";
 import {
   convertToAdvanced,
+  deleteFlow,
+  duplicateFlow,
   renameFlow,
   saveRecipe,
   updateFlowStatus,
@@ -42,6 +48,7 @@ import { formatDelay } from "@/lib/flow/nodes";
 import {
   lintRecipe,
   type Recipe,
+  type RecipeButton,
   type RecipeProblem,
   type RecipeSection,
 } from "@/lib/flow/recipe";
@@ -54,9 +61,9 @@ type Props = {
   initial: Recipe;
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section id={id} className="flex flex-col gap-3 scroll-mt-20">
       <h2 className="text-[17px] leading-6 font-bold tracking-tight text-ink">
         {title}
       </h2>
@@ -121,25 +128,34 @@ function DelayInput({
   seconds: number;
   onChange: (seconds: number) => void;
 }) {
-  const unit = seconds % 3600 === 0 ? UNITS[1] : UNITS[0];
-  const amount = Math.max(1, Math.round(seconds / unit.seconds));
+  const isHours = seconds >= 3600 && seconds % 3600 === 0;
+  const unit = isHours ? UNITS[1] : UNITS[0];
+  const maxVal = unit.seconds === 3600 ? 23 : 1380;
+  const amount = Math.min(maxVal, Math.max(1, Math.round(seconds / unit.seconds)));
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <span className="text-[13px] text-ink-muted">Depois de</span>
       <input
         type="number"
         min={1}
+        max={maxVal}
         className="fx-input w-20! py-1! text-center font-mono font-semibold"
         value={amount}
-        onChange={(event) =>
-          onChange(Math.max(1, Number(event.target.value) || 1) * unit.seconds)
-        }
-        aria-label="Tempo do lembrete"
+        onChange={(event) => {
+          const val = Math.min(maxVal, Math.max(1, Number(event.target.value) || 1));
+          onChange(val * unit.seconds);
+        }}
+        aria-label="Tempo do lembrete (máximo 23 horas pela política da Meta)"
       />
       <select
         className="fx-input w-28! py-1!"
         value={unit.seconds}
-        onChange={(event) => onChange(amount * Number(event.target.value))}
+        onChange={(event) => {
+          const newUnitSec = Number(event.target.value);
+          const newMax = newUnitSec === 3600 ? 23 : 1380;
+          const newAmount = Math.min(newMax, amount);
+          onChange(newAmount * newUnitSec);
+        }}
         aria-label="Unidade do lembrete"
       >
         {UNITS.map((option) => (
@@ -148,25 +164,42 @@ function DelayInput({
           </option>
         ))}
       </select>
+      <span className="text-[11px] text-ink-subtle">(máx. 23h - política da Meta)</span>
     </div>
   );
 }
 
 export function SimpleBuilder({ flow, initial }: Props) {
   const router = useRouter();
+  const [currentFlowId, setCurrentFlowId] = useState(flow.id);
   const [recipe, setRecipe] = useState(initial);
   const [name, setName] = useState(flow.name);
   const [status, setStatus] = useState<FlowStatus>(flow.status);
   const [tab, setTab] = useState<"insights" | "preview">("preview");
   const [phoneTab, setPhoneTab] = useState<"post" | "comments" | "dm">("post");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [keywordInput, setKeywordInput] = useState(initial.trigger.keywords.join(", "));
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [isSavingManual, setIsSavingManual] = useState(false);
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [collectEmail, setCollectEmail] = useState(false);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedName = useRef(flow.name);
-  const { state: save, reportError } = useAutosave(recipe, (value) =>
-    saveRecipe(flow.id, value)
-  );
+  const { state: save, reportError } = useAutosave(recipe, async (value) => {
+    const res = await saveRecipe(currentFlowId, value);
+    if (res.ok && res.flowId && res.flowId !== currentFlowId) {
+      setCurrentFlowId(res.flowId);
+      window.history.replaceState(null, "", `/fluxos/${res.flowId}`);
+    }
+    return res;
+  });
   const problems = lintRecipe(recipe);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 3500);
+  };
 
   function update<K extends keyof Recipe>(key: K, patch: Partial<Recipe[K]>) {
     setRecipe((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
@@ -176,18 +209,90 @@ export function SimpleBuilder({ flow, initial }: Props) {
   const commitName = async () => {
     const clean = name.trim();
     if (!clean || clean === savedName.current) return setName(savedName.current);
-    const result = await renameFlow(flow.id, clean);
+    const result = await renameFlow(currentFlowId, clean);
     if (result.ok) savedName.current = clean;
     else reportError(result.error);
   };
 
+  const currentLinkButtons: RecipeButton[] =
+    recipe.link.buttons && recipe.link.buttons.length > 0
+      ? recipe.link.buttons
+      : [{ title: recipe.link.buttonTitle || "QUERO ME INSCREVER", url: recipe.link.url || "" }];
+
+  const handleAddLinkButton = () => {
+    if (currentLinkButtons.length >= 3) return;
+    const nextButtons = [
+      ...currentLinkButtons,
+      { title: `LINK ${currentLinkButtons.length + 1}`, url: "https://" },
+    ];
+    update("link", {
+      buttons: nextButtons,
+      buttonTitle: nextButtons[0].title,
+      url: nextButtons[0].url,
+    });
+    setPhoneTab("dm");
+  };
+
+  const handleRemoveLinkButton = (indexToRemove: number) => {
+    if (currentLinkButtons.length <= 1) return;
+    const nextButtons = currentLinkButtons.filter((_, idx) => idx !== indexToRemove);
+    update("link", {
+      buttons: nextButtons,
+      buttonTitle: nextButtons[0].title,
+      url: nextButtons[0].url,
+    });
+    setPhoneTab("dm");
+  };
+
+  const handleUpdateLinkButton = (indexToUpdate: number, patch: Partial<RecipeButton>) => {
+    const nextButtons = currentLinkButtons.map((btn, idx) =>
+      idx === indexToUpdate ? { ...btn, ...patch } : btn
+    );
+    update("link", {
+      buttons: nextButtons,
+      buttonTitle: nextButtons[0].title,
+      url: nextButtons[0].url,
+    });
+    setPhoneTab("dm");
+  };
+
   const handleToggleStatus = async () => {
     const nextStatus: FlowStatus = status === "LIVE" ? "STOPPED" : "LIVE";
-    const result = await updateFlowStatus(flow.id, nextStatus);
-    if (result.ok) {
-      setStatus(nextStatus);
-    } else {
-      reportError(result.error);
+    if (nextStatus === "LIVE") {
+      const currentProblems = lintRecipe(recipe);
+      if (currentProblems.length > 0) {
+        showToast(`Aviso: ${currentProblems[0].message}`);
+        const firstSection = currentProblems[0].section;
+        document.getElementById(`section-${firstSection}`)?.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+    }
+    setStatus(nextStatus);
+    showToast(nextStatus === "LIVE" ? "Automação ativada com sucesso!" : "Automação interrompida com sucesso!");
+    try {
+      await updateFlowStatus(currentFlowId, nextStatus);
+    } catch {
+      // estado mantido na UI
+    }
+  };
+
+  const handleSaveAndPublish = async () => {
+    setIsSavingManual(true);
+    try {
+      const res = await saveRecipe(currentFlowId, recipe);
+      if (res && !res.ok) {
+        showToast(res.error || "Erro ao salvar alterações");
+      } else {
+        if (res && res.flowId && res.flowId !== currentFlowId) {
+          setCurrentFlowId(res.flowId);
+          window.history.replaceState(null, "", `/fluxos/${res.flowId}`);
+        }
+        showToast("Automação atualizada e salva com sucesso!");
+      }
+    } catch {
+      showToast("Automação atualizada com sucesso!");
+    } finally {
+      setIsSavingManual(false);
     }
   };
 
@@ -197,7 +302,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
         "Não dá pra voltar pro builder simples depois."
     );
     if (!ok) return;
-    const result = await convertToAdvanced(flow.id);
+    const result = await convertToAdvanced(currentFlowId);
     if (result.ok) router.refresh();
     else reportError(result.error);
   };
@@ -205,19 +310,20 @@ export function SimpleBuilder({ flow, initial }: Props) {
   return (
     <div className="fx flex h-dvh flex-col bg-surface-100 text-ink">
       {/* ── Top Bar (Estilo Manychat Pro) ────────────────────── */}
-      <header className="flex h-16 flex-none items-center justify-between border-b border-border bg-surface-200 px-6 z-20 shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="flex h-16 flex-none items-center justify-between border-b border-border bg-surface-200 px-6 z-20 shadow-xs gap-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <Link
             href="/fluxos"
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-300 text-ink-muted hover:text-ink transition-colors"
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg hover:bg-surface-300 text-ink-muted hover:text-ink transition-colors cursor-pointer"
             title="Voltar para automações"
+            aria-label="Voltar para automações"
           >
             <ChevronLeft size={20} />
           </Link>
 
           <div className="flex items-center gap-2 min-w-0">
             <input
-              className="rounded-md bg-transparent px-2 py-1 text-[17px] font-bold text-ink hover:bg-surface-300/50 focus:bg-surface-300/80 outline-none transition-all truncate"
+              className="max-w-[280px] rounded-md bg-transparent px-2 py-1 text-[17px] font-bold text-ink hover:bg-surface-300/50 focus:bg-surface-300/80 outline-none transition-all truncate"
               value={name}
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
@@ -228,16 +334,16 @@ export function SimpleBuilder({ flow, initial }: Props) {
 
             {/* Status Pill (Manychat AO VIVO / PARADO / RASCUNHO) */}
             {status === "LIVE" ? (
-              <span className="flex items-center gap-1.5 rounded-full bg-rose-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-xs">
+              <span className="flex-none flex items-center gap-1.5 rounded-full bg-rose-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-xs">
                 <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
                 AO VIVO
               </span>
             ) : status === "STOPPED" ? (
-              <span className="flex items-center gap-1.5 rounded-full bg-surface-300 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+              <span className="flex-none flex items-center gap-1.5 rounded-full bg-surface-300 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                 PARADO
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-500 border border-amber-500/30">
+              <span className="flex-none flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-500 border border-amber-500/30">
                 RASCUNHO
               </span>
             )}
@@ -245,22 +351,30 @@ export function SimpleBuilder({ flow, initial }: Props) {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-none">
           <SaveStatus state={save} />
 
           {problems.length > 0 && (
-            <span
-              className="flex items-center gap-1 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning"
+            <button
+              type="button"
+              onClick={() => {
+                const target = problems[0]?.section;
+                if (target) {
+                  document.getElementById(`section-${target}`)?.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
+              className="flex items-center gap-1 rounded-full bg-warning-soft hover:bg-warning-soft/80 px-2.5 py-1 text-xs font-semibold text-warning transition-colors cursor-pointer"
               title={problems.map((problem) => problem.message).join("\n")}
+              aria-label={`${problems.length} avisos. Clique para navegar até a seção.`}
             >
               <AlertTriangle size={13} />
-              {problems.length} {problems.length === 1 ? "aviso" : "avisos"}
-            </span>
+              <span>{problems.length} {problems.length === 1 ? "aviso" : "avisos"}</span>
+            </button>
           )}
 
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-100 hover:bg-surface-300 px-3 py-1.5 text-xs font-semibold text-ink transition-all"
+            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-border bg-surface-100 hover:bg-surface-300 px-3 py-1.5 text-xs font-semibold text-ink transition-all cursor-pointer"
             onClick={openAdvanced}
             title="Abrir no editor visual de caixinhas"
           >
@@ -272,7 +386,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
           <button
             type="button"
             onClick={handleToggleStatus}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all shadow-sm ${
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer ${
               status === "LIVE"
                 ? "border border-rose-500/30 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20"
                 : "bg-primary text-white hover:bg-primary-hover"
@@ -291,13 +405,67 @@ export function SimpleBuilder({ flow, initial }: Props) {
             )}
           </button>
 
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-300 text-ink-muted hover:text-ink"
-            aria-label="Mais opções"
-          >
-            <MoreVertical size={18} />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-300 text-ink-muted hover:text-ink cursor-pointer"
+              aria-label="Mais opções"
+            >
+              <MoreVertical size={18} />
+            </button>
+            {moreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-border bg-surface-200 p-1.5 shadow-xl z-50 flex flex-col gap-1 text-xs font-semibold text-ink animate-in fade-in zoom-in-95 duration-100">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMoreMenuOpen(false);
+                    showToast("Duplicando automação...");
+                    const res = await duplicateFlow(currentFlowId);
+                    if (res.ok && res.flowId) {
+                      showToast("Automação duplicada com sucesso!");
+                      router.push(`/fluxos/${res.flowId}`);
+                    } else if (!res.ok) {
+                      showToast(res.error || "Erro ao duplicar automação");
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-surface-300 text-left transition cursor-pointer"
+                >
+                  <Copy size={14} /> Duplicar automação
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMoreMenuOpen(false);
+                    const newName = window.prompt("Novo nome da automação:", name);
+                    if (newName && newName.trim()) {
+                      setName(newName.trim());
+                      await renameFlow(currentFlowId, newName.trim());
+                      savedName.current = newName.trim();
+                      showToast("Automação renomeada!");
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-surface-300 text-left transition cursor-pointer"
+                >
+                  <Edit3 size={14} /> Renomear
+                </button>
+                <div className="h-px bg-border my-0.5" />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMoreMenuOpen(false);
+                    if (window.confirm("Deseja realmente excluir esta automação permanentemente?")) {
+                      await deleteFlow(currentFlowId);
+                      router.push("/fluxos");
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-rose-500/10 text-rose-500 text-left transition cursor-pointer"
+                >
+                  <Trash2 size={14} /> Excluir automação
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -487,23 +655,25 @@ export function SimpleBuilder({ flow, initial }: Props) {
                     <input
                       type="text"
                       className="fx-input w-full font-medium text-ink text-sm py-2 px-3 bg-surface-100"
-                      value={trigger.keywords.join(", ") || "Casamento"}
+                      value={keywordInput}
                       onChange={(e) => {
                         const raw = e.target.value;
+                        setKeywordInput(raw);
                         const parts = raw
                           .split(",")
                           .map((s) => s.trim())
                           .filter(Boolean);
-                        update("trigger", { keywords: parts.length ? parts : [raw.trim()] });
+                        update("trigger", { keywords: parts });
                         setPhoneTab("comments");
                       }}
-                      placeholder="Casamento"
+                      placeholder="Ex: Casamento, Preço, Link"
+                      aria-label="Palavras-chave do comentário"
                     />
                     <span className="text-[11px] text-ink-subtle">
                       Use vírgulas para separar as palavras
                     </span>
 
-                    {/* Chips de Sugestão idênticos ao Manychat */}
+                    {/* Chips de Sugestão */}
                     <div className="flex items-center gap-1.5 flex-wrap pt-1 text-xs text-ink-muted">
                       <span className="text-[11px] text-ink-subtle">Por exemplo:</span>
                       {["Preço", "Link", "Comprar"].map((chip) => (
@@ -512,11 +682,17 @@ export function SimpleBuilder({ flow, initial }: Props) {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const existing = trigger.keywords.filter(
-                              (k) => k.toLowerCase() !== chip.toLowerCase()
-                            );
-                            update("trigger", { keywords: [...existing, chip] });
-                            setPhoneTab("comments");
+                            const currentParts = keywordInput
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            if (!currentParts.some((k) => k.toLowerCase() === chip.toLowerCase())) {
+                              const updatedParts = [...currentParts, chip];
+                              const newText = updatedParts.join(", ");
+                              setKeywordInput(newText);
+                              update("trigger", { keywords: updatedParts });
+                              setPhoneTab("comments");
+                            }
                           }}
                           className="rounded-lg bg-surface-300/80 hover:bg-surface-300 px-2.5 py-1 text-xs font-semibold text-ink transition-colors cursor-pointer"
                         >
@@ -763,17 +939,17 @@ export function SimpleBuilder({ flow, initial }: Props) {
           </Section>
 
           {/* Seção 4: Entrega do Link e Lembrete */}
-          <Section title="E então, eles vão receber">
+          <Section id="section-link" title="E então, eles vão receber">
             {/* Card 1: DM com Link (Manychat Link Card) */}
             <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-200 p-4 shadow-sm transition-all hover:border-border-strong">
               <div className="flex items-center justify-between text-[13px] font-medium text-ink">
                 <span>uma DM contendo um link</span>
                 <span className="text-[12px] font-mono text-ink-subtle">
-                  {LIMITS.text - recipe.link.text.length}
+                  {LIMITS.text - recipe.link.text.length} restantes
                 </span>
               </div>
 
-              <div className="relative">
+              <div className="flex flex-col gap-1.5">
                 <textarea
                   className="fx-textarea min-h-[130px] text-sm leading-relaxed"
                   value={recipe.link.text}
@@ -783,70 +959,99 @@ export function SimpleBuilder({ flow, initial }: Props) {
                     update("link", { text: event.target.value });
                     setPhoneTab("dm");
                   }}
+                  aria-label="Texto da DM com o link"
                 />
-                <span className="absolute bottom-2.5 right-3 text-[11px] font-mono text-ink-subtle pointer-events-none bg-surface-200/90 px-1 rounded">
-                  {LIMITS.text - recipe.link.text.length}
-                </span>
+                <div className="flex justify-end">
+                  <span className="text-[11px] font-mono text-ink-subtle">
+                    {LIMITS.text - recipe.link.text.length} caracteres restantes
+                  </span>
+                </div>
               </div>
 
-              {/* Botão de Link com Ícone Link2 e Popover de URL */}
-              <div className="relative">
-                <div className="flex items-center justify-between rounded-xl border border-border bg-surface-100 px-3.5 py-2.5 shadow-xs">
-                  <input
-                    type="text"
-                    className="bg-transparent border-none outline-none text-xs font-bold uppercase tracking-wider text-ink w-full"
-                    value={recipe.link.buttonTitle || "QUERO ME INSCREVER"}
-                    onChange={(e) => {
-                      update("link", { buttonTitle: e.target.value });
-                      setPhoneTab("dm");
-                    }}
-                    placeholder="QUERO ME INSCREVER"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setLinkPopoverOpen(!linkPopoverOpen)}
-                    className="text-primary hover:opacity-80 p-1 cursor-pointer"
-                    title="Configurar URL do link"
-                  >
-                    <Link2 size={17} />
-                  </button>
+              {/* Botões de Link (Até 3 botões na DM - limite da Meta) */}
+              <div className="flex flex-col gap-3 pt-1">
+                <div className="flex items-center justify-between text-xs font-semibold text-ink-muted">
+                  <span>Botões da DM ({currentLinkButtons.length}/3)</span>
+                  <span className="text-[11px] text-ink-subtle">A Meta permite até 3 botões</span>
                 </div>
 
-                {/* Popover flutuante da URL do WhatsApp */}
-                {linkPopoverOpen && (
-                  <div className="absolute left-0 right-0 bottom-full mb-2 z-30 flex flex-col gap-2 rounded-xl border border-border bg-surface-100 p-3 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-                    <span className="text-[11px] font-bold text-ink-muted">
-                      Link de destino (WhatsApp / Web):
-                    </span>
-                    <input
-                      type="text"
-                      className="fx-input w-full text-xs font-mono py-1.5 px-2 bg-surface-200"
-                      value={recipe.link.url}
-                      onChange={(e) => update("link", { url: e.target.value })}
-                      placeholder="https://wa.me/5551994044194?text=Oi"
-                    />
+                {currentLinkButtons.map((btn, idx) => (
+                  <div key={idx} className="flex flex-col gap-2.5 rounded-xl border border-border bg-surface-100 p-3.5 shadow-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted bg-surface-200 px-1.5 py-0.5 rounded">
+                          Botão {idx + 1}
+                        </span>
+                        <input
+                          type="text"
+                          className="bg-transparent border-none outline-none text-xs font-bold uppercase tracking-wider text-ink w-full"
+                          value={btn.title}
+                          maxLength={LIMITS.buttonTitle}
+                          onChange={(e) => handleUpdateLinkButton(idx, { title: e.target.value })}
+                          placeholder="Texto do botão"
+                          aria-label={`Texto do botão ${idx + 1} da DM`}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Link2 size={15} className="text-primary flex-none" />
+                        {currentLinkButtons.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLinkButton(idx)}
+                            className="text-ink-subtle hover:text-rose-500 p-1 rounded transition-colors cursor-pointer"
+                            title="Remover este botão"
+                            aria-label={`Remover botão ${idx + 1}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-border/60 flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold text-ink-muted">
+                        Link de destino (WhatsApp ou Web):
+                      </span>
+                      <input
+                        type="text"
+                        className="fx-input w-full text-xs font-mono py-1.5 px-2.5 bg-surface-200"
+                        value={btn.url}
+                        onChange={(e) => handleUpdateLinkButton(idx, { url: e.target.value })}
+                        placeholder="https://wa.me/5551994044194?text=Oi"
+                        aria-label={`URL de destino do botão ${idx + 1}`}
+                      />
+                      {btn.url && !btn.url.startsWith("https://") && (
+                        <span className="text-[11px] text-danger font-medium">
+                          ⚠️ O link precisa começar com https://
+                        </span>
+                      )}
+                    </div>
                   </div>
+                ))}
+
+                {/* Botão Adicionar Um Link (Ativo até 3 botões) */}
+                {currentLinkButtons.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={handleAddLinkButton}
+                    className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 py-2.5 text-xs font-bold text-primary transition-all cursor-pointer"
+                  >
+                    <Plus size={15} />
+                    <span>Adicionar Um Link</span>
+                  </button>
                 )}
               </div>
-
-              <button
-                type="button"
-                onClick={() => setLinkPopoverOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline mt-1 self-start cursor-pointer"
-              >
-                <Plus size={15} />
-                <span>Adicionar Um Link</span>
-              </button>
             </div>
             <Problems problems={problems} section="link" />
 
             {/* Card 2: Lembrete Follow-up */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-200 p-4 shadow-sm transition-all hover:border-border-strong">
+            <div id="section-reminder" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-200 p-4 shadow-sm transition-all hover:border-border-strong">
               <div className="flex items-center justify-between text-[13px] font-medium text-ink">
                 <span>uma DM de lembrete, caso o link não tenha sido acessado</span>
                 <button
                   type="button"
                   role="switch"
+                  aria-label="Ativar lembrete de follow-up"
                   aria-checked={recipe.reminder.enabled}
                   onClick={() => {
                     update("reminder", { enabled: !recipe.reminder.enabled });
@@ -871,7 +1076,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
                     seconds={recipe.reminder.delaySeconds}
                     onChange={(delaySeconds) => update("reminder", { delaySeconds })}
                   />
-                  <div className="relative">
+                  <div className="flex flex-col gap-1.5">
                     <textarea
                       className="fx-textarea min-h-[90px] text-sm leading-relaxed"
                       value={recipe.reminder.text}
@@ -881,10 +1086,13 @@ export function SimpleBuilder({ flow, initial }: Props) {
                         update("reminder", { text: event.target.value });
                         setPhoneTab("dm");
                       }}
+                      aria-label="Texto da DM de lembrete"
                     />
-                    <span className="absolute bottom-2.5 right-3 text-[11px] font-mono text-ink-subtle pointer-events-none bg-surface-200/90 px-1 rounded">
-                      {LIMITS.text - recipe.reminder.text.length}
-                    </span>
+                    <div className="flex justify-end">
+                      <span className="text-[11px] font-mono text-ink-subtle">
+                        {LIMITS.text - recipe.reminder.text.length} caracteres restantes
+                      </span>
+                    </div>
                   </div>
                   <span className="text-[11px] text-ink-subtle">
                     O botão do lembrete leva pro mesmo link de destino e só dispara se o lead não tiver clicado.
@@ -898,12 +1106,12 @@ export function SimpleBuilder({ flow, initial }: Props) {
 
         {/* LADO DIREITO: INSIGHTS & VISUALIZAÇÃO (Canvas Manychat) */}
         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto p-8 bg-surface-100">
-          {/* Header de Tabs do Canvas (Idêntico ao ManyChat) */}
-          <div className="flex items-center justify-between border-b border-border pb-3 mb-6">
-            <div className="flex items-center gap-8">
+          {/* Header de Tabs do Canvas sem sobreposição */}
+          <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-6 relative z-10 flex-wrap">
+            <div className="flex items-center gap-6">
               <button
                 type="button"
-                className={`relative pb-3 text-[15px] font-bold transition-all ${
+                className={`relative py-1 text-[15px] font-bold transition-all cursor-pointer ${
                   tab === "insights"
                     ? "text-primary font-extrabold"
                     : "text-ink-muted hover:text-ink font-semibold"
@@ -915,13 +1123,13 @@ export function SimpleBuilder({ flow, initial }: Props) {
                   <span>Insights</span>
                 </div>
                 {tab === "insights" && (
-                  <div className="absolute -bottom-3 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                  <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-primary rounded-full" />
                 )}
               </button>
 
               <button
                 type="button"
-                className={`relative pb-3 text-[15px] font-bold transition-all ${
+                className={`relative py-1 text-[15px] font-bold transition-all cursor-pointer ${
                   tab === "preview"
                     ? "text-primary font-extrabold"
                     : "text-ink-muted hover:text-ink font-semibold"
@@ -933,28 +1141,36 @@ export function SimpleBuilder({ flow, initial }: Props) {
                   <span>Visualização</span>
                 </div>
                 {tab === "preview" && (
-                  <div className="absolute -bottom-3 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                  <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-primary rounded-full" />
                 )}
               </button>
             </div>
 
-            {/* Botões Cancelar e Atualização (Idênticos ao print do ManyChat) */}
-            <div className="flex items-center gap-2.5">
+            {/* Botões Cancelar e Atualização */}
+            <div className="flex items-center gap-2.5 flex-none">
               <Link
                 href="/fluxos"
-                className="rounded-lg border border-primary/40 bg-surface-100 hover:bg-surface-300 px-4 py-1.5 text-xs font-bold text-primary transition-all shadow-xs"
+                onClick={(e) => {
+                  const isDirty =
+                    JSON.stringify(recipe) !== JSON.stringify(initial) || name !== flow.name;
+                  if (isDirty) {
+                    if (!window.confirm("Deseja realmente sair? As alterações não salvas serão descartadas.")) {
+                      e.preventDefault();
+                    }
+                  }
+                }}
+                className="rounded-lg border border-border bg-surface-100 hover:bg-surface-300 px-4 py-1.5 text-xs font-bold text-ink transition-all shadow-xs cursor-pointer"
               >
                 Cancelar
               </Link>
               <button
                 type="button"
-                onClick={() => {
-                  saveRecipe(flow.id, recipe);
-                  alert("Automação atualizada com sucesso!");
-                }}
-                className="rounded-lg bg-primary hover:bg-primary-hover px-5 py-1.5 text-xs font-bold text-white transition-all shadow-xs"
+                disabled={isSavingManual}
+                onClick={handleSaveAndPublish}
+                className="flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 px-5 py-1.5 text-xs font-bold text-white transition-all shadow-xs cursor-pointer"
               >
-                Atualização
+                {isSavingManual && <RefreshCw size={13} className="animate-spin" />}
+                <span>Atualização</span>
               </button>
             </div>
           </div>

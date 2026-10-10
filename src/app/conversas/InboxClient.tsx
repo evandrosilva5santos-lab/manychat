@@ -37,6 +37,7 @@ interface InboxClientProps {
   initialActiveContactId: string | null;
   initialThread: MessageItem[];
   availableTags: { id: string; name: string }[];
+  loadError?: string | null;
 }
 
 export function InboxClient({
@@ -44,6 +45,7 @@ export function InboxClient({
   initialActiveContactId,
   initialThread,
   availableTags,
+  loadError = null,
 }: InboxClientProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>(initialConversations);
   const [activeContactId, setActiveContactId] = useState<string | null>(initialActiveContactId);
@@ -57,16 +59,32 @@ export function InboxClient({
   // Drawer lateral do contato ativo
   const [showLeadDetails, setShowLeadDetails] = useState(true);
   const [tagModalOpen, setTagModalOpen] = useState(false);
-
+  const [isMounted, setIsMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  // Evita que a resposta atrasada de uma conversa sobrescreva outra ao trocar rápido
+  const selectedContactRef = useRef<string | null>(initialActiveContactId);
 
   // Contato selecionado
   const activeConversation = conversations.find((c) => c.contact.id === activeContactId) || conversations[0];
   const activeContact = activeConversation?.contact;
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const scrollToBottom = (smooth = true) => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    }
+  };
+
   // Rola até o final das mensagens ao carregar ou receber nova
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToBottom();
   }, [thread, activeContactId]);
 
   // Troca de conversa
@@ -74,10 +92,17 @@ export function InboxClient({
     if (contactId === activeContactId) return;
     setActiveContactId(contactId);
     setSendError(null);
+    setThread([]);
+    selectedContactRef.current = contactId;
 
     startTransition(async () => {
-      const messages = await getConversationThread(contactId);
-      setThread(messages);
+      const res = await getConversationThread(contactId);
+      if (selectedContactRef.current !== contactId) return;
+      if (res.ok) {
+        setThread(res.messages);
+      } else {
+        setSendError(res.error);
+      }
     });
   };
 
@@ -111,6 +136,8 @@ export function InboxClient({
           )
         );
       } else {
+        // Devolve o texto para o campo para o usuário não perder o que digitou
+        setInputText(messageText);
         setSendError(res.error);
       }
     });
@@ -220,8 +247,17 @@ export function InboxClient({
 
         {/* Lista de Threads */}
         <div className="flex-1 overflow-y-auto divide-y divide-border/50">
-          {filteredConversations.length === 0 ? (
-            <div className="p-8 text-center text-xs text-ink-muted">Nenhuma conversa encontrada.</div>
+          {loadError ? (
+            <div role="alert" className="m-4 flex gap-2 rounded-xl border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
+              <AlertCircle size={14} className="mt-0.5 flex-none" aria-hidden="true" />
+              <span>{loadError}</span>
+            </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="p-8 text-center text-xs text-ink-muted">
+              {conversations.length === 0
+                ? "Nenhuma conversa ainda. Quando alguém comentar ou mandar DM para o seu Instagram, a conversa aparece aqui."
+                : "Nenhuma conversa encontrada."}
+            </div>
           ) : (
             filteredConversations.map((item) => {
               const isSelected = item.contact.id === activeContact?.id;
@@ -263,11 +299,14 @@ export function InboxClient({
                         {item.contact.name || item.contact.username}
                       </span>
                       {item.contact.is24hActive ? (
-                        <span className="text-[10px] font-semibold text-emerald-500">
-                          {item.contact.remainingHours24h}h
+                        <span
+                          className="text-[10px] font-semibold text-emerald-500 whitespace-nowrap"
+                          title={`Janela de 24h aberta: restam ${item.contact.remainingHours24h}h para envio de DMs`}
+                        >
+                          {item.contact.remainingHours24h}h rest.
                         </span>
                       ) : (
-                        <span className="text-[10px] text-ink-subtle">expirado</span>
+                        <span className="text-[10px] text-ink-subtle whitespace-nowrap">expirado</span>
                       )}
                     </div>
                     <span className="text-[11px] text-ink-muted">@{item.contact.username}</span>
@@ -353,7 +392,7 @@ export function InboxClient({
             </div>
 
             {/* Mensagens (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4">
               {thread.map((msg) => {
                 const isOut = msg.direction === "OUT";
                 return (
@@ -391,7 +430,7 @@ export function InboxClient({
                       {/* Exibição de Botões se houver */}
                       {msg.kind === "BUTTONS" && msg.payload?.buttons && (
                         <div className="mt-3 pt-3 border-t border-white/20 flex flex-col gap-1.5">
-                          {msg.payload.buttons.map((btn: any, idx: number) => (
+                          {msg.payload.buttons.map((btn, idx) => (
                             <div
                               key={idx}
                               className="w-full text-center rounded-xl bg-white/20 hover:bg-white/30 py-1.5 text-xs font-bold uppercase tracking-wide transition select-none"
@@ -405,7 +444,7 @@ export function InboxClient({
                       {/* Exibição de Cards de Carrossel se houver */}
                       {msg.kind === "CAROUSEL" && msg.payload?.cards && (
                         <div className="mt-3 pt-3 border-t border-white/20 flex gap-2 overflow-x-auto pb-1 max-w-sm">
-                          {msg.payload.cards.map((card: any, idx: number) => (
+                          {msg.payload.cards.map((card, idx) => (
                             <div
                               key={idx}
                               className="w-36 flex-none rounded-xl bg-white/10 p-2 text-white border border-white/20 text-xs"
@@ -425,11 +464,13 @@ export function InboxClient({
                           isOut ? "text-white/70" : "text-ink-subtle"
                         }`}
                       >
-                        <span>
-                          {new Date(msg.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                        <span suppressHydrationWarning>
+                          {isMounted && msg.createdAt
+                            ? new Date(msg.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "--:--"}
                         </span>
                         {isOut && <CheckCircle2 size={11} />}
                       </div>
@@ -597,7 +638,11 @@ export function InboxClient({
             </div>
             <div>
               <span className="text-ink-subtle block">Primeiro Contato</span>
-              <span className="text-ink">{new Date(activeContact.createdAt).toLocaleDateString()}</span>
+              <span className="text-ink" suppressHydrationWarning>
+                {isMounted && activeContact.createdAt
+                  ? new Date(activeContact.createdAt).toLocaleDateString()
+                  : "--/--/----"}
+              </span>
             </div>
           </div>
         </aside>

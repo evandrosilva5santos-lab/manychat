@@ -60,6 +60,10 @@ export function lintFlow(nodes: EditorNode[], edges: EditorEdge[]): Problem[] {
         if (data.config.cards.length === 0) add(node.id, "Escolha pelo menos 1 card do catálogo");
         break;
       case "DELAY":
+        if (!Number.isInteger(data.config.seconds) || data.config.seconds < 1 || data.config.seconds > 23 * 3600) {
+          add(node.id, "A espera deve ser de 1 segundo a 23 horas; o envio ainda exige janela aberta");
+        }
+        break;
       case "NOTE":
         break;
     }

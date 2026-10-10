@@ -4,11 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
 import { check24hWindow } from "@/lib/meta/window";
-import fs from "fs/promises";
-import path from "path";
-
-const DATA_DIR = path.join(process.cwd(), ".data");
-const CONTACTS_FILE = path.join(DATA_DIR, "contacts.json");
+import { getStoredContacts, updateStoredContactTags, addStoredContact } from "@/lib/storage/store";
 
 export type ContactListItem = {
   id: string;
@@ -26,81 +22,12 @@ export type ContactListItem = {
   createdAt: string;
 };
 
-// Fallback de contatos para desenvolvimento/apresentação offline
-let memoryContacts: ContactListItem[] = [
-  {
-    id: "cont-1",
-    igsid: "igsid_carol_noiva",
-    username: "carol.noiva2026",
-    name: "Carolina Ribeiro",
-    profilePicUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
-    followsAccount: true,
-    lastInboundAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), // 2h atrás (janela aberta)
-    lastInteractionAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    is24hActive: true,
-    remainingHours24h: 22,
-    sourceFlowName: "[2026] Casamento por DM automático",
-    tags: [
-      { id: "tag-1", name: "lead-quente" },
-      { id: "tag-2", name: "casamento-2026" },
-    ],
-    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: "cont-2",
-    igsid: "igsid_lucas_mkt",
-    username: "lucas.eventos",
-    name: "Lucas Mendes",
-    profilePicUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-    followsAccount: true,
-    lastInboundAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString(), // 14h atrás (janela aberta)
-    lastInteractionAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString(),
-    is24hActive: true,
-    remainingHours24h: 10,
-    sourceFlowName: "[2026] Casamento por DM automático",
-    tags: [{ id: "tag-1", name: "lead-quente" }],
-    createdAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: "cont-3",
-    igsid: "igsid_mariana_foto",
-    username: "mari.fotografia",
-    name: "Mariana Souza",
-    profilePicUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    followsAccount: false,
-    lastInboundAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(), // 36h atrás (janela expirada)
-    lastInteractionAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-    is24hActive: false,
-    remainingHours24h: 0,
-    sourceFlowName: "Captação story Astrix",
-    tags: [{ id: "tag-3", name: "fornecedor" }],
-    createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: "cont-4",
-    igsid: "igsid_beatriz_noiva",
-    username: "bia.marchese",
-    name: "Beatriz Marchese",
-    profilePicUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
-    followsAccount: true,
-    lastInboundAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(), // 40m atrás
-    lastInteractionAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-    is24hActive: true,
-    remainingHours24h: 23,
-    sourceFlowName: "[2026] Casamento por DM automático",
-    tags: [{ id: "tag-2", name: "casamento-2026" }],
-    createdAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-  },
-];
-
 let memoryTags = [
   { id: "tag-1", name: "lead-quente" },
   { id: "tag-2", name: "casamento-2026" },
   { id: "tag-3", name: "fornecedor" },
   { id: "tag-4", name: "vip" },
 ];
-
-
 
 /**
  * Lista contatos com filtros por texto, etiqueta e status de seguidor.
@@ -161,24 +88,19 @@ export async function listContacts(params: {
       });
     }
 
-    // Se o banco estiver vazio ou offline, usa storage local
-    const stored = await readStoredContacts();
-    return filterMemoryContacts(stored, params);
+    return await filterMemoryContacts(params);
   } catch {
-    const stored = await readStoredContacts();
-    return filterMemoryContacts(stored, params);
+    return await filterMemoryContacts(params);
   }
 }
 
-function filterMemoryContacts(
-  list: ContactListItem[],
-  params: {
-    search?: string;
-    tagId?: string;
-    followFilter?: "all" | "following" | "not_following";
-  }
-): ContactListItem[] {
-  return list.filter((c) => {
+async function filterMemoryContacts(params: {
+  search?: string;
+  tagId?: string;
+  followFilter?: "all" | "following" | "not_following";
+}): Promise<ContactListItem[]> {
+  const contacts = await getStoredContacts();
+  return contacts.filter((c) => {
     if (params.search) {
       const q = params.search.toLowerCase();
       const matchName = c.name?.toLowerCase().includes(q);
@@ -209,55 +131,6 @@ export async function listAllTags(): Promise<{ id: string; name: string }[]> {
     return memoryTags;
   } catch {
     return memoryTags;
-  }
-}
-
-/**
- * Adiciona uma etiqueta a um contato.
- */
-export async function addTagToContact(
-  contactId: string,
-  tagId: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  try {
-    await prisma.contactTag.upsert({
-      where: {
-        contactId_tagId: { contactId, tagId },
-      },
-      update: {},
-      create: { contactId, tagId },
-    });
-    revalidatePath("/contatos");
-    revalidatePath("/conversas");
-    return { ok: true };
-  } catch {
-    const contact = memoryContacts.find((c) => c.id === contactId);
-    const tag = memoryTags.find((t) => t.id === tagId);
-    if (contact && tag) {
-      if (!contact.tags.some((t) => t.id === tagId)) {
-        contact.tags.push(tag);
-      }
-      return { ok: true };
-    }
-    return { ok: false, error: "Contato ou etiqueta não encontrada." };
-  }
-}
-
-async function readStoredContacts(): Promise<ContactListItem[]> {
-  try {
-    const raw = await fs.readFile(CONTACTS_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch {}
-  return memoryContacts;
-}
-
-async function writeStoredContacts(list: ContactListItem[]) {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true }).catch(() => {});
-    await fs.writeFile(CONTACTS_FILE, JSON.stringify(list, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Erro ao salvar contatos:", err);
   }
 }
 
@@ -319,10 +192,7 @@ export async function createContact(data: {
       // Fallback local
     }
 
-    const current = await readStoredContacts();
-    current.unshift(newContact);
-    memoryContacts = current;
-    await writeStoredContacts(current);
+    await addStoredContact(newContact);
 
     revalidatePath("/contatos");
     revalidatePath("/conversas");
@@ -331,6 +201,41 @@ export async function createContact(data: {
     return { ok: true, contact: newContact };
   } catch (err: any) {
     return { ok: false, error: err.message || "Erro ao criar contato." };
+  }
+}
+
+/**
+ * Adiciona uma etiqueta a um contato.
+ */
+export async function addTagToContact(
+  contactId: string,
+  tagId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await prisma.contactTag.upsert({
+      where: {
+        contactId_tagId: { contactId, tagId },
+      },
+      update: {},
+      create: { contactId, tagId },
+    });
+    revalidatePath("/contatos");
+    revalidatePath("/conversas");
+    return { ok: true };
+  } catch {
+    const contacts = await getStoredContacts();
+    const contact = contacts.find((c) => c.id === contactId);
+    const tag = memoryTags.find((t) => t.id === tagId);
+    if (contact && tag) {
+      if (!contact.tags.some((t) => t.id === tagId)) {
+        contact.tags.push(tag);
+        await updateStoredContactTags(contactId, contact.tags);
+      }
+      revalidatePath("/contatos");
+      revalidatePath("/conversas");
+      return { ok: true };
+    }
+    return { ok: false, error: "Contato ou etiqueta não encontrada." };
   }
 }
 
@@ -351,9 +256,13 @@ export async function removeTagFromContact(
     revalidatePath("/conversas");
     return { ok: true };
   } catch {
-    const contact = memoryContacts.find((c) => c.id === contactId);
+    const contacts = await getStoredContacts();
+    const contact = contacts.find((c) => c.id === contactId);
     if (contact) {
       contact.tags = contact.tags.filter((t) => t.id !== tagId);
+      await updateStoredContactTags(contactId, contact.tags);
+      revalidatePath("/contatos");
+      revalidatePath("/conversas");
       return { ok: true };
     }
     return { ok: false, error: "Contato não encontrado." };
