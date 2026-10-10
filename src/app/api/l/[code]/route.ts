@@ -1,27 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { isSafeHttpsUrl, isValidLinkCode } from "@/lib/links/tracked";
+
+const NOT_FOUND = () => new NextResponse("Link não encontrado.", { status: 404 });
 
 /**
  * GET /api/l/[code]
- * Rota de redirecionamento e rastreamento de cliques em links de automações (ex: WhatsApp).
+ * Conta o clique e redireciona para a URL salva no banco. Nunca usa URL vinda da
+ * query (`?to=`), para o domínio não virar redirecionador aberto para golpes.
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
+  if (!isValidLinkCode(code)) return NOT_FOUND();
 
-  // Busca parâmetro opcional u (url codificada em base64 ou query)
-  const targetUrl = request.nextUrl.searchParams.get("to");
-
-  if (targetUrl) {
-    try {
-      const decoded = decodeURIComponent(targetUrl);
-      return NextResponse.redirect(new URL(decoded), 302);
-    } catch {
-      return NextResponse.redirect(targetUrl, 302);
-    }
+  let link: { id: string; url: string; firstClickedAt: Date | null } | null;
+  try {
+    link = await prisma.trackedLink.findUnique({
+      where: { code },
+      select: { id: true, url: true, firstClickedAt: true },
+    });
+  } catch (err) {
+    console.error("[link] Falha ao buscar link rastreado", err);
+    return new NextResponse("Link temporariamente indisponível.", { status: 503 });
   }
 
-  // Fallback padrão se não houver URL específica
-  return NextResponse.redirect(new URL("/", request.url), 302);
+  if (!link || !isSafeHttpsUrl(link.url)) return NOT_FOUND();
+
+  const now = new Date();
+  try {
+    await prisma.trackedLink.update({
+      where: { id: link.id },
+      data: { clicks: { increment: 1 }, lastClickedAt: now, firstClickedAt: link.firstClickedAt ?? now },
+    });
+  } catch (err) {
+    // O seguidor ainda deve chegar ao destino; a falha fica registrada no log.
+    console.error("[link] Falha ao registrar clique", err);
+  }
+
+  return NextResponse.redirect(link.url, 302);
 }

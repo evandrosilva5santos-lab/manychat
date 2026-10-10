@@ -1,14 +1,20 @@
 import { prisma } from "@/lib/prisma";
-import type { Trigger, Flow } from "@/generated/prisma/client";
+import type { Trigger } from "@/generated/prisma/client";
 import type { NormalizedWebhookEvent } from "@/lib/meta/webhook";
-import { listStoredFlows } from "@/lib/storage/store";
 
 export type MatchedTriggerResult = {
-  flow: Flow | any;
+  flow: { id: string };
   trigger: Trigger | any;
   startNodeId: string;
   publicReply?: string;
 };
+
+/** Tipo de gatilho que corresponde a cada tipo de evento. */
+const TRIGGER_TYPE_BY_KIND = {
+  comment: "COMMENT_KEYWORD",
+  message: "DM_KEYWORD",
+  postback: "BUTTON_CLICK",
+} as const;
 
 /**
  * Normaliza strings para comparação insensível a maiúsculas, acentos e espaços extras.
@@ -60,85 +66,89 @@ export function matchesKeyword(
 
 /**
  * Encontra o fluxo e gatilho ativo para o evento recebido do Instagram.
+ *
+ * Performance: busca APENAS os gatilhos do tipo certo (via índice
+ * Trigger(type, mediaId) + fluxo LIVE da conta). Os nós só são lidos
+ * para o fluxo que deu match, e apenas quando o gatilho não tem
+ * startNodeId definido.
  */
 export async function findMatchingTrigger(
   accountId: string,
   event: NormalizedWebhookEvent
 ): Promise<MatchedTriggerResult | null> {
-  // Busca todos os fluxos LIVE da conta que possuem gatilhos
-  let flows: any[] = [];
+  const triggerType = TRIGGER_TYPE_BY_KIND[event.kind];
+
+  let triggers: any[] = [];
   try {
-    flows = await prisma.flow.findMany({
+    triggers = await prisma.trigger.findMany({
       where: {
-        accountId,
-        status: "LIVE",
+        type: triggerType,
+        flow: { accountId, status: "LIVE" },
       },
-      include: {
-        triggers: true,
-        nodes: true,
-      },
+      include: { flow: { select: { id: true } } },
     });
-  } catch {
-    // fallback no store persistente local
+  } catch (error) {
+    console.error("[matcher] Erro ao buscar gatilhos no Prisma:", error);
+    return null;
   }
 
-  if (flows.length === 0) {
-    const stored = await listStoredFlows();
-    flows = stored
-      .filter((f) => f.status === "LIVE")
-      .map((f) => ({
-        id: f.id,
-        name: f.name,
-        accountId,
-        status: f.status,
-        triggers: f.triggers || [],
-        nodes: f.nodes || [],
-      }));
+  const startNodeCache = new Map<string, string | null>();
+
+  async function resolveStartNodeId(flowId: string, fallback: string | null): Promise<string | null> {
+    if (fallback) return fallback;
+    if (startNodeCache.has(flowId)) return startNodeCache.get(flowId) ?? null;
+    const firstNode = await prisma.node.findFirst({
+      where: { flowId },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+    startNodeCache.set(flowId, firstNode?.id ?? null);
+    return firstNode?.id ?? null;
   }
 
-  for (const flow of flows) {
-    for (const trigger of flow.triggers) {
-      // 1. Gatilho de Comentário
-      if (event.kind === "comment" && trigger.type === "COMMENT_KEYWORD") {
-        // Se o gatilho foi amarrado a um post específico, valida o ID da mídia
-        if (trigger.mediaId && trigger.mediaId !== event.mediaId) {
-          continue;
-        }
+  for (const trigger of triggers) {
+    const flowId = trigger.flowId;
 
-        if (matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords)) {
-          const startNodeId = trigger.startNodeId || flow.nodes[0]?.id;
-          if (!startNodeId) continue;
+    // 1. Gatilho de Comentário
+    if (event.kind === "comment" && trigger.type === "COMMENT_KEYWORD") {
+      // Se o gatilho foi amarrado a um post específico, valida o ID da mídia
+      if (trigger.mediaId && trigger.mediaId !== event.mediaId) {
+        continue;
+      }
 
-          // Sorteia uma resposta pública caso haja variações cadastradas
-          let publicReply: string | undefined;
-          if (trigger.publicReplies && trigger.publicReplies.length > 0) {
-            const valid = trigger.publicReplies.filter((r: string) => r.trim().length > 0);
-            if (valid.length > 0) {
-              const randomIndex = Math.floor(Math.random() * valid.length);
-              publicReply = valid[randomIndex];
-            }
+      if (matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords)) {
+        const startNodeId = await resolveStartNodeId(flowId, trigger.startNodeId);
+        if (!startNodeId) continue;
+
+        // Sorteia uma resposta pública caso haja variações cadastradas
+        let publicReply: string | undefined;
+        if (trigger.publicReplies && trigger.publicReplies.length > 0) {
+          const valid = trigger.publicReplies.filter((r: string) => r.trim().length > 0);
+          if (valid.length > 0) {
+            const randomIndex = Math.floor(Math.random() * valid.length);
+            publicReply = valid[randomIndex];
           }
-
-          return { flow, trigger, startNodeId, publicReply };
         }
+
+        return { flow: { id: flowId }, trigger, startNodeId, publicReply };
       }
+    }
 
-      // 2. Gatilho de Palavra-chave no Direct (DM)
-      if (event.kind === "message" && trigger.type === "DM_KEYWORD") {
-        if (matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords)) {
-          const startNodeId = trigger.startNodeId || flow.nodes[0]?.id;
-          if (!startNodeId) continue;
-          return { flow, trigger, startNodeId };
-        }
+    // 2. Gatilho de Palavra-chave no Direct (DM)
+    if (event.kind === "message" && trigger.type === "DM_KEYWORD") {
+      if (matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords)) {
+        const startNodeId = await resolveStartNodeId(flowId, trigger.startNodeId);
+        if (!startNodeId) continue;
+        return { flow: { id: flowId }, trigger, startNodeId };
       }
+    }
 
-      // 3. Gatilho de Clique em Botão (Button Click / Postback)
-      if (event.kind === "postback" && trigger.type === "BUTTON_CLICK") {
-        if (trigger.payload && trigger.payload === event.payload) {
-          const startNodeId = trigger.startNodeId || flow.nodes[0]?.id;
-          if (!startNodeId) continue;
-          return { flow, trigger, startNodeId };
-        }
+    // 3. Gatilho de Clique em Botão (Button Click / Postback)
+    if (event.kind === "postback" && trigger.type === "BUTTON_CLICK") {
+      if (trigger.payload && trigger.payload === event.payload) {
+        const startNodeId = await resolveStartNodeId(flowId, trigger.startNodeId);
+        if (!startNodeId) continue;
+        return { flow: { id: flowId }, trigger, startNodeId };
       }
     }
   }

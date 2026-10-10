@@ -146,7 +146,7 @@ export function ContactsClient({
               </div>
               <h1 className="text-xl font-bold tracking-tight text-ink">Contatos & Leads</h1>
               <span className="rounded-full bg-accent-muted/20 px-2 py-0.5 text-xs font-semibold text-accent">
-                Etapa 6 · CRM Instagram
+                CRM Instagram
               </span>
             </div>
             <p className="mt-1 text-sm text-ink-muted">

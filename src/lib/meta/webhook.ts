@@ -26,7 +26,9 @@ const messagingSchema = z.object({
   sender: z.object({ id: identifier }),
   recipient: z.object({ id: identifier }).optional(),
   timestamp: z.number().finite().nonnegative().optional(),
-  postback: z.object({ title: z.string().default(""), payload: identifier }).optional(),
+  postback: z
+    .object({ title: z.string().default(""), payload: identifier, mid: z.string().optional() })
+    .optional(),
   message: z.object({ mid: identifier, text: z.string().optional(), is_echo: z.boolean().optional() }).optional(),
 });
 
@@ -55,8 +57,12 @@ export type NormalizedWebhookEvent =
       userIgsid: string;
       title: string;
       payload: string;
+      /// mid do postback na Meta — chave de idempotência quando presente.
+      postbackMid?: string;
       timestamp: number;
     };
+
+import { safeEqual } from "@/lib/auth/basic";
 
 /**
  * Validação do handshake inicial da Meta (GET /api/webhook/instagram).
@@ -69,10 +75,30 @@ export function verifyWebhookChallenge(
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (expectedVerifyToken && mode === "subscribe" && token === expectedVerifyToken && challenge) {
+  if (expectedVerifyToken && mode === "subscribe" && token && safeEqual(token, expectedVerifyToken) && challenge) {
     return challenge;
   }
   return null;
+}
+
+type EnvLike = Record<string, string | undefined>;
+
+/**
+ * Segredos aceitos na assinatura do webhook. No Instagram Login a Meta assina com
+ * o segredo do app Instagram (IG_APP_SECRET); META_APP_SECRET fica como alternativa.
+ */
+export function readWebhookSecrets(env: EnvLike = process.env): string[] {
+  const secrets = [env.IG_APP_SECRET, env.META_APP_SECRET].filter((s): s is string => Boolean(s));
+  return [...new Set(secrets)];
+}
+
+/** Webhook sem assinatura só com flag explícita e nunca em produção. */
+export function allowUnsignedWebhooks(env: EnvLike = process.env): boolean {
+  return env.ALLOW_UNSIGNED_WEBHOOKS === "1" && env.NODE_ENV !== "production";
+}
+
+export function verifyWebhookSignature(rawBody: string, signatureHeader: string | null, secrets: string[]): boolean {
+  return secrets.some((secret) => verifyMetaHmacSignature(rawBody, signatureHeader, secret));
 }
 
 /**
@@ -165,6 +191,7 @@ export function parseInstagramWebhookPayload(body: unknown): NormalizedWebhookEv
             userIgsid,
             title: msg.postback.title || "",
             payload: msg.postback.payload || "",
+            postbackMid: msg.postback.mid,
             timestamp: msg.timestamp || time,
           });
         }

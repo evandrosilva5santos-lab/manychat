@@ -282,7 +282,7 @@ describe("Motor de Automação — Etapa 3", () => {
       const res = await client.sendCarouselMessage("IGSID_TEST", elements);
       expect(res.success).toBe(true);
       expect(res.mock).toBe(true);
-      expect(res.messageId).toContain("mock_mid_carousel_");
+      expect(res.messageId).toContain("mid_carousel_");
     });
 
     it("deve rejeitar carrossel vazio sem elementos", async () => {

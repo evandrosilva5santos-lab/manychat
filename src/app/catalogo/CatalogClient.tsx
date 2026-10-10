@@ -216,7 +216,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
               </div>
               <h1 className="text-xl font-bold tracking-tight text-ink">Catálogo de Cards</h1>
               <span className="rounded-full bg-accent-muted/20 px-2 py-0.5 text-xs font-semibold text-accent">
-                Etapa 5 · Reutilizável
+                Cards Reutilizáveis
               </span>
             </div>
             <p className="mt-1 text-sm text-ink-muted">
@@ -407,7 +407,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
                     {item.description || <span className="italic text-ink-subtle">Sem descrição</span>}
                   </p>
 
-                  {/* Simulação do Botão Fixo no Instagram */}
+                  {/* Botão Fixo no Instagram */}
                   <div className="mt-4 pt-4 border-t border-border">
                     <div className="w-full flex items-center justify-center rounded-xl bg-surface-300 hover:bg-surface-300/80 px-3 py-2 text-xs font-bold text-ink uppercase tracking-wide border border-border transition select-none">
                       {item.buttonTitle}

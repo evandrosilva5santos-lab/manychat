@@ -5,11 +5,15 @@ import {
   Users,
   MessageSquare,
   Zap,
-  TrendingUp,
   ArrowRight,
-  ExternalLink,
+  CheckCircle2,
+  Inbox,
 } from "lucide-react";
-import { getStoredContacts, getStoredMessages, listStoredFlows } from "@/lib/storage/store";
+import { getCurrentAccount } from "@/lib/account";
+import { prisma } from "@/lib/prisma";
+import { timeAgo } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Painel · Fluxo",
@@ -17,34 +21,106 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
-  const [contacts, flows] = await Promise.all([
-    getStoredContacts(),
-    listStoredFlows(),
-  ]);
+  const account = await getCurrentAccount();
 
-  const liveFlows = flows.filter((f) => f.status === "LIVE").length;
-  const stoppedFlows = flows.filter((f) => f.status === "STOPPED").length;
-  const draftFlows = flows.filter((f) => f.status === "DRAFT").length;
-  const active24h = contacts.filter((c) => c.is24hActive).length;
-
+  let contactCount = 0;
+  let active24h = 0;
   let totalSentMessages = 0;
-  for (const c of contacts) {
-    const msgs = await getStoredMessages(c.id);
-    totalSentMessages += msgs.filter((m) => m.direction === "OUT").length;
+  let totalReceivedMessages = 0;
+  let liveFlows = 0;
+  let stoppedFlows = 0;
+  let draftFlows = 0;
+  let recentContacts: any[] = [];
+  let dailyCounts: number[] = [0, 0, 0, 0, 0, 0, 0];
+
+  if (account) {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      cCount,
+      a24Count,
+      sentCount,
+      inCount,
+      liveCount,
+      stopCount,
+      dftCount,
+      recent,
+      recentMsgs,
+    ] = await Promise.all([
+      prisma.contact.count({ where: { accountId: account.id } }),
+      prisma.contact.count({
+        where: { accountId: account.id, lastInboundAt: { gte: yesterday } },
+      }),
+      prisma.message.count({
+        where: { accountId: account.id, direction: "OUT" },
+      }),
+      prisma.message.count({
+        where: { accountId: account.id, direction: "IN" },
+      }),
+      prisma.flow.count({
+        where: { accountId: account.id, status: "LIVE" },
+      }),
+      prisma.flow.count({
+        where: { accountId: account.id, status: "STOPPED" },
+      }),
+      prisma.flow.count({
+        where: { accountId: account.id, status: "DRAFT" },
+      }),
+      prisma.contact.findMany({
+        where: { accountId: account.id },
+        orderBy: { lastInteractionAt: "desc" },
+        take: 5,
+        include: {
+          messages: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      }),
+      prisma.message.findMany({
+        where: {
+          accountId: account.id,
+          direction: "OUT",
+          createdAt: { gte: sevenDaysAgo },
+        },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    contactCount = cCount;
+    active24h = a24Count;
+    totalSentMessages = sentCount;
+    totalReceivedMessages = inCount;
+    liveFlows = liveCount;
+    stoppedFlows = stopCount;
+    draftFlows = dftCount;
+    recentContacts = recent;
+
+    // Agrupamento real por dia dos últimos 7 dias
+    const now = new Date();
+    for (const msg of recentMsgs) {
+      const diffDays = Math.floor(
+        (now.getTime() - new Date(msg.createdAt).getTime()) / (24 * 60 * 60 * 1000)
+      );
+      if (diffDays >= 0 && diffDays < 7) {
+        dailyCounts[6 - diffDays] = (dailyCounts[6 - diffDays] || 0) + 1;
+      }
+    }
   }
 
   const stats = [
     {
       label: "Contatos",
-      value: String(contacts.length),
+      value: String(contactCount),
       sub: `${active24h} ativos na janela 24h`,
       subColor: "text-emerald-500 font-semibold",
       icon: Users,
     },
     {
-      label: "Mensagens enviadas",
+      label: "DMs enviadas",
       value: String(totalSentMessages),
-      sub: "automáticas e respostas",
+      sub: "respostas e mensagens automáticas",
       subColor: "text-ink-muted",
       icon: MessageSquare,
     },
@@ -56,74 +132,75 @@ export default async function DashboardPage() {
       icon: Zap,
     },
     {
-      label: "Taxa de clique (CTR)",
-      value: "67%",
-      sub: "média das automações",
-      subColor: "text-primary font-bold",
-      icon: TrendingUp,
+      label: "Mensagens recebidas",
+      value: String(totalReceivedMessages),
+      sub: "inbounds de seguidores e leads",
+      subColor: "text-primary font-semibold",
+      icon: Inbox,
     },
   ];
 
-  const colors = [
-    "bg-blue-500/10 text-blue-500",
-    "bg-emerald-500/10 text-emerald-500",
-    "bg-amber-500/10 text-amber-500",
-    "bg-purple-500/10 text-purple-500",
-  ];
-
-  const recentChats = await Promise.all(
-    contacts.slice(0, 4).map(async (c, idx) => {
-      const msgs = await getStoredMessages(c.id);
-      const lastMsg = msgs[msgs.length - 1];
-      return {
-        avatar: c.name?.slice(0, 1) || c.username?.slice(0, 1).toUpperCase() || "IG",
-        color: colors[idx % colors.length],
-        username: `@${c.username}`,
-        action: lastMsg?.text ? lastMsg.text.replace(/\n+/g, " ").slice(0, 42) : "Interagiu com automação",
-        time: c.remainingHours24h > 0 ? `${24 - c.remainingHours24h}h atrás` : "ontem",
-      };
-    })
-  );
-
-  const chartBars = [30, 42, 38, 55, 48, 36, 44, 60, 58, 70, 64, 76, 82, 92];
+  const maxCount = Math.max(...dailyCounts, 1);
 
   return (
     <main className="fx mx-auto flex w-full max-w-6xl flex-col gap-6 p-8">
-      {/* ── Banner de Alerta / Meta ─────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-ink shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-amber-500/20 text-amber-600">
-            <AlertTriangle size={20} />
+      {/* ── Banner de Conexão com o Instagram ─────────────────────────────── */}
+      {account ? (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-ink shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-600">
+              <CheckCircle2 size={20} />
+            </div>
+            <div className="text-sm">
+              <strong className="font-bold text-ink">Canal Instagram conectado: </strong>
+              <span className="text-ink-muted">
+                Perfil <b className="text-ink">@{account.username}</b> ({account.name || "Conta profissional"}) ativo para automações.
+              </span>
+            </div>
           </div>
-          <div className="text-sm">
-            <strong className="font-bold text-ink">Canal Instagram conectado: </strong>
-            <span className="text-ink-muted">
-              Perfil <b className="text-ink">@movingfestival</b> ativo para responder comentários e DMs.
-            </span>
-          </div>
+          <Link
+            href="/ajustes"
+            className="flex-none rounded-xl bg-surface-100 hover:bg-surface-200 text-ink border border-border px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs"
+          >
+            Ajustes
+          </Link>
         </div>
-        <Link
-          href="/ajustes"
-          className="flex-none rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs"
-        >
-          Ver Ajustes
-        </Link>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-ink shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-amber-500/20 text-amber-600">
+              <AlertTriangle size={20} />
+            </div>
+            <div className="text-sm">
+              <strong className="font-bold text-ink">Nenhuma conta Instagram conectada: </strong>
+              <span className="text-ink-muted">
+                Configure as credenciais da Meta em Ajustes para ativar respostas e automações.
+              </span>
+            </div>
+          </div>
+          <Link
+            href="/ajustes"
+            className="flex-none rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs"
+          >
+            Conectar Instagram
+          </Link>
+        </div>
+      )}
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-end justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-[32px] font-extrabold tracking-tight text-ink leading-tight">
-            Bom dia, Evandro
+            Painel Geral
           </h1>
           <p className="text-[15px] text-ink-muted">
-            O que aconteceu no seu Instagram nas últimas 24 horas.
+            Métricas em tempo real das interações no seu Instagram.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
-            href="/fluxos"
+            href="/fluxos/novo"
             className="fx-btn fx-btn-primary flex items-center gap-2 shadow-sm font-bold"
           >
             <Plus size={16} />
@@ -169,36 +246,41 @@ export default async function DashboardPage() {
         <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border border-border bg-surface-200 p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-[18px] font-bold text-ink">Mensagens por dia</h2>
-              <span className="text-xs text-ink-muted">Últimos 14 dias</span>
+              <h2 className="text-[18px] font-bold text-ink">Envios automáticos por dia</h2>
+              <span className="text-xs text-ink-muted">Últimos 7 dias (dados reais do banco)</span>
             </div>
-            <span className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-md">
-              +18% vs semana anterior
+            <span className="text-xs font-semibold text-ink-muted bg-surface-300 px-2.5 py-1 rounded-md">
+              Total: {totalSentMessages} envios
             </span>
           </div>
 
           {/* Barras do Gráfico */}
-          <div className="flex-1 flex items-end gap-2.5 pt-8 pb-2 border-b border-border min-h-[180px]">
-            {chartBars.map((height, i) => (
-              <div
-                key={i}
-                className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer"
-              >
+          <div className="flex-1 flex items-end gap-3 pt-8 pb-2 border-b border-border min-h-[180px]">
+            {dailyCounts.map((count, i) => {
+              const heightPct = Math.max(Math.round((count / maxCount) * 100), count > 0 ? 10 : 4);
+              return (
                 <div
-                  style={{ height: `${height}%` }}
-                  className={`w-full rounded-t-md transition-all ${
-                    i === chartBars.length - 1
-                      ? "bg-primary shadow-sm"
-                      : "bg-primary/25 hover:bg-primary/50"
-                  }`}
-                />
-              </div>
-            ))}
+                  key={i}
+                  className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer"
+                  title={`${count} mensagens`}
+                >
+                  <span className="text-[10px] font-mono text-ink-subtle opacity-0 group-hover:opacity-100 transition-opacity">
+                    {count}
+                  </span>
+                  <div
+                    style={{ height: `${heightPct}%` }}
+                    className={`w-full rounded-t-md transition-all ${
+                      count > 0 ? "bg-primary shadow-sm" : "bg-surface-300"
+                    }`}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between text-[11px] font-medium text-ink-muted pt-2">
-            <span>11 set</span>
-            <span>Hoje (412 envios)</span>
+            <span>7 dias atrás</span>
+            <span>Hoje ({dailyCounts[6]} envios)</span>
           </div>
         </div>
 
@@ -216,39 +298,52 @@ export default async function DashboardPage() {
               </Link>
             </div>
 
-            <div className="flex flex-col divide-y divide-border">
-              {recentChats.map((chat) => (
-                <div
-                  key={chat.username}
-                  className="flex items-center gap-3 py-3 hover:bg-surface-300/40 px-2 rounded-lg transition-colors cursor-pointer"
-                >
-                  <div
-                    className={`flex h-9 w-9 flex-none items-center justify-center rounded-full font-bold text-xs ${chat.color}`}
-                  >
-                    {chat.avatar}
-                  </div>
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-[13px] font-bold text-ink truncate">
-                      {chat.username}
-                    </span>
-                    <span className="text-[12px] text-ink-muted truncate">
-                      {chat.action}
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-mono text-ink-subtle flex-none">
-                    {chat.time}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {recentContacts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-ink-muted">
+                <Inbox size={32} className="mb-2 opacity-40" />
+                <p className="text-sm font-medium">Nenhuma conversa registrada ainda.</p>
+                <p className="text-xs text-ink-subtle">
+                  As interações de comentários e DMs aparecerão aqui automaticamente.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col divide-y divide-border">
+                {recentContacts.map((contact) => {
+                  const lastMsg = contact.messages[0];
+                  const initial =
+                    contact.name?.slice(0, 1) || contact.username?.slice(0, 1).toUpperCase() || "C";
+                  return (
+                    <div
+                      key={contact.id}
+                      className="flex items-center gap-3 py-3 hover:bg-surface-300/40 px-2 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <div className="flex h-9 w-9 flex-none items-center justify-center rounded-full font-bold text-xs bg-primary/10 text-primary">
+                        {initial}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-[13px] font-bold text-ink truncate">
+                          {contact.name || `@${contact.username || contact.igsid}`}
+                        </span>
+                        <span className="text-[12px] text-ink-muted truncate">
+                          {lastMsg?.text ? lastMsg.text.replace(/\n+/g, " ").slice(0, 42) : "Interagiu com automação"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-ink-subtle flex-none">
+                        {timeAgo(contact.lastInteractionAt || contact.createdAt)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <Link
-            href="/fluxos/demo-casamento"
+            href="/fluxos"
             className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-surface-300/60 hover:bg-surface-300 p-2.5 text-xs font-semibold text-ink transition-all"
           >
-            <span>Ver automação ativa “[2026] Casamento por DM”</span>
-            <ExternalLink size={13} />
+            <span>Gerenciar todas as automações</span>
+            <ArrowRight size={13} />
           </Link>
         </div>
       </div>

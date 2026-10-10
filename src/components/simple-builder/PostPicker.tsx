@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Check,
   Clapperboard,
   Copy,
-  ExternalLink,
-  Film,
-  Layers,
+  Image as ImageIcon,
+  Loader2,
+  AlertCircle,
   X,
+  ExternalLink,
 } from "lucide-react";
 
 export type InstagramPost = {
@@ -18,85 +19,10 @@ export type InstagramPost = {
   caption: string;
   shortTitle: string;
   relativeTime: string;
-  date: string;
+  permalink?: string;
   likes: number;
   comments: number;
 };
-
-export const MOCK_POSTS: InstagramPost[] = [
-  {
-    id: "post-1",
-    type: "CAROUSEL",
-    url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&auto=format&fit=crop&q=80",
-    caption:
-      "É PEDIR DEMAIS? 🥺🙏 Heeey Moving Maníacos 🗣 O que vocês também ELIMINARIAM? ❌ Garanta hoje o seu ingresso (link na bio @movingfestival)",
-    shortTitle: "É PEDIR DEMAIS? 🥺...",
-    relativeTime: "há 9 horas",
-    date: "24 Sep, 2026",
-    likes: 261,
-    comments: 2,
-  },
-  {
-    id: "post-2",
-    type: "REEL",
-    url: "https://images.unsplash.com/photo-1519741497674-611481863552?w=800&auto=format&fit=crop&q=80",
-    caption:
-      "💍 Chegou a hora do Casamento na Moving 2026! Quem aí sonha em viver esse momento? Comente CASAMENTO para garantir sua inscrição exclusiva.",
-    shortTitle: "Chegou a hora do C...",
-    relativeTime: "há 10 horas",
-    date: "24 Sep, 2026",
-    likes: 1420,
-    comments: 89,
-  },
-  {
-    id: "post-3",
-    type: "REEL",
-    url: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80",
-    caption:
-      "FALTA MUITO? 🥹🗣 Contando os segundos pra curtir o maior festival da sua vida! Comente CASAMENTO.",
-    shortTitle: "FALTA MUITO? 🥹🗣...",
-    relativeTime: "há 12 horas",
-    date: "23 Sep, 2026",
-    likes: 890,
-    comments: 44,
-  },
-  {
-    id: "post-4",
-    type: "REEL",
-    url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=80",
-    caption:
-      "Dia 17 e 18/10 nosso encontro está marcado! Garanta seu ingresso antecipado.",
-    shortTitle: "Dia 17 e 18/10 en...",
-    relativeTime: "há 16 horas",
-    date: "23 Sep, 2026",
-    likes: 3100,
-    comments: 215,
-  },
-  {
-    id: "post-5",
-    type: "CAROUSEL",
-    url: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&auto=format&fit=crop&q=80",
-    caption:
-      "Ao contrário do seu ex, a Moving nunca decepciona! 💅 Comente CASAMENTO.",
-    shortTitle: "Ao contrário do seu ...",
-    relativeTime: "há 16 horas",
-    date: "22 Sep, 2026",
-    likes: 670,
-    comments: 32,
-  },
-  {
-    id: "post-6",
-    type: "REEL",
-    url: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80",
-    caption:
-      "EU VOU VIVER ISSO! Pandora confirmada na Moving 2026! Comente CASAMENTO.",
-    shortTitle: "EU VOU VIVER ISSO ...",
-    relativeTime: "há 16 horas",
-    date: "22 Sep, 2026",
-    likes: 1850,
-    comments: 102,
-  },
-];
 
 type Props = {
   mediaId?: string;
@@ -113,11 +39,69 @@ export function PostPicker({
   onSelect,
   onClear,
 }: Props) {
+  const [posts, setPosts] = useState<InstagramPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
   const [customCaption, setCustomCaption] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
 
-  const currentMediaId = mediaId || "post-1";
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMedia() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/instagram/media?limit=12");
+        const json = await res.json();
+        if (!isMounted) return;
+
+        if (json.success && Array.isArray(json.data)) {
+          const mapped: InstagramPost[] = json.data.map((item: any) => {
+            const rawType = item.mediaType || "IMAGE";
+            const postType: InstagramPost["type"] =
+              rawType === "CAROUSEL_ALBUM"
+                ? "CAROUSEL"
+                : rawType === "VIDEO"
+                ? "REEL"
+                : "POST";
+
+            const caption = item.caption || "Sem legenda";
+            const shortTitle = caption.length > 24 ? `${caption.slice(0, 24)}...` : caption;
+
+            return {
+              id: item.id,
+              type: postType,
+              url: item.mediaUrl || item.thumbnailUrl || "",
+              caption,
+              shortTitle,
+              relativeTime: item.timestamp
+                ? new Date(item.timestamp).toLocaleDateString("pt-BR")
+                : "",
+              permalink: item.permalink,
+              likes: item.likeCount || 0,
+              comments: item.commentsCount || 0,
+            };
+          });
+          setPosts(mapped);
+        } else {
+          setError(json.error || "Não foi possível carregar as publicações.");
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        setError(err.message || "Erro de conexão ao buscar publicações.");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadMedia();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSelect = (post: InstagramPost) => {
     onSelect({ id: post.id, url: post.url, caption: post.caption });
@@ -125,69 +109,128 @@ export function PostPicker({
 
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customUrl.trim()) return;
+    setUrlError(null);
+
+    const trimmed = customUrl.trim();
+    if (!trimmed.startsWith("https://www.instagram.com/") && !trimmed.startsWith("https://instagram.com/")) {
+      setUrlError("O link precisa ser uma URL válida do Instagram (ex: https://www.instagram.com/p/...).");
+      return;
+    }
+
+    // Extrai o ID da mídia ou gera identificador seguro
+    const idMatch = trimmed.match(/\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/);
+    const resolvedId = idMatch ? `ig_${idMatch[1]}` : `custom_${Date.now()}`;
+
     onSelect({
-      id: `custom-${Date.now()}`,
-      url: customUrl.trim(),
-      caption: customCaption.trim() || "Publicação personalizada",
+      id: resolvedId,
+      url: trimmed,
+      caption: customCaption.trim() || "Publicação do Instagram",
     });
     setModalOpen(false);
+    setCustomUrl("");
+    setCustomCaption("");
   };
 
   return (
     <div className="flex flex-col gap-3 pt-1">
-      {/* ── LINHA DE 4 MINIATURAS HORIZONTAIS (Exatamente como no print 3) ── */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {MOCK_POSTS.slice(0, 4).map((post) => {
-          const isSelected = currentMediaId === post.id;
-          return (
-            <button
-              key={post.id}
-              type="button"
-              onClick={() => handleSelect(post)}
-              className={`group relative h-17 w-17 flex-none overflow-hidden rounded-xl border transition-all cursor-pointer ${
-                isSelected
-                  ? "border-primary ring-2 ring-primary/40 shadow-sm scale-102"
-                  : "border-border hover:border-primary/50 opacity-80 hover:opacity-100"
-              }`}
-              title={post.caption}
+      {/* ── ESTADOS DE CARREGAMENTO / ERRO / MINIATURAS ── */}
+      {loading ? (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="h-17 w-17 flex-none animate-pulse rounded-xl bg-surface-300 flex items-center justify-center text-ink-muted/30"
             >
-              <img
-                src={post.url}
-                alt={post.shortTitle}
-                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              {/* Ícone no topo direito */}
-              <div className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded bg-black/60 text-white">
-                {post.type === "CAROUSEL" ? (
-                  <Copy size={9} />
+              <ImageIcon size={20} />
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-xs text-danger flex items-start gap-2">
+          <AlertCircle size={16} className="flex-none mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold">{error}</p>
+            <p className="text-[11px] text-ink-muted mt-0.5">
+              Você pode inserir o link direto da publicação abaixo ou verificar a conta em Ajustes.
+            </p>
+          </div>
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="rounded-xl border border-border bg-surface-200 p-3 text-xs text-ink-muted text-center">
+          Nenhuma publicação encontrada na conta conectada.
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {posts.slice(0, 4).map((post) => {
+            const isSelected = mediaId === post.id;
+            return (
+              <button
+                key={post.id}
+                type="button"
+                onClick={() => handleSelect(post)}
+                className={`group relative h-17 w-17 flex-none overflow-hidden rounded-xl border transition-all cursor-pointer ${
+                  isSelected
+                    ? "border-primary ring-2 ring-primary/40 shadow-sm scale-102"
+                    : "border-border hover:border-primary/50 opacity-80 hover:opacity-100"
+                }`}
+                title={post.caption}
+              >
+                {post.url ? (
+                  <img
+                    src={post.url}
+                    alt={post.shortTitle}
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
                 ) : (
-                  <Clapperboard size={9} />
-                )}
-              </div>
-              {/* Check de seleção */}
-              {isSelected && (
-                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow-xs">
-                    <Check size={12} strokeWidth={3} />
+                  <div className="h-full w-full bg-surface-300 flex items-center justify-center text-ink-muted">
+                    <ImageIcon size={20} />
                   </div>
+                )}
+                {/* Ícone no topo direito */}
+                <div className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded bg-black/60 text-white">
+                  {post.type === "CAROUSEL" ? (
+                    <Copy size={9} />
+                  ) : post.type === "REEL" ? (
+                    <Clapperboard size={9} />
+                  ) : (
+                    <ImageIcon size={9} />
+                  )}
                 </div>
-              )}
-            </button>
-          );
-        })}
+                {/* Check de seleção */}
+                {isSelected && (
+                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow-xs">
+                      <Check size={12} strokeWidth={3} />
+                    </div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Botão para abrir modal ou adicionar link manual */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="rounded-lg border border-primary/40 bg-surface-100 hover:bg-surface-300 px-3.5 py-1.5 text-xs font-bold text-primary transition-all shadow-xs"
+        >
+          {posts.length > 0 ? "Ver todas as publicações" : "Inserir link de publicação"}
+        </button>
+        {mediaId && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-xs text-ink-muted hover:text-danger underline transition-colors"
+          >
+            Remover filtro de post
+          </button>
+        )}
       </div>
 
-      {/* Botão "Mostrar Todos" com estilo ManyChat */}
-      <button
-        type="button"
-        onClick={() => setModalOpen(true)}
-        className="self-start rounded-lg border border-primary/40 bg-surface-100 hover:bg-surface-300 px-3.5 py-1.5 text-xs font-bold text-primary transition-all shadow-xs"
-      >
-        Mostrar Todos
-      </button>
-
-      {/* ── MODAL DE SELEÇÃO DE POSTS (Idêntico ao print 5) ── */}
+      {/* ── MODAL DE SELEÇÃO DE POSTS ── */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
           <div className="flex flex-col w-full max-w-2xl max-h-[85vh] rounded-2xl border border-border bg-surface-100 shadow-pop overflow-hidden">
@@ -205,73 +248,86 @@ export function PostPicker({
               </button>
             </div>
 
-            {/* Grid de 3 Colunas com os Cards (Exatamente como no print 5) */}
+            {/* Grid de Posts ou Formulário de Link */}
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="grid grid-cols-3 gap-4">
-                {MOCK_POSTS.map((post) => {
-                  const isSelected = currentMediaId === post.id;
-                  return (
-                    <div
-                      key={post.id}
-                      onClick={() => {
-                        handleSelect(post);
-                        setModalOpen(false);
-                      }}
-                      className={`group relative flex flex-col overflow-hidden rounded-xl border bg-surface-200 transition-all cursor-pointer ${
-                        isSelected
-                          ? "border-primary ring-2 ring-primary/40 shadow-md"
-                          : "border-border hover:border-primary/50 hover:shadow-sm"
-                      }`}
-                    >
-                      {/* Imagem do Post com ícone de Carrossel ou Reel */}
-                      <div className="relative aspect-square w-full overflow-hidden bg-surface-300">
-                        <img
-                          src={post.url}
-                          alt={post.shortTitle}
-                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        {/* Ícone característico do ManyChat no canto superior direito */}
-                        <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded bg-black/70 text-white backdrop-blur-xs">
-                          {post.type === "CAROUSEL" ? (
-                            <Copy size={13} />
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-ink-muted gap-2">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                  <span className="text-xs">Buscando publicações do perfil...</span>
+                </div>
+              ) : posts.length > 0 ? (
+                <div className="grid grid-cols-3 gap-4">
+                  {posts.map((post) => {
+                    const isSelected = mediaId === post.id;
+                    return (
+                      <div
+                        key={post.id}
+                        onClick={() => {
+                          handleSelect(post);
+                          setModalOpen(false);
+                        }}
+                        className={`group relative flex flex-col overflow-hidden rounded-xl border bg-surface-200 transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/40 shadow-md"
+                            : "border-border hover:border-primary/50 hover:shadow-sm"
+                        }`}
+                      >
+                        <div className="relative aspect-square w-full overflow-hidden bg-surface-300">
+                          {post.url ? (
+                            <img
+                              src={post.url}
+                              alt={post.shortTitle}
+                              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
                           ) : (
-                            <Clapperboard size={13} />
+                            <div className="h-full w-full flex items-center justify-center text-ink-muted">
+                              <ImageIcon size={24} />
+                            </div>
                           )}
+                          <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded bg-black/70 text-white backdrop-blur-xs">
+                            {post.type === "CAROUSEL" ? (
+                              <Copy size={13} />
+                            ) : post.type === "REEL" ? (
+                              <Clapperboard size={13} />
+                            ) : (
+                              <ImageIcon size={13} />
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Título e Horário / Botão Ver no Instagram */}
-                      <div className="flex flex-col p-3 gap-1">
-                        {isSelected ? (
-                          <span className="text-xs font-bold text-primary hover:underline">
-                            Ver no Instagram
-                          </span>
-                        ) : (
+                        <div className="flex flex-col p-3 gap-1">
                           <p className="line-clamp-1 text-xs font-bold text-ink">
                             {post.shortTitle}
                           </p>
-                        )}
-                        <span className="text-[11px] text-ink-muted">
-                          {post.relativeTime}
-                        </span>
+                          <span className="text-[11px] text-ink-muted">
+                            {post.relativeTime}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-surface-200 p-6 text-center text-xs text-ink-muted">
+                  Nenhuma publicação encontrada pela API.
+                </div>
+              )}
 
-              {/* Colar Link Personalizado */}
+              {/* Colar Link do Instagram */}
               <div className="mt-6 rounded-xl border border-border bg-surface-200 p-4">
                 <span className="text-xs font-bold text-ink">
-                  Ou cole o link direto de uma imagem / publicação:
+                  Ou vincule colando o link de uma publicação do Instagram:
                 </span>
                 <form onSubmit={handleCustomSubmit} className="mt-2 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <input
                       className="fx-input text-xs font-mono flex-1"
-                      placeholder="https://exemplo.com/imagem-do-post.jpg"
+                      placeholder="https://www.instagram.com/p/..."
                       value={customUrl}
-                      onChange={(e) => setCustomUrl(e.target.value)}
+                      onChange={(e) => {
+                        setCustomUrl(e.target.value);
+                        setUrlError(null);
+                      }}
                     />
                     <button
                       type="submit"
@@ -281,9 +337,12 @@ export function PostPicker({
                       Aplicar
                     </button>
                   </div>
+                  {urlError && (
+                    <span className="text-[11px] text-danger">{urlError}</span>
+                  )}
                   <input
                     className="fx-input text-xs"
-                    placeholder="Legenda da publicação (opcional)"
+                    placeholder="Identificação / legenda da publicação (opcional)"
                     value={customCaption}
                     onChange={(e) => setCustomCaption(e.target.value)}
                   />

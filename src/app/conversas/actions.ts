@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { invalidIdMessage } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { defaultGraphClient } from "@/lib/meta/graph";
@@ -53,6 +55,7 @@ export type ThreadResult = { ok: true; messages: MessageItem[] } | { ok: false; 
 export async function listConversations(
   filter?: "all" | "active24h" | "unread"
 ): Promise<ConversationSummary[]> {
+  await requireAuth();
   const account = await getCurrentAccount();
   const contacts = await prisma.contact.findMany({
     where: { accountId: account.id },
@@ -103,6 +106,9 @@ export async function listConversations(
  * Carrega as mensagens reais trocadas com um contato da conta conectada.
  */
 export async function getConversationThread(contactId: string): Promise<ThreadResult> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(contactId);
+  if (invalidInput) return { ok: false, error: invalidInput };
   try {
     const account = await getCurrentAccount();
     const messages = await prisma.message.findMany({
@@ -140,6 +146,9 @@ export async function sendManualDirectMessage(
   contactId: string,
   text: string
 ): Promise<{ ok: true; message: MessageItem } | { ok: false; error: string }> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(contactId);
+  if (invalidInput) return { ok: false, error: invalidInput };
   const clean = text.trim();
   if (!clean) return { ok: false, error: "A mensagem não pode estar vazia." };
   if (clean.length > MAX_MESSAGE_LENGTH) {

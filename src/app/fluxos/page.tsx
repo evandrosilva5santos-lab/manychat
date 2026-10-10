@@ -3,8 +3,8 @@ import { Workflow, Zap } from "lucide-react";
 import { getCurrentAccount } from "@/lib/account";
 import { describeTrigger, STATUS_BADGE, timeAgo } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
-import { listStoredFlows } from "@/lib/storage/store";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Automações · Fluxo" };
 
 export default async function FlowsPage() {
@@ -20,28 +20,15 @@ export default async function FlowsPage() {
 
   try {
     const account = await getCurrentAccount();
-    const dbFlows = await prisma.flow.findMany({
-      where: { accountId: account.id },
-      orderBy: { updatedAt: "desc" },
-      include: { triggers: { take: 1, orderBy: { createdAt: "asc" } } },
-    });
-    if (dbFlows.length > 0) {
-      flows = dbFlows;
-    } else {
-      const stored = await listStoredFlows();
-      flows = stored.map((f) => ({
-        ...f,
-        updatedAt: new Date(f.updatedAt),
-        triggers: f.triggers || [],
-      }));
+    if (account) {
+      flows = await prisma.flow.findMany({
+        where: { accountId: account.id },
+        orderBy: { updatedAt: "desc" },
+        include: { triggers: { take: 1, orderBy: { createdAt: "asc" } } },
+      });
     }
   } catch (error) {
-    const stored = await listStoredFlows();
-    flows = stored.map((f) => ({
-      ...f,
-      updatedAt: new Date(f.updatedAt),
-      triggers: f.triggers || [],
-    }));
+    console.error("[fluxos] Erro ao buscar fluxos:", error);
   }
 
   return (

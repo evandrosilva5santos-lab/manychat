@@ -1,19 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "run_command:npm run verify",
-      "run_command:npm test",
-      "run_command:npx tsc --noEmit",
-      "run_command:curl *",
-      "view_file:*",
-      "replace_file_content:*",
-      "write_to_file:*"
+      "Bash(npm run verify)",
+      "Bash(npm test)",
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [
-      "run_command:rm -rf /",
-      "run_command:rm -rf .git",
-      "write_to_file:PRD.md",
-      "replace_file_content:PRD.md"
+      "Bash(rm -rf:*)",
+      "Edit(PRD.md)",
+      "Write(PRD.md)"
     ]
   },
   "rules": [

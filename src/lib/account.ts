@@ -1,33 +1,50 @@
 import { prisma } from "@/lib/prisma";
-
-const DEMO_ACCOUNT = {
-  id: "demo-account",
-  igUserId: "17841400123456789",
-  username: "movingfestival",
-  name: "Moving Festival",
-  profilePicUrl: null,
-  status: "CONNECTED" as const,
-  accessTokenEnc: null,
-  tokenExpiresAt: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+import type { InstagramAccount } from "@/generated/prisma/client";
 
 /**
  * Conta do Instagram em uso.
- * Pega a primeira que existir ou cria uma provisória.
- * Se o banco ainda não estiver acessível, retorna a conta demo de fallback.
+ * Resolve pelo IG_USER_ID do ambiente ou pela primeira conta conectada no banco Postgres.
+ * Se nenhuma conta existir ainda no banco, cria uma conta inicial com status DISCONNECTED
+ * para que o sistema funcione de forma tipada e segura sem dados falsos.
  */
-export async function getCurrentAccount() {
-  try {
-    const existing = await prisma.instagramAccount.findFirst({ orderBy: { createdAt: "asc" } });
-    if (existing) return existing;
-    return await prisma.instagramAccount.upsert({
-      where: { igUserId: "pending" },
-      update: {},
-      create: { igUserId: "pending", username: "movingfestival", name: "Moving Festival" },
+export async function getCurrentAccount(): Promise<InstagramAccount> {
+  const envIgUserId = process.env.IG_USER_ID;
+  if (envIgUserId) {
+    const existing = await prisma.instagramAccount.findUnique({
+      where: { igUserId: envIgUserId },
     });
-  } catch (error) {
-    return DEMO_ACCOUNT;
+    if (existing) return existing;
+
+    try {
+      return await prisma.instagramAccount.upsert({
+        where: { igUserId: envIgUserId },
+        update: {},
+        create: {
+          igUserId: envIgUserId,
+          username: process.env.IG_USERNAME || "instagram_business",
+          name: process.env.IG_NAME || "Instagram Business",
+          status: "CONNECTED",
+        },
+      });
+    } catch {
+      const retry = await prisma.instagramAccount.findUnique({
+        where: { igUserId: envIgUserId },
+      });
+      if (retry) return retry;
+    }
   }
+
+  const existing = await prisma.instagramAccount.findFirst({
+    orderBy: { createdAt: "asc" },
+  });
+  if (existing) return existing;
+
+  return await prisma.instagramAccount.create({
+    data: {
+      igUserId: "default_account",
+      username: "instagram_business",
+      name: "Instagram Business",
+      status: "DISCONNECTED",
+    },
+  });
 }

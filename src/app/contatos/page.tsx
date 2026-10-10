@@ -1,8 +1,10 @@
 import { listContacts, listAllTags } from "./actions";
 import { ContactsClient } from "./ContactsClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
-  title: "Contatos · ManyChat",
+  title: "Contatos · Fluxo",
   description: "Gerencie todos os leads e contatos capturados no Instagram com filtros e etiquetas.",
 };
 

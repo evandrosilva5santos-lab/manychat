@@ -1,5 +1,5 @@
 // Avisos de "falta alguma coisa" em cada caixinha. Não impedem salvar,
-// mas o fluxo só vai poder ser publicado (Etapa 6) sem nenhum aviso.
+// mas o fluxo só vai poder ser publicado quando não houver nenhum aviso.
 import type { EditorEdge, EditorNode } from "./types";
 
 export type Problem = { nodeId: string | null; message: string };

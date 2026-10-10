@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentAccount } from "@/lib/account";
 import { defaultGraphClient } from "@/lib/meta/graph";
 import {
+  allowUnsignedWebhooks,
   parseInstagramWebhookPayload,
-  verifyMetaHmacSignature,
+  readWebhookSecrets,
   verifyWebhookChallenge,
+  verifyWebhookSignature,
 } from "@/lib/meta/webhook";
 import { getOrCreateContact, recordIncomingMessage, recordOutgoingMessage } from "@/lib/engine/contacts";
 import { findMatchingTrigger } from "@/lib/engine/matcher";
@@ -15,7 +17,11 @@ import { executeFlow, resumeFlowOnClick } from "@/lib/engine/runner";
  * Desafio de verificação do Webhook pela Meta.
  */
 export async function GET(request: NextRequest) {
-  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || "fluxo_webhook_token";
+  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
+  if (!verifyToken) {
+    console.error("[webhook] WEBHOOK_VERIFY_TOKEN não configurado");
+    return new Response("Webhook não configurado.", { status: 500 });
+  }
   const challenge = verifyWebhookChallenge(request.nextUrl.searchParams, verifyToken);
 
   if (challenge) {
@@ -35,15 +41,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
-  const appSecret = process.env.META_APP_SECRET || "";
 
-  // 1. Validação de Assinatura HMAC SHA-256
-  const isValidSignature = verifyMetaHmacSignature(rawBody, signature, appSecret);
-  if (!isValidSignature) {
-    return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
+  // 1. Validação de Assinatura HMAC SHA-256 (falha fechada)
+  if (!allowUnsignedWebhooks()) {
+    const secrets = readWebhookSecrets();
+    if (secrets.length === 0) {
+      console.error("[webhook] IG_APP_SECRET/META_APP_SECRET não configurados");
+      return NextResponse.json({ error: "Webhook não configurado" }, { status: 500 });
+    }
+    if (!verifyWebhookSignature(rawBody, signature, secrets)) {
+      return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
+    }
   }
 
-  let body: any;
+  let body: unknown;
   try {
     body = JSON.parse(rawBody);
   } catch {

@@ -1,10 +1,11 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { invalidIdMessage } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
 import { check24hWindow } from "@/lib/meta/window";
-import { getStoredContacts, updateStoredContactTags, addStoredContact } from "@/lib/storage/store";
 
 export type ContactListItem = {
   id: string;
@@ -22,13 +23,6 @@ export type ContactListItem = {
   createdAt: string;
 };
 
-let memoryTags = [
-  { id: "tag-1", name: "lead-quente" },
-  { id: "tag-2", name: "casamento-2026" },
-  { id: "tag-3", name: "fornecedor" },
-  { id: "tag-4", name: "vip" },
-];
-
 /**
  * Lista contatos com filtros por texto, etiqueta e status de seguidor.
  */
@@ -37,8 +31,11 @@ export async function listContacts(params: {
   tagId?: string;
   followFilter?: "all" | "following" | "not_following";
 }): Promise<ContactListItem[]> {
+  await requireAuth();
   try {
     const account = await getCurrentAccount();
+    if (!account) return [];
+
     const where: any = { accountId: account.id };
 
     if (params.search) {
@@ -67,75 +64,52 @@ export async function listContacts(params: {
       orderBy: { lastInteractionAt: "desc" },
     });
 
-    if (contacts.length > 0) {
-      return contacts.map((c) => {
-        const { is24hActive, remainingHours } = check24hWindow(c.lastInboundAt);
-        return {
-          id: c.id,
-          igsid: c.igsid,
-          username: c.username,
-          name: c.name,
-          profilePicUrl: c.profilePicUrl,
-          followsAccount: c.followsAccount,
-          lastInboundAt: c.lastInboundAt?.toISOString() || null,
-          lastInteractionAt: c.lastInteractionAt?.toISOString() || null,
-          is24hActive,
-          remainingHours24h: remainingHours,
-          sourceFlowName: c.sourceFlow?.name || null,
-          tags: c.tags.map((ct) => ({ id: ct.tag.id, name: ct.tag.name })),
-          createdAt: c.createdAt.toISOString(),
-        };
-      });
-    }
-
-    return await filterMemoryContacts(params);
-  } catch {
-    return await filterMemoryContacts(params);
+    return contacts.map((c) => {
+      const { is24hActive, remainingHours } = check24hWindow(c.lastInboundAt);
+      return {
+        id: c.id,
+        igsid: c.igsid,
+        username: c.username,
+        name: c.name,
+        profilePicUrl: c.profilePicUrl,
+        followsAccount: c.followsAccount,
+        lastInboundAt: c.lastInboundAt?.toISOString() || null,
+        lastInteractionAt: c.lastInteractionAt?.toISOString() || null,
+        is24hActive,
+        remainingHours24h: remainingHours,
+        sourceFlowName: c.sourceFlow?.name || null,
+        tags: c.tags.map((ct) => ({ id: ct.tag.id, name: ct.tag.name })),
+        createdAt: c.createdAt.toISOString(),
+      };
+    });
+  } catch (error) {
+    console.error("[contatos] Erro ao listar contatos no Postgres:", error);
+    return [];
   }
-}
-
-async function filterMemoryContacts(params: {
-  search?: string;
-  tagId?: string;
-  followFilter?: "all" | "following" | "not_following";
-}): Promise<ContactListItem[]> {
-  const contacts = await getStoredContacts();
-  return contacts.filter((c) => {
-    if (params.search) {
-      const q = params.search.toLowerCase();
-      const matchName = c.name?.toLowerCase().includes(q);
-      const matchUser = c.username?.toLowerCase().includes(q);
-      if (!matchName && !matchUser) return false;
-    }
-    if (params.tagId) {
-      if (!c.tags.some((t) => t.id === params.tagId)) return false;
-    }
-    if (params.followFilter === "following" && !c.followsAccount) return false;
-    if (params.followFilter === "not_following" && c.followsAccount) return false;
-    return true;
-  });
 }
 
 /**
  * Lista todas as etiquetas existentes para os filtros.
  */
 export async function listAllTags(): Promise<{ id: string; name: string }[]> {
+  await requireAuth();
   try {
     const account = await getCurrentAccount();
-    const tags = await prisma.tag.findMany({
+    if (!account) return [];
+
+    return await prisma.tag.findMany({
       where: { accountId: account.id },
-      orderBy: { name: "asc" },
       select: { id: true, name: true },
+      orderBy: { name: "asc" },
     });
-    if (tags.length > 0) return tags;
-    return memoryTags;
-  } catch {
-    return memoryTags;
+  } catch (error) {
+    console.error("[contatos] Erro ao listar tags no Postgres:", error);
+    return [];
   }
 }
 
 /**
- * Cria um novo contato/lead manualmente para teste ou CRM
+ * Cria um novo contato/lead manualmente para CRM
  */
 export async function createContact(data: {
   name: string;
@@ -143,6 +117,7 @@ export async function createContact(data: {
   followsAccount?: boolean;
   tagId?: string;
 }): Promise<{ ok: true; contact: ContactListItem } | { ok: false; error: string }> {
+  await requireAuth();
   try {
     const cleanName = data.name.trim();
     const cleanUsername = data.username.trim().replace(/^@/, "");
@@ -152,55 +127,72 @@ export async function createContact(data: {
     }
 
     const account = await getCurrentAccount();
-    const newId = `cont_${Date.now()}`;
-    const igsid = `igsid_${cleanUsername}_${Date.now()}`;
-    const nowIso = new Date().toISOString();
-
-    const selectedTag = data.tagId ? memoryTags.find((t) => t.id === data.tagId) : null;
-    const tags = selectedTag ? [selectedTag] : [{ id: "tag-1", name: "lead-quente" }];
-
-    const newContact: ContactListItem = {
-      id: newId,
-      igsid,
-      username: cleanUsername,
-      name: cleanName,
-      profilePicUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
-      followsAccount: data.followsAccount ?? true,
-      lastInboundAt: nowIso,
-      lastInteractionAt: nowIso,
-      is24hActive: true,
-      remainingHours24h: 24,
-      sourceFlowName: "Cadastro Manual (Teste)",
-      tags,
-      createdAt: nowIso,
-    };
-
-    try {
-      await prisma.contact.create({
-        data: {
-          id: newId,
-          accountId: account.id,
-          igsid,
-          username: cleanUsername,
-          name: cleanName,
-          followsAccount: newContact.followsAccount,
-          lastInboundAt: new Date(),
-          lastInteractionAt: new Date(),
-        },
-      });
-    } catch {
-      // Fallback local
+    if (!account) {
+      return { ok: false, error: "Nenhuma conta conectada. Conecte sua conta em Ajustes." };
     }
 
-    await addStoredContact(newContact);
+    const igsid = `igsid_${cleanUsername}_${Date.now()}`;
+    const now = new Date();
+
+    const created = await prisma.contact.create({
+      data: {
+        accountId: account.id,
+        igsid,
+        username: cleanUsername,
+        name: cleanName,
+        profilePicUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
+        followsAccount: data.followsAccount ?? true,
+        lastInboundAt: now,
+        lastInteractionAt: now,
+      },
+    });
+
+    if (data.tagId) {
+      await prisma.contactTag.create({
+        data: {
+          contactId: created.id,
+          tagId: data.tagId,
+        },
+      }).catch(() => {});
+    }
+
+    const fullContact = await prisma.contact.findUnique({
+      where: { id: created.id },
+      include: {
+        tags: { include: { tag: true } },
+        sourceFlow: { select: { name: true } },
+      },
+    });
+
+    if (!fullContact) {
+      return { ok: false, error: "Erro ao carregar contato recém-criado." };
+    }
+
+    const { is24hActive, remainingHours } = check24hWindow(fullContact.lastInboundAt);
+    const item: ContactListItem = {
+      id: fullContact.id,
+      igsid: fullContact.igsid,
+      username: fullContact.username,
+      name: fullContact.name,
+      profilePicUrl: fullContact.profilePicUrl,
+      followsAccount: fullContact.followsAccount,
+      lastInboundAt: fullContact.lastInboundAt?.toISOString() || null,
+      lastInteractionAt: fullContact.lastInteractionAt?.toISOString() || null,
+      is24hActive,
+      remainingHours24h: remainingHours,
+      sourceFlowName: fullContact.sourceFlow?.name || null,
+      tags: fullContact.tags.map((ct) => ({ id: ct.tag.id, name: ct.tag.name })),
+      createdAt: fullContact.createdAt.toISOString(),
+    };
 
     revalidatePath("/contatos");
     revalidatePath("/conversas");
     revalidatePath("/");
 
-    return { ok: true, contact: newContact };
+    return { ok: true, contact: item };
   } catch (err: any) {
-    return { ok: false, error: err.message || "Erro ao criar contato." };
+    console.error("[contatos] Erro ao criar contato:", err);
+    return { ok: false, error: err?.message || "Erro ao criar contato no banco de dados." };
   }
 }
 
@@ -211,6 +203,10 @@ export async function addTagToContact(
   contactId: string,
   tagId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(contactId, tagId);
+  if (invalidInput) return { ok: false, error: invalidInput };
+
   try {
     await prisma.contactTag.upsert({
       where: {
@@ -222,20 +218,9 @@ export async function addTagToContact(
     revalidatePath("/contatos");
     revalidatePath("/conversas");
     return { ok: true };
-  } catch {
-    const contacts = await getStoredContacts();
-    const contact = contacts.find((c) => c.id === contactId);
-    const tag = memoryTags.find((t) => t.id === tagId);
-    if (contact && tag) {
-      if (!contact.tags.some((t) => t.id === tagId)) {
-        contact.tags.push(tag);
-        await updateStoredContactTags(contactId, contact.tags);
-      }
-      revalidatePath("/contatos");
-      revalidatePath("/conversas");
-      return { ok: true };
-    }
-    return { ok: false, error: "Contato ou etiqueta não encontrada." };
+  } catch (err: any) {
+    console.error("[contatos] Erro ao adicionar tag:", err);
+    return { ok: false, error: err?.message || "Erro ao adicionar etiqueta." };
   }
 }
 
@@ -246,6 +231,10 @@ export async function removeTagFromContact(
   contactId: string,
   tagId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(contactId, tagId);
+  if (invalidInput) return { ok: false, error: invalidInput };
+
   try {
     await prisma.contactTag.delete({
       where: {
@@ -255,16 +244,8 @@ export async function removeTagFromContact(
     revalidatePath("/contatos");
     revalidatePath("/conversas");
     return { ok: true };
-  } catch {
-    const contacts = await getStoredContacts();
-    const contact = contacts.find((c) => c.id === contactId);
-    if (contact) {
-      contact.tags = contact.tags.filter((t) => t.id !== tagId);
-      await updateStoredContactTags(contactId, contact.tags);
-      revalidatePath("/contatos");
-      revalidatePath("/conversas");
-      return { ok: true };
-    }
-    return { ok: false, error: "Contato não encontrado." };
+  } catch (err: any) {
+    console.error("[contatos] Erro ao remover tag:", err);
+    return { ok: false, error: err?.message || "Erro ao remover etiqueta." };
   }
 }

@@ -5,12 +5,37 @@ import { defaultRecipe, readRecipe } from "@/lib/flow/recipe";
 import { getCurrentAccount } from "@/lib/account";
 import { fromDb } from "@/lib/flow/convert";
 import { prisma } from "@/lib/prisma";
-import { getStoredFlow } from "@/lib/storage/store";
 
-export default async function FlowEditorPage(props: PageProps<"/fluxos/[id]">) {
+export const dynamic = "force-dynamic";
+
+export default async function FlowEditorPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const { id } = await props.params;
+  const searchParams = await props.searchParams;
 
   if (id === "novo") {
+    if (searchParams?.mode === "ADVANCED") {
+      return (
+        <FlowEditor
+          flow={{
+            id: "novo",
+            name: "Novo fluxo",
+            folder: null,
+            status: "DRAFT",
+          }}
+          initial={{
+            viewport: { x: 0, y: 0, zoom: 1 },
+            nodes: [],
+            edges: [],
+          }}
+          tags={[]}
+          catalog={[]}
+        />
+      );
+    }
+
     return (
       <SimpleBuilder
         flow={{
@@ -24,43 +49,19 @@ export default async function FlowEditorPage(props: PageProps<"/fluxos/[id]">) {
     );
   }
 
-  let flow: any = null;
-  let account: any = null;
+  const account = await getCurrentAccount();
+  if (!account) notFound();
 
-  try {
-    account = await getCurrentAccount();
-    flow = await prisma.flow.findFirst({
-      where: { id, accountId: account.id },
-      include: {
-        nodes: { include: { carouselCards: true } },
-        edges: true,
-        triggers: { orderBy: { createdAt: "asc" } },
-      },
-    });
-  } catch (error) {
-    // Falha de banco remoto tratada via store local
-  }
+  const flow = await prisma.flow.findFirst({
+    where: { id, accountId: account.id },
+    include: {
+      nodes: { include: { carouselCards: true } },
+      edges: true,
+      triggers: { orderBy: { createdAt: "asc" } },
+    },
+  });
 
   if (!flow) {
-    const stored = await getStoredFlow(id);
-    if (stored) {
-      const info = { id: stored.id, name: stored.name, folder: stored.folder, status: stored.status };
-      if (stored.mode === "SIMPLE") {
-        return <SimpleBuilder flow={info} initial={stored.recipe ? readRecipe(stored.recipe) : defaultRecipe()} />;
-      }
-      return (
-        <FlowEditor
-          flow={info}
-          initial={{
-            viewport: stored.viewport ?? { x: 0, y: 0, zoom: 1 },
-            nodes: stored.nodes ?? [],
-            edges: stored.edges ?? [],
-          }}
-          tags={[]}
-          catalog={[]}
-        />
-      );
-    }
     notFound();
   }
 

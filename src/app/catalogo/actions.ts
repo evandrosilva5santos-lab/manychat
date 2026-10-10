@@ -1,9 +1,11 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { invalidIdMessage } from "@/lib/validation";
+import { isSafeHttpsUrl } from "@/lib/links/tracked";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
-import { deleteStoredCatalogItem, getStoredCatalog, saveStoredCatalogItem } from "@/lib/storage/store";
 
 export type CardButtonType = "URL" | "POSTBACK";
 
@@ -31,55 +33,6 @@ export type CatalogItemWithUsages = {
   usages: { id: string; flowName: string }[];
 };
 
-// Fallback em memória para teste offline quando o banco de dados remoto não estiver conectado
-let memoryCatalog: CatalogItemWithUsages[] = [
-  {
-    id: "card-1",
-    accountId: "demo-account",
-    title: "Pacote Casamento Completo 2026",
-    description: "Cerimônia exclusiva, buffet completo e assessoria premium.",
-    imageUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?w=800&auto=format&fit=crop&q=80",
-    buttonTitle: "QUERO ESTE PACOTE",
-    buttonType: "POSTBACK",
-    buttonUrl: null,
-    createdAt: new Date("2026-01-01"),
-    updatedAt: new Date("2026-01-01"),
-    usageCount: 2,
-    usages: [
-      { id: "u-1", flowName: "[2026] Casamento por DM automático" },
-      { id: "u-2", flowName: "Captação story Astrix" },
-    ],
-  },
-  {
-    id: "card-2",
-    accountId: "demo-account",
-    title: "Assessoria & Decoração Floral",
-    description: "Design floral assinado e coordenação completa do seu grande dia.",
-    imageUrl: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&auto=format&fit=crop&q=80",
-    buttonTitle: "VER FOTOS REAIS",
-    buttonType: "URL",
-    buttonUrl: "https://movingfestival.com.br/fotos-decoracao",
-    createdAt: new Date("2026-01-02"),
-    updatedAt: new Date("2026-01-02"),
-    usageCount: 1,
-    usages: [{ id: "u-3", flowName: "[2026] Casamento por DM automático" }],
-  },
-  {
-    id: "card-3",
-    accountId: "demo-account",
-    title: "Agendamento com a Equipe Moving",
-    description: "Converse por WhatsApp com nossos especialistas em casamentos.",
-    imageUrl: "https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=800&auto=format&fit=crop&q=80",
-    buttonTitle: "FALAR NO WHATSAPP",
-    buttonType: "URL",
-    buttonUrl: "https://wa.me/5551994044194?text=Oi%21%20Quero%20agendar%20uma%20reuniao%20sobre%20o%20casamento",
-    createdAt: new Date("2026-01-03"),
-    updatedAt: new Date("2026-01-03"),
-    usageCount: 0,
-    usages: [],
-  },
-];
-
 function validateInput(input: CatalogItemInput): string | null {
   if (!input.title || input.title.trim().length === 0) {
     return "O título do card é obrigatório.";
@@ -90,8 +43,8 @@ function validateInput(input: CatalogItemInput): string | null {
   if (input.description && input.description.length > 80) {
     return "A descrição pode ter no máximo 80 caracteres (regra da Meta).";
   }
-  if (!input.imageUrl || !input.imageUrl.trim()) {
-    return "A URL da imagem é obrigatória.";
+  if (!input.imageUrl || !isSafeHttpsUrl(input.imageUrl.trim())) {
+    return "Informe a URL da imagem começando com https://";
   }
   if (!input.buttonTitle || input.buttonTitle.trim().length === 0) {
     return "O texto do botão é obrigatório.";
@@ -100,8 +53,8 @@ function validateInput(input: CatalogItemInput): string | null {
     return "O texto do botão pode ter no máximo 20 caracteres.";
   }
   if (input.buttonType === "URL") {
-    if (!input.buttonUrl || !input.buttonUrl.trim().startsWith("http")) {
-      return "Informe um link válido começando com http:// ou https://";
+    if (!input.buttonUrl || !isSafeHttpsUrl(input.buttonUrl.trim())) {
+      return "Informe um link válido começando com https://";
     }
   }
   return null;
@@ -111,8 +64,11 @@ function validateInput(input: CatalogItemInput): string | null {
  * Lista todos os itens do catálogo da conta atual com a contagem de usos em fluxos.
  */
 export async function listCatalogItems(): Promise<CatalogItemWithUsages[]> {
+  await requireAuth();
   try {
     const account = await getCurrentAccount();
+    if (!account) return [];
+
     const items = await prisma.catalogItem.findMany({
       where: { accountId: account.id },
       include: {
@@ -129,38 +85,26 @@ export async function listCatalogItems(): Promise<CatalogItemWithUsages[]> {
       orderBy: { createdAt: "desc" },
     });
 
-    if (items.length > 0) {
-      return items.map((item) => ({
-        id: item.id,
-        accountId: item.accountId,
-        title: item.title,
-        description: item.description,
-        imageUrl: item.imageUrl,
-        buttonTitle: item.buttonTitle,
-        buttonType: item.buttonType as CardButtonType,
-        buttonUrl: item.buttonUrl,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        usageCount: item.usages.length,
-        usages: item.usages.map((u) => ({
-          id: u.id,
-          flowName: u.node?.flow?.name || "Fluxo sem nome",
-        })),
-      }));
-    }
-    const stored = await getStoredCatalog();
-    return stored.map((s) => ({
-      ...s,
-      createdAt: new Date(s.createdAt),
-      updatedAt: new Date(s.updatedAt),
+    return items.map((item) => ({
+      id: item.id,
+      accountId: item.accountId,
+      title: item.title,
+      description: item.description,
+      imageUrl: item.imageUrl,
+      buttonTitle: item.buttonTitle,
+      buttonType: item.buttonType as CardButtonType,
+      buttonUrl: item.buttonUrl,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      usageCount: item.usages.length,
+      usages: item.usages.map((u) => ({
+        id: u.id,
+        flowName: u.node?.flow?.name || "Fluxo sem nome",
+      })),
     }));
   } catch (err) {
-    const stored = await getStoredCatalog();
-    return stored.map((s) => ({
-      ...s,
-      createdAt: new Date(s.createdAt),
-      updatedAt: new Date(s.updatedAt),
-    }));
+    console.error("[catalogo] Erro ao listar itens:", err);
+    return [];
   }
 }
 
@@ -170,6 +114,7 @@ export async function listCatalogItems(): Promise<CatalogItemWithUsages[]> {
 export async function createCatalogItem(
   input: CatalogItemInput
 ): Promise<{ ok: true; item: CatalogItemWithUsages } | { ok: false; error: string }> {
+  await requireAuth();
   const error = validateInput(input);
   if (error) return { ok: false, error };
 
@@ -184,6 +129,10 @@ export async function createCatalogItem(
 
   try {
     const account = await getCurrentAccount();
+    if (!account) {
+      return { ok: false, error: "Nenhuma conta conectada. Conecte sua conta em Ajustes." };
+    }
+
     const created = await prisma.catalogItem.create({
       data: {
         accountId: account.id,
@@ -197,30 +146,11 @@ export async function createCatalogItem(
       usageCount: 0,
       usages: [],
     };
-    await saveStoredCatalogItem({
-      ...result,
-      createdAt: result.createdAt.toISOString(),
-      updatedAt: result.updatedAt.toISOString(),
-    });
     revalidatePath("/catalogo");
     return { ok: true, item: result };
-  } catch {
-    const mockItem: CatalogItemWithUsages = {
-      id: `card-${Date.now()}`,
-      accountId: "demo-account",
-      ...sanitized,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      usageCount: 0,
-      usages: [],
-    };
-    await saveStoredCatalogItem({
-      ...mockItem,
-      createdAt: mockItem.createdAt.toISOString(),
-      updatedAt: mockItem.updatedAt.toISOString(),
-    });
-    revalidatePath("/catalogo");
-    return { ok: true, item: mockItem };
+  } catch (err: any) {
+    console.error("[catalogo] Erro ao criar item:", err);
+    return { ok: false, error: err?.message || "Falha ao salvar item no banco de dados." };
   }
 }
 
@@ -231,6 +161,10 @@ export async function updateCatalogItem(
   id: string,
   input: CatalogItemInput
 ): Promise<{ ok: true; item: CatalogItemWithUsages } | { ok: false; error: string }> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(id);
+  if (invalidInput) return { ok: false, error: invalidInput };
+
   const error = validateInput(input);
   if (error) return { ok: false, error };
 
@@ -271,27 +205,9 @@ export async function updateCatalogItem(
     };
     revalidatePath("/catalogo");
     return { ok: true, item: result };
-  } catch {
-    const stored = await getStoredCatalog();
-    const item = stored.find((c) => c.id === id);
-    if (item) {
-      const updatedItem = {
-        ...item,
-        ...sanitized,
-        updatedAt: new Date().toISOString(),
-      };
-      await saveStoredCatalogItem(updatedItem);
-      revalidatePath("/catalogo");
-      return {
-        ok: true,
-        item: {
-          ...updatedItem,
-          createdAt: new Date(updatedItem.createdAt),
-          updatedAt: new Date(updatedItem.updatedAt),
-        },
-      };
-    }
-    return { ok: false, error: "Card não encontrado no catálogo." };
+  } catch (err: any) {
+    console.error("[catalogo] Erro ao atualizar item:", err);
+    return { ok: false, error: err?.message || "Falha ao atualizar card no banco de dados." };
   }
 }
 
@@ -300,6 +216,10 @@ export async function updateCatalogItem(
  * Se o card estiver sendo usado em algum carrossel, a exclusão é bloqueada para não quebrar fluxos ativos.
  */
 export async function deleteCatalogItem(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(id);
+  if (invalidInput) return { ok: false, error: invalidInput };
+
   try {
     const item = await prisma.catalogItem.findUnique({
       where: { id },
@@ -325,12 +245,10 @@ export async function deleteCatalogItem(id: string): Promise<{ ok: true } | { ok
     }
 
     await prisma.catalogItem.delete({ where: { id } });
-    await deleteStoredCatalogItem(id);
     revalidatePath("/catalogo");
     return { ok: true };
-  } catch {
-    await deleteStoredCatalogItem(id);
-    revalidatePath("/catalogo");
-    return { ok: true };
+  } catch (err: any) {
+    console.error("[catalogo] Erro ao excluir item:", err);
+    return { ok: false, error: err?.message || "Falha ao excluir card do banco de dados." };
   }
 }

@@ -469,22 +469,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
         </div>
       </header>
 
-      {/* ── Banner de Alerta de Permissões ManyChat (Idêntico ao print) ── */}
-      <div className="flex items-center justify-between bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 text-xs text-amber-700 dark:text-amber-400 z-10">
-        <div className="flex items-center gap-2">
-          <AlertTriangle size={15} className="text-amber-600 flex-none" />
-          <span>
-            Alguns problemas com as permissões de conta foram encontrados. O administrador da página do Facebook precisa atualizar as permissões.
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => alert("Simulação: Permissões da Meta Graph API verificadas com sucesso!")}
-          className="font-bold underline text-amber-800 dark:text-amber-300 hover:opacity-80 transition-opacity"
-        >
-          Atualizar Permissões
-        </button>
-      </div>
+
 
       {/* ── Main Layout: Receita à Esquerda, Insights/Visualização à Direita ── */}
       <div className="flex min-h-0 flex-1">

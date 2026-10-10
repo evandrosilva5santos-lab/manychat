@@ -1,9 +1,9 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth/requireAuth";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { defaultGraphClient } from "@/lib/meta/graph";
-import { prisma } from "@/lib/prisma";
 
 export type MetaSettingsData = {
   account: {
@@ -16,18 +16,29 @@ export type MetaSettingsData = {
   hasAccessToken: boolean;
   hasAppSecret: boolean;
   webhookCallbackUrl: string;
-  webhookVerifyToken: string;
+  /** O token em si nunca vai para o navegador; só se está configurado e uma dica. */
+  webhookVerifyTokenConfigured: boolean;
+  webhookVerifyTokenHint: string | null;
   isMockMode: boolean;
 };
+
+const TOKEN_HINT_VISIBLE_CHARS = 3;
+const META_UNAVAILABLE = "Não foi possível falar com a Meta agora. Tente novamente em instantes.";
+
+function maskSecret(value: string | undefined): string | null {
+  if (!value) return null;
+  return `${value.slice(0, TOKEN_HINT_VISIBLE_CHARS)}${"•".repeat(8)}`;
+}
 
 /**
  * Retorna o status atual da conexão com a Meta e as credenciais configuradas.
  */
 export async function getMetaSettings(): Promise<MetaSettingsData> {
+  await requireAuth();
   const account = await getCurrentAccount();
   const hasAccessToken = Boolean(process.env.IG_ACCESS_TOKEN);
   const hasAppSecret = Boolean(process.env.META_APP_SECRET || process.env.IG_APP_SECRET);
-  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || "token_verificacao_fluxo_secreto";
+  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
 
   return {
     account: {
@@ -40,7 +51,8 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
     hasAccessToken,
     hasAppSecret,
     webhookCallbackUrl: "/api/webhook/instagram",
-    webhookVerifyToken: verifyToken,
+    webhookVerifyTokenConfigured: Boolean(verifyToken),
+    webhookVerifyTokenHint: maskSecret(verifyToken),
     isMockMode: !hasAccessToken,
   };
 }
@@ -56,6 +68,7 @@ export async function testMetaConnection(): Promise<{
   mock?: boolean;
   error?: string;
 }> {
+  await requireAuth();
   try {
     const res = await defaultGraphClient.validateConnection();
     if (res.valid) {
@@ -68,8 +81,9 @@ export async function testMetaConnection(): Promise<{
       };
     }
     return { ok: false, error: res.error };
-  } catch (err: any) {
-    return { ok: false, error: err?.message || String(err) };
+  } catch (err) {
+    console.error("[ajustes] Falha na chamada à Meta", err);
+    return { ok: false, error: META_UNAVAILABLE };
   }
 }
 
@@ -81,6 +95,7 @@ export async function renewMetaToken(): Promise<{
   expiresInDays?: number;
   error?: string;
 }> {
+  await requireAuth();
   try {
     const res = await defaultGraphClient.refreshLongLivedToken();
     if (res.success) {
@@ -89,8 +104,9 @@ export async function renewMetaToken(): Promise<{
       return { ok: true, expiresInDays: days };
     }
     return { ok: false, error: res.error };
-  } catch (err: any) {
-    return { ok: false, error: err?.message || String(err) };
+  } catch (err) {
+    console.error("[ajustes] Falha na chamada à Meta", err);
+    return { ok: false, error: META_UNAVAILABLE };
   }
 }
 
@@ -101,6 +117,7 @@ export async function subscribeMetaWebhooks(): Promise<{
   ok: boolean;
   error?: string;
 }> {
+  await requireAuth();
   try {
     const account = await getCurrentAccount();
     const res = await defaultGraphClient.subscribeWebhooks(account.igUserId);
@@ -109,7 +126,8 @@ export async function subscribeMetaWebhooks(): Promise<{
       return { ok: true };
     }
     return { ok: false, error: res.error };
-  } catch (err: any) {
-    return { ok: false, error: err?.message || String(err) };
+  } catch (err) {
+    console.error("[ajustes] Falha na chamada à Meta", err);
+    return { ok: false, error: META_UNAVAILABLE };
   }
 }

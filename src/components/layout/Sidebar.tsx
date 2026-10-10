@@ -175,36 +175,17 @@ export function Sidebar() {
 
       {/* Bottom: Colapsar, Avatar do Usuário e Ajuda */}
       <div className="flex flex-col items-center gap-2.5 w-full">
-        {/* Botão de colapsar / expandir (ícone ->|) */}
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-muted hover:bg-surface-300/60 hover:text-ink transition-colors"
-          title="Recolher barra lateral"
-          aria-label="Recolher barra lateral"
-        >
-          <PanelLeftClose size={18} />
-        </button>
-
-        {/* Avatar do Usuário */}
+        {/* Avatar da Conta */}
         <Link
           href="/ajustes"
-          className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-rose-600 p-[1.5px] shadow-sm hover:scale-105 transition-transform"
-          title="Evandro Silva"
+          className="relative flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 hover:bg-primary/30 text-primary p-[1px] shadow-sm hover:scale-105 transition-transform"
+          title="Conta e Ajustes"
+          aria-label="Conta e Ajustes"
         >
-          <div className="h-full w-full rounded-full bg-surface-200 flex items-center justify-center text-[11px] font-bold text-ink">
-            E
+          <div className="h-full w-full rounded-full bg-surface-200 flex items-center justify-center text-[12px] font-bold text-ink">
+            <User size={14} />
           </div>
         </Link>
-
-        {/* Central de Ajuda (?) */}
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-muted hover:bg-surface-300/60 hover:text-ink transition-colors"
-          title="Ajuda e Suporte"
-          aria-label="Ajuda"
-        >
-          <HelpCircle size={18} />
-        </button>
       </div>
     </aside>
   );

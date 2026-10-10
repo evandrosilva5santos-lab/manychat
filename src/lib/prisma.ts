@@ -7,7 +7,9 @@ import { appDatabaseUrl } from "@/lib/db-url";
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createClient() {
-  const adapter = new PrismaPg({ connectionString: appDatabaseUrl() });
+  // Pool enxuto: em serverless cada instância abre o próprio pool —
+  // max pequeno evita esgotar as conexões do PgBouncer (porta 6543).
+  const adapter = new PrismaPg({ connectionString: appDatabaseUrl(), max: 5 });
   return new PrismaClient({ adapter });
 }
 

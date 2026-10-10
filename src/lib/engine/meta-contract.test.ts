@@ -6,7 +6,13 @@ import { verifyMetaHmacSignature, verifyWebhookChallenge, parseInstagramWebhookP
 import { configSchemas } from "../flow/schema";
 import { lintFlow } from "../flow/lint";
 
-vi.mock("../prisma", () => ({ prisma: { flow: { findMany: vi.fn() } } }));
+vi.mock("../prisma", () => ({
+  prisma: {
+    flow: { findMany: vi.fn() },
+    trigger: { findMany: vi.fn() },
+    node: { findFirst: vi.fn() },
+  },
+}));
 
 afterEach(() => {
   vi.useRealTimers();
@@ -32,12 +38,21 @@ describe("Item 3: contratos independentes do tipo de login", () => {
   });
 
   it("não dispara post específico se o evento não trouxer a mídia", async () => {
-    vi.mocked(prisma.flow.findMany).mockResolvedValue([{
-      id: "flow", accountId: "account", name: "Fluxo", folder: null,
-      status: "LIVE", mode: "ADVANCED", viewport: null, recipe: null,
-      createdAt: new Date(), updatedAt: new Date(),
-      ...{ nodes: [{ id: "start" }], triggers: [{ id: "trigger", type: "COMMENT_KEYWORD", keywords: ["quero"], match: "EXACT", mediaId: "post", startNodeId: "start" }] },
-    }]);
+    vi.mocked(prisma.trigger.findMany).mockResolvedValue([
+      {
+        id: "trigger",
+        flowId: "flow",
+        type: "COMMENT_KEYWORD",
+        keywords: ["quero"],
+        match: "EXACT",
+        mediaId: "post",
+        startNodeId: "start",
+        negativeKeywords: [],
+        publicReplies: [],
+        payload: null,
+        flow: { id: "flow" },
+      } as any,
+    ]);
     const event = { kind: "comment" as const, igUserId: "account", commentId: "comment", userIgsid: "lead", text: "quero", timestamp: Date.now() };
     expect(await findMatchingTrigger("account", event)).toBeNull();
     expect(await findMatchingTrigger("account", { ...event, mediaId: "other" })).toBeNull();

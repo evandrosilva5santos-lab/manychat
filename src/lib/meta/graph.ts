@@ -4,14 +4,15 @@
  * Explicação em docs/etapa-3-motor.md
  *
  * Se IG_ACCESS_TOKEN estiver configurado no .env, faz chamadas reais à Meta.
- * Se não estiver configurado (ou em ambiente de teste), roda em modo MOCK inteligente,
- * permitindo testar toda a lógica do sistema sem precisar de chaves reais de imediato.
+ * Em ambiente de teste sem token, disponibiliza mocks para testes unitários.
+ * Fora do ambiente de teste, sem token retorna { success: false, code: "NO_TOKEN" }.
  */
 
 export type SendMessageResult = {
   success: boolean;
   messageId?: string;
   recipientId?: string;
+  code?: string;
   error?: string;
   mock?: boolean;
 };
@@ -51,19 +52,31 @@ export class InstagramGraphClient {
   private accessToken: string | null;
 
   constructor(accessToken?: string | null) {
-    this.accessToken = accessToken ?? process.env.IG_ACCESS_TOKEN ?? null;
+    this.accessToken = accessToken !== undefined ? accessToken : null;
+  }
+
+  private getToken(): string | null {
+    return this.accessToken ?? process.env.IG_ACCESS_TOKEN ?? null;
   }
 
   /**
    * Envia uma mensagem direta de texto simples no Direct.
    */
   async sendTextMessage(toIgsid: string, text: string): Promise<SendMessageResult> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          success: true,
+          messageId: `test_mid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          recipientId: toIgsid,
+          mock: true,
+        };
+      }
       return {
-        success: true,
-        messageId: `mock_mid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        recipientId: toIgsid,
-        mock: true,
+        success: false,
+        code: "NO_TOKEN",
+        error: "Token de acesso do Instagram não configurado.",
       };
     }
 
@@ -72,7 +85,7 @@ export class InstagramGraphClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           recipient: { id: toIgsid },
@@ -118,12 +131,20 @@ export class InstagramGraphClient {
       return { type: "postback", title, payload: b.payload || `btn_${title}` };
     });
 
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          success: true,
+          messageId: `test_mid_btn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          recipientId: toIgsid,
+          mock: true,
+        };
+      }
       return {
-        success: true,
-        messageId: `mock_mid_btn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        recipientId: toIgsid,
-        mock: true,
+        success: false,
+        code: "NO_TOKEN",
+        error: "Token de acesso do Instagram não configurado.",
       };
     }
 
@@ -132,7 +153,7 @@ export class InstagramGraphClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           recipient: { id: toIgsid },
@@ -141,7 +162,7 @@ export class InstagramGraphClient {
               type: "template",
               payload: {
                 template_type: "button",
-                text: text.slice(0, 1000),
+                text: text.slice(0, 640),
                 buttons: validButtons,
               },
             },
@@ -168,34 +189,32 @@ export class InstagramGraphClient {
   }
 
   /**
-   * Envia um Carrossel no Direct (Meta Generic Template).
-   * Suporta de 1 a 10 cards deslizantes com imagem (1:1), título, subtítulo e botão fixo.
+   * Envia um Carrossel no Direct (generic template).
+   *
+   * Regras da Meta:
+   * - No máximo 10 cards (elementos)
+   * - Cada card tem imagem, título e 1 botão
    */
   async sendCarouselMessage(
     toIgsid: string,
     elements: CarouselElement[]
   ): Promise<SendMessageResult> {
     if (!elements || elements.length === 0) {
-      return { success: false, error: "O carrossel precisa ter pelo menos 1 card." };
+      return {
+        success: false,
+        error: "Carrossel precisa ter pelo menos 1 card (máximo 10)",
+      };
     }
 
-    const validElements = elements.slice(0, 10).map((elem, idx) => {
+    const validElements = elements.slice(0, 10).map((elem) => {
       const title = elem.title.slice(0, 80);
       const subtitle = elem.subtitle ? elem.subtitle.slice(0, 80) : undefined;
-      const buttonTitle = elem.buttonTitle.slice(0, 20).toUpperCase();
+      const btnTitle = elem.buttonTitle.slice(0, 20).toUpperCase();
 
       const button =
         elem.buttonType === "web_url" && elem.url
-          ? {
-              type: "web_url" as const,
-              title: buttonTitle,
-              url: elem.url,
-            }
-          : {
-              type: "postback" as const,
-              title: buttonTitle,
-              payload: elem.payload || `card_${idx}`,
-            };
+          ? { type: "web_url", title: btnTitle, url: elem.url }
+          : { type: "postback", title: btnTitle, payload: elem.payload || `card_${btnTitle}` };
 
       return {
         title,
@@ -205,12 +224,20 @@ export class InstagramGraphClient {
       };
     });
 
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          success: true,
+          messageId: `test_mid_carousel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          recipientId: toIgsid,
+          mock: true,
+        };
+      }
       return {
-        success: true,
-        messageId: `mock_mid_carousel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        recipientId: toIgsid,
-        mock: true,
+        success: false,
+        code: "NO_TOKEN",
+        error: "Token de acesso do Instagram não configurado.",
       };
     }
 
@@ -219,7 +246,7 @@ export class InstagramGraphClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           recipient: { id: toIgsid },
@@ -256,12 +283,20 @@ export class InstagramGraphClient {
   /**
    * Responde publicamente a um comentário num post ou Reel.
    */
-  async replyToComment(commentId: string, text: string): Promise<{ success: boolean; id?: string; error?: string; mock?: boolean }> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
+  async replyToComment(commentId: string, text: string): Promise<{ success: boolean; id?: string; code?: string; error?: string; mock?: boolean }> {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          success: true,
+          id: `mock_reply_${Date.now()}`,
+          mock: true,
+        };
+      }
       return {
-        success: true,
-        id: `mock_reply_${Date.now()}`,
-        mock: true,
+        success: false,
+        code: "NO_TOKEN",
+        error: "Token de acesso do Instagram não configurado.",
       };
     }
 
@@ -270,7 +305,7 @@ export class InstagramGraphClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ message: text }),
       });
@@ -291,24 +326,34 @@ export class InstagramGraphClient {
 
   /**
    * Consulta se o usuário segue a conta (Follow-check da Meta).
+   *
+   * Tri-estado: "unknown" significa "não sabemos" (Meta fora do ar, sem
+   * token, resposta inválida) — o chamador NÃO deve punir o lead nem
+   * cachar "não segue" nesse caso. Só uma resposta limpa da Meta vira
+   * "yes" ou "no".
    */
-  async checkUserFollows(userIgsid: string): Promise<boolean> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
-      return true; // No modo de teste, simula que segue
+  async checkUserFollows(userIgsid: string): Promise<"yes" | "no" | "unknown"> {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return "yes"; // No modo de teste sem token, simula que segue
+      }
+      return "unknown";
     }
 
     try {
       const response = await fetch(
         `${GRAPH_API_BASE}/${userIgsid}?fields=is_user_follow_business`,
         {
-          headers: { Authorization: `Bearer ${this.accessToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
-      if (!response.ok) return false;
+      if (!response.ok) return "unknown";
       const data = await response.json();
-      return Boolean(data?.is_user_follow_business);
+      if (typeof data?.is_user_follow_business !== "boolean") return "unknown";
+      return data.is_user_follow_business ? "yes" : "no";
     } catch {
-      return false;
+      return "unknown";
     }
   }
 
@@ -316,19 +361,23 @@ export class InstagramGraphClient {
    * Busca dados do perfil do lead (username, nome, foto).
    */
   async getUserProfile(userIgsid: string): Promise<{ username?: string; name?: string; profilePicUrl?: string | null }> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
-      return {
-        username: "lead_demo",
-        name: "Lead Demo",
-        profilePicUrl: null,
-      };
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          username: "lead_demo",
+          name: "Lead Demo",
+          profilePicUrl: null,
+        };
+      }
+      return {};
     }
 
     try {
       const response = await fetch(
         `${GRAPH_API_BASE}/${userIgsid}?fields=name,username,profile_pic`,
         {
-          headers: { Authorization: `Bearer ${this.accessToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
       if (!response.ok) return {};
@@ -354,13 +403,20 @@ export class InstagramGraphClient {
     error?: string;
     mock?: boolean;
   }> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          valid: true,
+          igUserId: "demo-ig-user",
+          username: "instagram_business",
+          name: "Instagram Business",
+          mock: true,
+        };
+      }
       return {
-        valid: true,
-        igUserId: "demo-ig-user",
-        username: "movingfestival",
-        name: "Moving Festival",
-        mock: true,
+        valid: false,
+        error: "Nenhum token configurado no ambiente.",
       };
     }
 
@@ -368,7 +424,7 @@ export class InstagramGraphClient {
       const response = await fetch(
         `${GRAPH_API_BASE}/me?fields=id,name,instagram_business_account{id,username,name}`,
         {
-          headers: { Authorization: `Bearer ${this.accessToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
       const data = await response.json();
@@ -378,19 +434,21 @@ export class InstagramGraphClient {
           error: data?.error?.message || "Token da Meta inválido ou expirado.",
         };
       }
-      if (data.instagram_business_account) {
+
+      const igAccount = data.instagram_business_account;
+      if (!igAccount) {
         return {
-          valid: true,
-          igUserId: data.instagram_business_account.id,
-          username: data.instagram_business_account.username,
-          name: data.instagram_business_account.name || data.name,
+          valid: false,
+          error:
+            "A página do Facebook não tem uma conta profissional do Instagram vinculada.",
         };
       }
+
       return {
         valid: true,
-        igUserId: data.id,
-        username: data.name || "Instagram Account",
-        name: data.name,
+        igUserId: igAccount.id,
+        username: igAccount.username,
+        name: igAccount.name,
       };
     } catch (err: any) {
       return { valid: false, error: err?.message || String(err) };
@@ -398,60 +456,33 @@ export class InstagramGraphClient {
   }
 
   /**
-   * Inscreve a conta nos webhooks da Meta (comments e messages) via API.
-   * Equivalente ao POST /{igUserId}/subscribed_apps da documentação oficial.
+   * Renova o token de acesso de 60 dias (Long-Lived Token).
    */
-  async subscribeWebhooks(igUserId: string): Promise<{ success: boolean; error?: string }> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
-      return { success: true };
-    }
-
-    try {
-      const response = await fetch(`${GRAPH_API_BASE}/${igUserId}/subscribed_apps`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.accessToken}`,
-        },
-        body: JSON.stringify({
-          subscribed_fields: ["comments", "messages"],
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data?.error?.message || "Falha ao inscrever campos do webhook na Meta.",
-        };
-      }
-      return { success: Boolean(data.success) };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Renova o token de longa duração de 60 dias (ig_refresh_token).
-   */
-  async refreshLongLivedToken(): Promise<{
+  async renewToken(): Promise<{
     success: boolean;
     accessToken?: string;
     expiresIn?: number;
     error?: string;
   }> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          success: true,
+          accessToken: "mock_refreshed_token_60d",
+          expiresIn: 5184000, // 60 dias em segundos
+        };
+      }
       return {
-        success: true,
-        accessToken: "mock_refreshed_token_60d",
-        expiresIn: 5184000, // 60 dias em segundos
+        success: false,
+        error: "Nenhum token configurado para renovar.",
       };
     }
 
     try {
       const url = new URL("https://graph.instagram.com/refresh_access_token");
       url.searchParams.set("grant_type", "ig_refresh_token");
-      url.searchParams.set("access_token", this.accessToken);
+      url.searchParams.set("access_token", token);
 
       const response = await fetch(url.toString());
       const data = await response.json();
@@ -473,50 +504,108 @@ export class InstagramGraphClient {
   }
 
   /**
+   * Alias de compatibilidade para renewToken.
+   */
+  async refreshLongLivedToken() {
+    return this.renewToken();
+  }
+
+  /**
+   * Inscreve a conta nos webhooks da Meta (comments e messages) via API.
+   * Equivalente ao POST /{igUserId}/subscribed_apps da documentação oficial.
+   */
+  async subscribeWebhooks(igUserId: string): Promise<{ success: boolean; error?: string }> {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return { success: true };
+      }
+      return {
+        success: false,
+        error: "Token de acesso do Instagram não configurado.",
+      };
+    }
+
+    try {
+      const response = await fetch(`${GRAPH_API_BASE}/${igUserId}/subscribed_apps`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subscribed_fields: ["comments", "messages"],
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data?.error?.message || "Falha ao inscrever campos do webhook na Meta.",
+        };
+      }
+      return { success: Boolean(data.success) };
+    } catch (err: any) {
+      return { success: false, error: err?.message || String(err) };
+    }
+  }
+
+  /**
    * Busca as últimas mídias (posts/reels) da conta conectada
    */
   async getUserMedia(igUserId?: string, limit = 25): Promise<{
     success: boolean;
     data: InstagramMediaItem[];
+    code?: string;
     mock?: boolean;
     error?: string;
   }> {
-    if (!this.accessToken || process.env.NODE_ENV === "test") {
+    const token = this.getToken();
+    if (!token) {
+      if (process.env.NODE_ENV === "test") {
+        return {
+          success: true,
+          mock: true,
+          data: [
+            {
+              id: "mock_media_1",
+              caption: "Lançamento da nova integração! Comente EU QUERO para receber o link.",
+              mediaType: "IMAGE",
+              mediaUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80",
+              permalink: "https://www.instagram.com/p/mock1/",
+              timestamp: new Date().toISOString(),
+              likeCount: 154,
+              commentsCount: 23,
+            },
+            {
+              id: "mock_media_2",
+              caption: "3 dicas para crescer no Instagram.",
+              mediaType: "VIDEO",
+              thumbnailUrl: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=800&q=80",
+              permalink: "https://www.instagram.com/reel/mock2/",
+              timestamp: new Date(Date.now() - 86400000).toISOString(),
+              likeCount: 890,
+              commentsCount: 112,
+            },
+            {
+              id: "mock_media_3",
+              caption: "Carrossel de novidades",
+              mediaType: "CAROUSEL_ALBUM",
+              mediaUrl: "https://images.unsplash.com/photo-1611162618071-b39a2ec055ce?w=800&q=80",
+              permalink: "https://www.instagram.com/p/mock3/",
+              timestamp: new Date(Date.now() - 172800000).toISOString(),
+              likeCount: 45,
+              commentsCount: 5,
+            },
+          ],
+        };
+      }
       return {
-        success: true,
-        mock: true,
-        data: [
-          {
-            id: "mock_media_1",
-            caption: "Lançamento da nova integração! Comente EU QUERO para receber o link.",
-            mediaType: "IMAGE",
-            mediaUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80",
-            permalink: "https://www.instagram.com/p/mock1/",
-            timestamp: new Date().toISOString(),
-            likeCount: 154,
-            commentsCount: 23,
-          },
-          {
-            id: "mock_media_2",
-            caption: "3 dicas para crescer no Instagram.",
-            mediaType: "VIDEO",
-            thumbnailUrl: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=800&q=80",
-            permalink: "https://www.instagram.com/reel/mock2/",
-            timestamp: new Date(Date.now() - 86400000).toISOString(),
-            likeCount: 890,
-            commentsCount: 112,
-          },
-          {
-            id: "mock_media_3",
-            caption: "Carrossel de novidades",
-            mediaType: "CAROUSEL_ALBUM",
-            mediaUrl: "https://images.unsplash.com/photo-1611162618071-b39a2ec055ce?w=800&q=80",
-            permalink: "https://www.instagram.com/p/mock3/",
-            timestamp: new Date(Date.now() - 172800000).toISOString(),
-            likeCount: 45,
-            commentsCount: 5,
-          },
-        ],
+        success: false,
+        code: "NO_TOKEN",
+        data: [],
+        error: "Token de acesso do Instagram não configurado.",
       };
     }
 
@@ -526,10 +615,14 @@ export class InstagramGraphClient {
       const qs = new URLSearchParams({
         fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
         limit: limit.toString(),
-        access_token: this.accessToken,
       });
 
-      const response = await fetch(`${GRAPH_API_BASE}/${targetUserId}/media?${qs.toString()}`);
+      const response = await fetch(`${GRAPH_API_BASE}/${targetUserId}/media?${qs.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
       const data = await response.json();
 
       if (!response.ok) {

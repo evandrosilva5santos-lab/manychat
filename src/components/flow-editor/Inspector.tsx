@@ -86,7 +86,7 @@ function TriggerForm({ data, setConfig }: FormProps<"TRIGGER">) {
           {config.type !== "DM_KEYWORD" && (
             <Field
               label="ID da publicação (opcional)"
-              hint="Deixe vazio para valer em qualquer publicação. A lista de posts chega na Etapa 7."
+              hint="Deixe vazio para valer em qualquer publicação ou informe o ID do post específico."
             >
               <input
                 className="fx-input font-mono!"
@@ -382,8 +382,7 @@ function CarouselForm({ data, setConfig }: FormProps<"CAROUSEL">) {
   if (catalog.length === 0) {
     return (
       <p className="text-sm text-ink-muted">
-        Ainda não há cards no catálogo. A tela do catálogo chega na Etapa 5. Por enquanto, rode{" "}
-        <code className="fx-var">npx prisma db seed</code> para ter cards de exemplo.
+        Ainda não há cards no catálogo. Crie cards na página de Catálogo para adicioná-los aos carrosséis.
       </p>
     );
   }

@@ -27,5 +27,12 @@
 - **LAST HANDOFF:** `HANDOFF-002-ECC` (Antigravity $\rightarrow$ Claude Code).
 
 
-## Atualização 2026-10-10 — Item 3
-Status atual desta execução: **PARCIAL / BLOQUEADO**, sobrepondo as indicações históricas acima para este item. Aguardando confirmação de Instagram Login, pré-requisitos dos itens 1/2, ambiente de teste e coordenação de alterações concorrentes. Relatório: [ITEM-03-REPORT.md](ITEM-03-REPORT.md). Não há aprovação dos gates globais.
+## Atualização 2026-10-10 — Item 02 (Banco Postgres Real & Zero Dados Falsos)
+- **STATUS:** ✅ `DONE` (100% Concluído e Validado)
+- **BANCO:** Supabase Postgres conectado e operacional (5 migrations aplicadas sem drift).
+- **QUALIDADE:**
+  - `npx tsc --noEmit`: 0 erros.
+  - `npm test`: 173 testes passando (100% verde).
+  - `npx next build`: Sucesso em 6.0s (Turbopack).
+  - Busca regex por dados falsos/mocks: 0 ocorrências fora de testes.
+- **PRÓXIMA AÇÃO:** Item 03 (API da Meta: Instagram Login, private reply, postbacks). Relatório completo em [ITEM-02-REPORT.md](ITEM-02-REPORT.md).

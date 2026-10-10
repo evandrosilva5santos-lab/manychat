@@ -134,38 +134,45 @@ describe("GET /api/instagram/media", () => {
     expect(Array.isArray(json.data)).toBe(true);
   });
 
-  it("deve aceitar parâmetros de limite e passar para o getUserMedia", async () => {
-    process.env.IG_ACCESS_TOKEN = "test-token";
+  // Contrato de segurança (item 1): o ID da conta nunca vem da query e o erro
+  // interno da Graph API não é devolvido ao navegador.
+  type ConnectionResult = Awaited<ReturnType<typeof defaultGraphClient.validateConnection>>;
+  type MediaResult = Awaited<ReturnType<typeof defaultGraphClient.getUserMedia>>;
 
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [] })
-    } as Response);
+  it("deve repassar o limite e ignorar o userId vindo da query", async () => {
+    vi.spyOn(defaultGraphClient, "validateConnection").mockResolvedValue({
+      valid: true,
+      igUserId: "conta_conectada",
+    } as ConnectionResult);
+    const mediaSpy = vi
+      .spyOn(defaultGraphClient, "getUserMedia")
+      .mockResolvedValue({ success: true, data: [] } as unknown as MediaResult);
 
     const req = new Request("http://localhost:3007/api/instagram/media?userId=12345&limit=5");
     const response = await GET(req);
 
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0];
-    expect(url.toString()).toContain("12345/media");
-    expect(url.toString()).toContain("limit=5");
+    expect(mediaSpy).toHaveBeenCalledWith("conta_conectada", 5);
   });
 
-  it("deve retornar 500 no caso de erro da API", async () => {
-    process.env.IG_ACCESS_TOKEN = "test-token";
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      json: async () => ({ error: { message: "Auth Error" } })
-    } as Response);
+  it("deve retornar 502 com mensagem genérica no caso de erro da API", async () => {
+    vi.spyOn(defaultGraphClient, "validateConnection").mockResolvedValue({
+      valid: true,
+      igUserId: "conta_conectada",
+    } as ConnectionResult);
+    vi.spyOn(defaultGraphClient, "getUserMedia").mockResolvedValue({
+      success: false,
+      data: [],
+      error: "Auth Error",
+    } as unknown as MediaResult);
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
     const req = new Request("http://localhost:3007/api/instagram/media");
     const response = await GET(req);
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(502);
     const json = await response.json();
     expect(json.success).toBe(false);
-    expect(json.error).toBe("Auth Error");
+    expect(json.error).not.toBe("Auth Error");
   });
 });

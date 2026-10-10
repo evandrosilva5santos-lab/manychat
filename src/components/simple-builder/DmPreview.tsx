@@ -33,7 +33,7 @@ type Props = {
 
 export function DmPreview({
   recipe,
-  accountUsername = "movingfestival",
+  accountUsername = "instagram",
   activeTab: controlledTab,
   onTabChange,
 }: Props) {
@@ -45,11 +45,11 @@ export function DmPreview({
   const [commentLiked1, setCommentLiked1] = useState(false);
   const [commentLiked2, setCommentLiked2] = useState(false);
 
-  const keyword = recipe.trigger.keywords[0] ?? "Casamento";
+  const keyword = recipe.trigger.keywords[0] ?? "QUERO";
   const publicReply = recipe.trigger.publicReplies.enabled
     ? recipe.trigger.publicReplies.variations.find((r) => r.trim()) ||
-      "Que bom que você vai casar na Moving! 💍✨ Olha tua DM"
-    : "Que bom que você vai casar na Moving! 💍✨ Olha tua DM";
+      "Obrigado pelo seu comentário! ✨ Enviamos os detalhes no seu Direct."
+    : "Obrigado pelo seu comentário! ✨ Enviamos os detalhes no seu Direct.";
 
   const welcomeEnabled = recipe.welcome.enabled !== false;
   const followGateEnabled = recipe.followGate.enabled;
@@ -192,7 +192,7 @@ export function DmPreview({
                   <span className="font-bold text-white mr-1.5">{accountUsername}</span>
                   {recipe.trigger.scope === "specific" && recipe.trigger.mediaCaption
                     ? recipe.trigger.mediaCaption
-                    : "É PEDIR DEMAIS? 🥺🙏 Heeey Moving Maníacos 🗣 O que vocês também ELIMINARIAM? ❌ Garanta hoje o seu ingresso (link na bio @movingfestival)"}
+                    : "Publicação do seu perfil no Instagram. Adicione uma legenda para contextualizar sua automação."}
                 </p>
 
                 <div
@@ -263,7 +263,7 @@ export function DmPreview({
                 />
               </div>
 
-              {/* Resposta da Página (movingfestival) */}
+              {/* Resposta da Página */}
               <div className="flex items-start justify-between gap-3 ml-6 pl-2 border-l-2 border-white/10">
                 <div className="flex items-start gap-2.5 min-w-0">
                   <div className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-fuchsia-600 p-[1px]">

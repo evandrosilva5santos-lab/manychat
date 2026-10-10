@@ -43,6 +43,7 @@ model InstagramAccount {
   flows        Flow[]
   catalogItems CatalogItem[]
   messages     Message[]
+  trackedLinks TrackedLink[]
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -66,17 +67,23 @@ model Contact {
   lastInteractionAt DateTime?
   /// Fluxo pelo qual a pessoa entrou ("Entrou por" na lista de contatos).
   sourceFlowId      String?
+  /// Prévia desnormalizada da última mensagem (evita 1 query por contato
+  /// na lista de conversas).
+  lastMessagePreview String?
+  lastMessageAt      DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   account    InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   sourceFlow Flow?            @relation("ContactSource", fields: [sourceFlowId], references: [id], onDelete: SetNull)
-  tags       ContactTag[]
-  messages   Message[]
-  runs       FlowRun[]
+  tags         ContactTag[]
+  messages     Message[]
+  runs         FlowRun[]
+  trackedLinks TrackedLink[]
 
   @@unique([accountId, igsid]) // evita contato duplicado
   @@index([accountId, lastInteractionAt])
+  @@index([sourceFlowId])
 }
 
 /// Etiqueta que você cola no contato ("lead-quente", "já-comprou").
@@ -125,19 +132,21 @@ enum FlowMode {
 
 /// A automação em si ("Captação story", "Casamento por DM").
 model Flow {
-  id        String     @id @default(cuid())
-  accountId String
-  name      String
-  folder    String? // pasta do breadcrumb: Automações › pasta › nome
-  status    FlowStatus @default(DRAFT)
-  mode      FlowMode   @default(ADVANCED)
+  id         String     @id @default(cuid())
+  accountId  String
+  name       String
+  folder     String? // pasta do breadcrumb: Automações › pasta › nome
+  status     FlowStatus @default(DRAFT)
+  mode       FlowMode   @default(ADVANCED)
   /// Zoom e posição da tela do editor, pra reabrir do mesmo jeito.
-  viewport  Json?
+  viewport   Json?
   /// Receita do builder simples (só quando mode = SIMPLE). As caixinhas
   /// são geradas a partir dela a cada salvamento.
-  recipe    Json?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  recipe     Json?
+  /// Soft-delete: fluxo arquivado mantém o histórico (FlowRun, Message).
+  archivedAt DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   account          InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   nodes            Node[]
@@ -146,8 +155,37 @@ model Flow {
   runs             FlowRun[]
   messages         Message[]
   contactsAcquired Contact[]        @relation("ContactSource")
+  trackedLinks     TrackedLink[]
 
   @@index([accountId, status])
+}
+
+/// Link rastreado: botões com URL apontam para /api/l/{code}, que conta o
+/// clique e redireciona só para a URL salva aqui (nunca para uma URL da query).
+model TrackedLink {
+  id             String    @id @default(cuid())
+  accountId      String
+  /// Código aleatório e público usado na URL /api/l/{code}.
+  code           String    @unique
+  /// Destino final (somente https).
+  url            String
+  contactId      String?
+  flowId         String?
+  /// Caixinha que gerou o link. Sem chave estrangeira porque as caixinhas do
+  /// builder simples são recriadas a cada salvamento.
+  nodeId         String?
+  clicks         Int       @default(0)
+  firstClickedAt DateTime?
+  lastClickedAt  DateTime?
+  createdAt      DateTime  @default(now())
+
+  account InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  flow    Flow?            @relation(fields: [flowId], references: [id], onDelete: SetNull)
+
+  @@index([accountId])
+  @@index([contactId, nodeId])
+  @@index([flowId])
 }
 
 enum NodeType {
@@ -207,7 +245,9 @@ model Edge {
   source Node @relation("EdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
   target Node @relation("EdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
-  @@unique([sourceNodeId, sourceHandle, targetNodeId])
+  // Unicidade garantida por índices únicos PARCIAIS criados via SQL na
+  // migration (o @@unique do Prisma trata NULLs como distintos, o que
+  // permitia duplicar arestas sem handle).
   @@index([flowId])
 }
 
@@ -255,6 +295,8 @@ model Trigger {
 
   @@index([flowId])
   @@index([type])
+  @@index([startNodeId])
+  @@index([type, mediaId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -271,6 +313,8 @@ enum RunStatus {
 
 /// Uma "passada" de um contato por um fluxo. Guarda onde ele está,
 /// pra continuar depois de uma espera ou de um clique.
+/// Regra de unicidade (SQL na migration): no máximo UM run ativo por
+/// (contactId, flowId) — índice único parcial em RUNNING/WAITING_*.
 model FlowRun {
   id            String    @id @default(cuid())
   flowId        String
@@ -291,7 +335,10 @@ model FlowRun {
 
   @@index([status, resumeAt])
   @@index([contactId, status])
+  @@index([contactId, currentNodeId, status])
   @@index([flowId])
+  @@index([triggerId])
+  @@index([currentNodeId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -341,6 +388,47 @@ model Message {
 
   @@index([contactId, createdAt])
   @@index([flowId, createdAt])
+  @@index([accountId, createdAt])
+  @@index([runId])
+  @@index([nodeId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Fila de eventos do webhook (idempotência + retentativas)
+// ─────────────────────────────────────────────────────────────
+
+enum WebhookEventStatus {
+  RECEIVED // gravado, aguardando processamento (ou backoff de retentativa)
+  PROCESSING // reivindicado por um worker
+  DONE // processado com sucesso
+  FAILED // erro permanente: não será retentado
+  DEAD // esgotou as retentativas
+}
+
+/// Cada evento entregue pela Meta vira uma linha aqui ANTES de qualquer
+/// processamento. `idempotencyKey` único garante processamento exatamente
+/// uma vez (entrega duplicada → P2002 → resposta 200 imediata).
+model WebhookEvent {
+  id             String            @id @default(cuid())
+  /// Conta destinatária (resolvida do entry.id no processamento; null se
+  /// a conta ainda não existia).
+  accountId      String?
+  /// igUserId:commentId | igUserId:messageMid | igUserId:postbackMid | hash
+  idempotencyKey String            @unique
+  /// comment | message | postback
+  type           String
+  /// Evento normalizado (NormalizedWebhookEvent) completo.
+  payload        Json
+  status         WebhookEventStatus @default(RECEIVED)
+  attempts       Int               @default(0)
+  lastError      String?
+  receivedAt     DateTime          @default(now())
+  claimedAt      DateTime?
+  /// Quando a próxima tentativa pode rodar (backoff exponencial).
+  nextAttemptAt  DateTime          @default(now())
+  processedAt    DateTime?
+
+  @@index([status, nextAttemptAt])
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useTransition, useEffect } from "react";
+import React, { useState, useSyncExternalStore, useTransition } from "react";
+
+const subscribeNoop = () => () => {};
 import Link from "next/link";
 import {
   Settings,
@@ -19,8 +21,6 @@ import {
   Radio,
   HelpCircle,
   Code2,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import {
   testMetaConnection,
@@ -35,9 +35,9 @@ interface SettingsClientProps {
 
 export function SettingsClient({ initialSettings }: SettingsClientProps) {
   const [settings] = useState<MetaSettingsData>(initialSettings);
-  const [origin, setOrigin] = useState("");
+  // Domínio público do navegador (vazio na renderização do servidor).
+  const origin = useSyncExternalStore(subscribeNoop, () => window.location.origin, () => "");
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [showToken, setShowToken] = useState(false);
   const [testResult, setTestResult] = useState<{
     tested: boolean;
     ok: boolean;
@@ -47,12 +47,6 @@ export function SettingsClient({ initialSettings }: SettingsClientProps) {
   const [subscribeResult, setSubscribeResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Detecta o domínio público do navegador
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-    }
-  }, []);
 
   const fullWebhookUrl = `${origin || "https://seu-dominio.vercel.app"}${settings.webhookCallbackUrl}`;
 
@@ -132,7 +126,7 @@ export function SettingsClient({ initialSettings }: SettingsClientProps) {
               </div>
               <h1 className="text-xl font-bold tracking-tight text-ink">Ajustes & Conexão Meta</h1>
               <span className="rounded-full bg-accent-muted/20 px-2 py-0.5 text-xs font-semibold text-accent">
-                Etapa 7 · Meta for Developers
+                Meta for Developers
               </span>
             </div>
             <p className="mt-1 text-sm text-ink-muted">
@@ -311,30 +305,19 @@ export function SettingsClient({ initialSettings }: SettingsClientProps) {
             {/* Verify Token */}
             <div>
               <label className="text-xs font-bold text-ink mb-1 block">Token de Verificação (Verify Token)</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type={showToken ? "text" : "password"}
-                  readOnly
-                  value={settings.webhookVerifyToken}
-                  className="flex-1 rounded-xl border border-border bg-surface-100 px-3.5 py-2 font-mono text-xs text-ink select-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken(!showToken)}
-                  title={showToken ? "Ocultar token" : "Revelar token"}
-                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95 cursor-pointer"
-                >
-                  {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(settings.webhookVerifyToken, "token")}
-                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95 cursor-pointer"
-                >
-                  {copiedField === "token" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                  <span>{copiedField === "token" ? "Copiado!" : "Copiar"}</span>
-                </button>
-              </div>
+              {settings.webhookVerifyTokenConfigured ? (
+                <p className="rounded-xl border border-border bg-surface-100 px-3.5 py-2 text-xs text-ink">
+                  <span className="font-mono">{settings.webhookVerifyTokenHint}</span>
+                  <span className="block mt-1 text-ink-muted">
+                    Por segurança o token não aparece aqui. Copie o valor de WEBHOOK_VERIFY_TOKEN nas variáveis de
+                    ambiente da Vercel e cole no painel da Meta.
+                  </span>
+                </p>
+              ) : (
+                <p role="alert" className="rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2 text-xs text-danger">
+                  WEBHOOK_VERIFY_TOKEN não está configurado. Sem ele a Meta não consegue validar o webhook.
+                </p>
+              )}
             </div>
 
             {/* Campos de Assinatura */}

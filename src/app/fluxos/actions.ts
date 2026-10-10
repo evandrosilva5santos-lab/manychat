@@ -1,5 +1,7 @@
 "use server";
 // Ações do servidor usadas pelo editor: criar, salvar, renomear, duplicar e excluir fluxos.
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { invalidIdMessage } from "@/lib/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
@@ -10,247 +12,252 @@ import { compileRecipe, defaultRecipe, recipeSchema, type Recipe } from "@/lib/f
 import { firstIssue, snapshotSchema } from "@/lib/flow/schema";
 import type { FlowSnapshot } from "@/lib/flow/types";
 import { prisma } from "@/lib/prisma";
-import {
-  createStoredFlow,
-  deleteStoredFlow,
-  duplicateStoredFlow,
-  getStoredFlow,
-  renameStoredFlow,
-  saveStoredFlow,
-  updateStoredFlowStatus,
-} from "@/lib/storage/store";
 
 export type SaveResult = { ok: true; savedAt: string; flowId?: string } | { ok: false; error: string };
 
+const FLOW_STATUSES: readonly FlowStatus[] = ["DRAFT", "LIVE", "STOPPED"];
+
 async function ownFlow(flowId: string) {
   const account = await getCurrentAccount();
-  if (flowId === "demo-casamento" || flowId.startsWith("flow_")) return account;
-  try {
-    const flow = await prisma.flow.findFirst({ where: { id: flowId, accountId: account.id }, select: { id: true } });
-    return flow ? account : null;
-  } catch {
-    return account;
-  }
+  if (!account) return null;
+  const flow = await prisma.flow.findFirst({
+    where: { id: flowId, accountId: account.id },
+    select: { id: true },
+  });
+  return flow ? account : null;
 }
 
 export async function createFlow(mode: FlowMode) {
-  try {
-    const account = await getCurrentAccount();
-    const flow = await prisma.flow.create({
-      data: {
-        accountId: account.id,
-        name: mode === "SIMPLE" ? "Nova automação rápida" : "Novo fluxo",
-        mode,
-        recipe: mode === "SIMPLE" ? defaultRecipe() : undefined,
-        triggers:
-          mode === "SIMPLE" ? undefined : { create: { type: "COMMENT_KEYWORD", keywords: [], match: "CONTAINS" } },
-      },
-    });
-    if (mode === "SIMPLE") await persistSnapshot(flow.id, account.id, compileRecipe(flow.id, defaultRecipe()));
-    redirect(`/fluxos/${flow.id}`);
-  } catch {
-    // Fallback para persistência local
-    const stored = await createStoredFlow({
+  await requireAuth();
+  if (mode !== "SIMPLE" && mode !== "ADVANCED") throw new Error("Modo de fluxo inválido.");
+  const account = await getCurrentAccount();
+  if (!account) {
+    throw new Error("Nenhuma conta conectada. Conecte sua conta em Ajustes.");
+  }
+
+  const flow = await prisma.flow.create({
+    data: {
+      accountId: account.id,
       name: mode === "SIMPLE" ? "Nova automação rápida" : "Novo fluxo",
       mode,
-      recipe: defaultRecipe(),
-    });
-    redirect(`/fluxos/${stored.id}`);
+      recipe: mode === "SIMPLE" ? defaultRecipe() : undefined,
+      triggers:
+        mode === "SIMPLE" ? undefined : { create: { type: "COMMENT_KEYWORD", keywords: [], match: "CONTAINS" } },
+    },
+  });
+
+  if (mode === "SIMPLE") {
+    await persistSnapshot(flow.id, account.id, compileRecipe(flow.id, defaultRecipe()));
   }
+
+  redirect(`/fluxos/${flow.id}`);
 }
 
 /** Troca o builder simples pelo avançado (só de ida: o canvas vira a fonte da verdade). */
 export async function convertToAdvanced(flowId: string): Promise<SaveResult> {
-  const stored = await getStoredFlow(flowId);
-  if (stored) {
-    stored.mode = "ADVANCED";
-    await saveStoredFlow(stored);
-  }
+  await requireAuth();
+  const invalidInput = invalidIdMessage(flowId);
+  if (invalidInput) return { ok: false, error: invalidInput };
+  const account = await ownFlow(flowId);
+  if (!account) return { ok: false, error: "Fluxo não encontrado ou permissão negada." };
+
   try {
-    const account = await ownFlow(flowId);
-    if (account) {
-      await prisma.flow.update({ where: { id: flowId }, data: { mode: "ADVANCED" } });
-    }
-  } catch {
-    // Prisma indisponível, persistido no store
+    await prisma.flow.update({ where: { id: flowId }, data: { mode: "ADVANCED" } });
+    revalidatePath(`/fluxos/${flowId}`);
+    return { ok: true, savedAt: new Date().toISOString() };
+  } catch (err: any) {
+    console.error("[fluxos] Erro ao converter para avançado:", err);
+    return { ok: false, error: err?.message || "Erro ao atualizar modo do fluxo." };
   }
-  revalidatePath(`/fluxos/${flowId}`);
-  return { ok: true, savedAt: new Date().toISOString() };
 }
 
 export async function saveRecipe(flowId: string, input: unknown): Promise<SaveResult> {
+  await requireAuth();
+  const invalidInput = flowId === "novo" ? null : invalidIdMessage(flowId);
+  if (invalidInput) return { ok: false, error: invalidInput };
   const parsed = recipeSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
   // Criação a partir de rota /fluxos/novo
   if (flowId === "novo") {
-    const newFlow = await createStoredFlow({
-      name: "Nova automação rápida",
-      mode: "SIMPLE",
-      recipe: parsed.data,
-    });
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta conectada." };
+
     try {
-      const account = await getCurrentAccount();
-      await prisma.flow.create({
+      const created = await prisma.flow.create({
         data: {
-          id: newFlow.id,
           accountId: account.id,
-          name: newFlow.name,
+          name: "Nova automação rápida",
           mode: "SIMPLE",
           status: "DRAFT",
           recipe: parsed.data as any,
         },
       });
-    } catch {
-      // Salvo no storage local
+
+      const snapshot = compileRecipe(created.id, parsed.data);
+      await persistSnapshot(created.id, account.id, snapshot, { recipe: parsed.data });
+
+      revalidatePath("/fluxos");
+      return { ok: true, savedAt: new Date().toISOString(), flowId: created.id };
+    } catch (err: any) {
+      console.error("[fluxos] Erro ao criar receita:", err);
+      return { ok: false, error: err?.message || "Erro ao salvar receita." };
     }
-    revalidatePath("/fluxos");
-    return { ok: true, savedAt: new Date().toISOString(), flowId: newFlow.id };
   }
 
-  // Atualização de fluxo existente no armazenamento persistente
-  const stored = await getStoredFlow(flowId);
-  if (stored) {
-    stored.recipe = parsed.data;
-    stored.triggers = [
-      {
-        id: `trig_${flowId}`,
-        type: "COMMENT_KEYWORD",
-        keywords: parsed.data.trigger.keywords,
-        match: "CONTAINS",
-        mediaId: parsed.data.trigger.mediaId || null,
-      },
-    ];
-    await saveStoredFlow(stored);
-  }
+  const account = await ownFlow(flowId);
+  if (!account) return { ok: false, error: "Fluxo não encontrado ou sem permissão." };
 
-  // Se banco Prisma estiver acessível, persiste também lá
   try {
-    const account = await ownFlow(flowId);
-    if (account) {
-      const flow = await prisma.flow.findUnique({ where: { id: flowId }, select: { mode: true } });
-      if (flow && flow.mode === "SIMPLE") {
-        const snapshot = snapshotSchema.safeParse(compileRecipe(flowId, parsed.data));
-        if (snapshot.success) {
-          await persistSnapshot(flowId, account.id, snapshot.data as FlowSnapshot, { recipe: parsed.data });
-        }
-      }
-    }
-  } catch {
-    // Garantido pelo armazenamento local
-  }
+    const flow = await prisma.flow.findUnique({ where: { id: flowId }, select: { mode: true } });
+    if (!flow) return { ok: false, error: "Fluxo não encontrado." };
 
-  revalidatePath(`/fluxos/${flowId}`);
-  revalidatePath("/fluxos");
-  return { ok: true, savedAt: new Date().toISOString() };
+    if (flow.mode === "SIMPLE") {
+      const snapshot = snapshotSchema.safeParse(compileRecipe(flowId, parsed.data));
+      if (!snapshot.success) return { ok: false, error: firstIssue(snapshot.error) };
+
+      return await persistSnapshot(flowId, account.id, snapshot.data as FlowSnapshot, { recipe: parsed.data });
+    }
+
+    await prisma.flow.update({
+      where: { id: flowId },
+      data: { recipe: parsed.data as any },
+    });
+
+    revalidatePath(`/fluxos/${flowId}`);
+    revalidatePath("/fluxos");
+    return { ok: true, savedAt: new Date().toISOString() };
+  } catch (err: any) {
+    console.error("[fluxos] Erro ao salvar receita:", err);
+    return { ok: false, error: err?.message || "Erro ao atualizar receita do fluxo." };
+  }
 }
 
 export async function updateFlowStatus(flowId: string, status: FlowStatus): Promise<SaveResult> {
-  await updateStoredFlowStatus(flowId, status);
+  await requireAuth();
+  const invalidInput = invalidIdMessage(flowId) ?? (FLOW_STATUSES.includes(status) ? null : "Status inválido.");
+  if (invalidInput) return { ok: false, error: invalidInput };
+  const account = await ownFlow(flowId);
+  if (!account) return { ok: false, error: "Fluxo não encontrado." };
+
   try {
-    const account = await ownFlow(flowId);
-    if (account) {
-      await prisma.flow.update({ where: { id: flowId }, data: { status } });
-    }
-  } catch {
-    // Persistido no armazenamento local
+    await prisma.flow.update({ where: { id: flowId }, data: { status } });
+    revalidatePath(`/fluxos/${flowId}`);
+    revalidatePath("/fluxos");
+    return { ok: true, savedAt: new Date().toISOString() };
+  } catch (err: any) {
+    console.error("[fluxos] Erro ao atualizar status do fluxo:", err);
+    return { ok: false, error: err?.message || "Erro ao atualizar status." };
   }
-  revalidatePath(`/fluxos/${flowId}`);
-  revalidatePath("/fluxos");
-  return { ok: true, savedAt: new Date().toISOString() };
 }
 
 export async function renameFlow(flowId: string, name: string): Promise<SaveResult> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(flowId);
+  if (invalidInput) return { ok: false, error: invalidInput };
   const clean = name.trim();
   if (!clean || clean.length > 80) return { ok: false, error: "O nome precisa ter de 1 a 80 caracteres" };
-  await renameStoredFlow(flowId, clean);
+
+  const account = await ownFlow(flowId);
+  if (!account) return { ok: false, error: "Fluxo não encontrado." };
+
   try {
-    const account = await ownFlow(flowId);
-    if (account) {
-      await prisma.flow.update({ where: { id: flowId }, data: { name: clean } });
-    }
-  } catch {
-    // Persistido no armazenamento local
+    await prisma.flow.update({ where: { id: flowId }, data: { name: clean } });
+    revalidatePath(`/fluxos/${flowId}`);
+    revalidatePath("/fluxos");
+    return { ok: true, savedAt: new Date().toISOString() };
+  } catch (err: any) {
+    console.error("[fluxos] Erro ao renomear fluxo:", err);
+    return { ok: false, error: err?.message || "Erro ao renomear fluxo." };
   }
-  revalidatePath(`/fluxos/${flowId}`);
-  revalidatePath("/fluxos");
-  return { ok: true, savedAt: new Date().toISOString() };
 }
 
 export async function duplicateFlow(flowId: string): Promise<SaveResult & { flowId?: string }> {
-  const cloned = await duplicateStoredFlow(flowId);
-  if (!cloned) return { ok: false, error: "Fluxo não encontrado para duplicação" };
+  await requireAuth();
+  const invalidInput = invalidIdMessage(flowId);
+  if (invalidInput) return { ok: false, error: invalidInput };
+  const account = await ownFlow(flowId);
+  if (!account) return { ok: false, error: "Fluxo não encontrado para duplicação" };
+
   try {
-    const account = await getCurrentAccount();
-    await prisma.flow.create({
-      data: {
-        id: cloned.id,
-        accountId: account.id,
-        name: cloned.name,
-        mode: cloned.mode,
-        status: cloned.status,
-        recipe: cloned.recipe as any,
+    const original = await prisma.flow.findUnique({
+      where: { id: flowId },
+      include: {
+        nodes: true,
+        edges: true,
+        triggers: true,
       },
     });
-  } catch {
-    // Persistido no armazenamento local
+
+    if (!original) return { ok: false, error: "Fluxo original não encontrado." };
+
+    const cloned = await prisma.flow.create({
+      data: {
+        accountId: account.id,
+        name: `${original.name} (cópia)`,
+        mode: original.mode,
+        status: "DRAFT",
+        recipe: original.recipe ?? undefined,
+        viewport: original.viewport ?? undefined,
+      },
+    });
+
+    revalidatePath("/fluxos");
+    return { ok: true, savedAt: new Date().toISOString(), flowId: cloned.id };
+  } catch (err: any) {
+    console.error("[fluxos] Erro ao duplicar fluxo:", err);
+    return { ok: false, error: err?.message || "Falha ao duplicar fluxo." };
   }
-  revalidatePath("/fluxos");
-  return { ok: true, savedAt: new Date().toISOString(), flowId: cloned.id };
 }
 
 export async function deleteFlow(flowId: string): Promise<SaveResult> {
-  await deleteStoredFlow(flowId);
+  await requireAuth();
+  const invalidInput = invalidIdMessage(flowId);
+  if (invalidInput) return { ok: false, error: invalidInput };
+  const account = await ownFlow(flowId);
+  if (!account) return { ok: false, error: "Fluxo não encontrado." };
+
   try {
-    const account = await ownFlow(flowId);
-    if (account) {
-      await prisma.flow.delete({ where: { id: flowId } });
-    }
-  } catch {
-    // Removido do armazenamento local
+    await prisma.flow.delete({ where: { id: flowId } });
+    revalidatePath("/fluxos");
+    return { ok: true, savedAt: new Date().toISOString() };
+  } catch (err: any) {
+    console.error("[fluxos] Erro ao excluir fluxo:", err);
+    return { ok: false, error: err?.message || "Erro ao excluir fluxo." };
   }
-  revalidatePath("/fluxos");
-  return { ok: true, savedAt: new Date().toISOString() };
 }
 
 export async function createTag(name: string): Promise<{ id: string; name: string } | { error: string }> {
+  await requireAuth();
   const clean = name.trim().toLowerCase().replace(/\s+/g, "-");
   if (!clean || clean.length > 40) return { error: "A etiqueta precisa ter de 1 a 40 caracteres" };
+
   try {
     const account = await getCurrentAccount();
+    if (!account) return { error: "Nenhuma conta conectada." };
+
     return await prisma.tag.upsert({
       where: { accountId_name: { accountId: account.id, name: clean } },
       update: {},
       create: { accountId: account.id, name: clean },
       select: { id: true, name: true },
     });
-  } catch {
-    return { id: `tag_${Date.now()}`, name: clean };
+  } catch (err: any) {
+    return { error: err?.message || "Erro ao criar etiqueta." };
   }
 }
 
 export async function saveFlow(flowId: string, input: unknown): Promise<SaveResult> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(flowId);
+  if (invalidInput) return { ok: false, error: invalidInput };
   const parsed = snapshotSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
-  const stored = await getStoredFlow(flowId);
-  if (stored) {
-    stored.viewport = parsed.data.viewport;
-    stored.nodes = parsed.data.nodes;
-    stored.edges = parsed.data.edges;
-    await saveStoredFlow(stored);
-  }
+  const account = await ownFlow(flowId);
+  if (!account) return { ok: false, error: "Fluxo não encontrado ou sem permissão." };
 
-  try {
-    const account = await ownFlow(flowId);
-    if (account) {
-      return await persistSnapshot(flowId, account.id, parsed.data as FlowSnapshot);
-    }
-  } catch {
-    // Persistido localmente
-  }
-
-  return { ok: true, savedAt: new Date().toISOString() };
+  return await persistSnapshot(flowId, account.id, parsed.data as FlowSnapshot);
 }
 
 /**
@@ -333,9 +340,11 @@ async function persistSnapshot(
       },
       { timeout: 20_000 },
     );
-  } catch {
-    // Se o banco falhar, o salvamento já foi feito no arquivo local
-  }
 
-  return { ok: true, savedAt: new Date().toISOString() };
+    revalidatePath(`/fluxos/${flowId}`);
+    return { ok: true, savedAt: new Date().toISOString() };
+  } catch (err: any) {
+    console.error("[fluxos] Erro ao persistir snapshot no Prisma:", err);
+    return { ok: false, error: err?.message || "Erro ao salvar fluxo no banco de dados." };
+  }
 }

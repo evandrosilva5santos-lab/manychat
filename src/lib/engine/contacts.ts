@@ -1,11 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import type { MessageKind } from "@/generated/prisma/enums";
-import {
-  addStoredMessage,
-  getStoredContacts,
-  readStore,
-  writeStore,
-} from "@/lib/storage/store";
+import { isUniqueViolation } from "@/lib/queue/store";
+import type { Message, MessageKind } from "@/generated/prisma/client";
 
 export type ContactProfile = {
   accountId: string;
@@ -16,96 +11,75 @@ export type ContactProfile = {
 };
 
 /**
- * Busca ou cria o contato a partir do IGSID.
- * Atualiza o horário de interação e o momento da última mensagem recebida.
+ * Busca ou cria o contato a partir do IGSID no Postgres.
+ *
+ * `upsert` atômico (sem buscar-para-depois-criar): dois eventos em
+ * paralelo do mesmo lead não criam contato duplicado.
+ *
+ * `inboundKind`: a janela de 24h da Meta só é aberta por mensagens no
+ * Direct — comentário NÃO atualiza `lastInboundAt` (apenas a interação).
  */
-export async function getOrCreateContact(profile: ContactProfile) {
+export async function getOrCreateContact(
+  profile: ContactProfile,
+  inboundKind: "comment" | "dm" = "dm"
+) {
   const now = new Date();
+  const isDm = inboundKind === "dm";
 
-  try {
-    const existing = await prisma.contact.findUnique({
-      where: {
-        accountId_igsid: {
-          accountId: profile.accountId,
-          igsid: profile.igsid,
-        },
-      },
-    });
-
-    if (existing) {
-      return await prisma.contact.update({
-        where: { id: existing.id },
-        data: {
-          username: profile.username ?? existing.username,
-          name: profile.name ?? existing.name,
-          profilePicUrl: profile.profilePicUrl ?? existing.profilePicUrl,
-          lastInboundAt: now,
-          lastInteractionAt: now,
-        },
-      });
-    }
-
-    return await prisma.contact.create({
-      data: {
+  return prisma.contact.upsert({
+    where: {
+      accountId_igsid: {
         accountId: profile.accountId,
         igsid: profile.igsid,
-        username: profile.username,
-        name: profile.name,
-        profilePicUrl: profile.profilePicUrl,
-        lastInboundAt: now,
-        lastInteractionAt: now,
       },
-    });
-  } catch {
-    // Fallback no store persistente local
-    const store = await readStore();
-    const existingIdx = store.contacts.findIndex(
-      (c) => c.igsid === profile.igsid
-    );
-
-    if (existingIdx >= 0) {
-      const existing = store.contacts[existingIdx];
-      existing.username = profile.username ?? existing.username;
-      existing.name = profile.name ?? existing.name;
-      existing.profilePicUrl = profile.profilePicUrl ?? existing.profilePicUrl;
-      existing.lastInboundAt = now.toISOString();
-      existing.lastInteractionAt = now.toISOString();
-      existing.is24hActive = true;
-      existing.remainingHours24h = 24;
-      await writeStore(store);
-      return existing as any;
-    }
-
-    const newContact = {
-      id: `cont_${Date.now()}`,
+    },
+    update: {
+      username: profile.username ?? undefined,
+      name: profile.name ?? undefined,
+      profilePicUrl: profile.profilePicUrl ?? undefined,
+      lastInboundAt: isDm ? now : undefined,
+      lastInteractionAt: now,
+    },
+    create: {
+      accountId: profile.accountId,
       igsid: profile.igsid,
-      username: profile.username || "novo.lead",
-      name: profile.name || profile.username || "Novo Lead Instagram",
-      profilePicUrl:
-        profile.profilePicUrl ||
-        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
-      followsAccount: true,
-      lastInboundAt: now.toISOString(),
-      lastInteractionAt: now.toISOString(),
-      is24hActive: true,
-      remainingHours24h: 24,
-      sourceFlowId: null,
-      sourceFlowName: "Automação rápida",
-      tags: [{ id: "tag-1", name: "lead-quente" }],
-      createdAt: now.toISOString(),
-    };
+      username: profile.username,
+      name: profile.name,
+      profilePicUrl: profile.profilePicUrl,
+      lastInboundAt: isDm ? now : undefined,
+      lastInteractionAt: now,
+    },
+  });
+}
 
-    store.contacts.unshift(newContact);
-    if (!store.messages[newContact.id]) {
-      store.messages[newContact.id] = [];
-    }
-    await writeStore(store);
-    return newContact as any;
-  }
+/** Prévia curta da última mensagem (lista de conversas sem N+1). */
+function previewFor(text?: string | null, kind?: MessageKind): string {
+  const raw = text?.trim();
+  if (raw) return raw.slice(0, 140);
+  const label: Record<string, string> = {
+    POSTBACK: "Toque num botão",
+    CAROUSEL: "Carrossel",
+    COMMENT: "Comentário",
+    COMMENT_REPLY: "Resposta ao comentário",
+    MEDIA: "Mídia",
+  };
+  return kind ? label[kind] ?? "Mensagem" : "Mensagem";
+}
+
+async function touchContactPreview(contactId: string, text: string | null | undefined, kind: MessageKind, at: Date) {
+  await prisma.contact.update({
+    where: { id: contactId },
+    data: {
+      lastMessagePreview: previewFor(text, kind),
+      lastMessageAt: at,
+    },
+  });
 }
 
 /**
- * Grava mensagem recebida do contato no histórico de conversa (direção IN).
+ * Grava mensagem recebida do contato no histórico (direção IN).
+ * P2002 em `igMessageId` = evento já gravado antes → devolve a linha
+ * existente marcada como duplicada (o chamador NÃO reexecuta o fluxo).
  */
 export async function recordIncomingMessage(params: {
   accountId: string;
@@ -115,16 +89,9 @@ export async function recordIncomingMessage(params: {
   payload?: any;
   igMessageId?: string;
   mediaId?: string;
-}) {
+}): Promise<{ message: Message; duplicate: boolean }> {
   try {
-    if (params.igMessageId) {
-      const existing = await prisma.message.findUnique({
-        where: { igMessageId: params.igMessageId },
-      });
-      if (existing) return existing;
-    }
-
-    return await prisma.message.create({
+    const message = await prisma.message.create({
       data: {
         accountId: params.accountId,
         contactId: params.contactId,
@@ -136,23 +103,23 @@ export async function recordIncomingMessage(params: {
         mediaId: params.mediaId,
       },
     });
-  } catch {
-    // Fallback no store persistente local
-    const msgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    return await addStoredMessage(params.contactId, {
-      id: msgId,
-      direction: "IN",
-      kind: params.kind as any,
-      text: params.text || null,
-      payload: params.payload,
-      mediaId: params.mediaId,
-      createdAt: new Date().toISOString(),
-    });
+    await touchContactPreview(params.contactId, params.text, params.kind, message.createdAt);
+    return { message, duplicate: false };
+  } catch (error) {
+    if (params.igMessageId && isUniqueViolation(error)) {
+      const existing = await prisma.message.findUnique({
+        where: { igMessageId: params.igMessageId },
+      });
+      if (existing) return { message: existing, duplicate: true };
+    }
+    throw error;
   }
 }
 
 /**
- * Grava mensagem enviada pelo sistema no histórico de conversa (direção OUT).
+ * Grava mensagem enviada pelo sistema no histórico (direção OUT).
+ * `error` preenchido = envio recusado pela Meta (visível no painel
+ * de envios com falha).
  */
 export async function recordOutgoingMessage(params: {
   accountId: string;
@@ -165,33 +132,22 @@ export async function recordOutgoingMessage(params: {
   runId?: string;
   error?: string;
 }) {
-  try {
-    return await prisma.message.create({
-      data: {
-        accountId: params.accountId,
-        contactId: params.contactId,
-        direction: "OUT",
-        kind: params.kind,
-        text: params.text,
-        payload: params.payload ?? undefined,
-        flowId: params.flowId,
-        nodeId: params.nodeId,
-        runId: params.runId,
-        error: params.error,
-      },
-    });
-  } catch {
-    // Fallback no store persistente local
-    const msgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    return await addStoredMessage(params.contactId, {
-      id: msgId,
+  const message = await prisma.message.create({
+    data: {
+      accountId: params.accountId,
+      contactId: params.contactId,
       direction: "OUT",
-      kind: params.kind as any,
-      text: params.text || null,
-      payload: params.payload,
-      flowName: null,
+      kind: params.kind,
+      text: params.text,
+      payload: params.payload ?? undefined,
+      flowId: params.flowId,
+      nodeId: params.nodeId,
+      runId: params.runId,
       error: params.error,
-      createdAt: new Date().toISOString(),
-    });
+    },
+  });
+  if (!params.error) {
+    await touchContactPreview(params.contactId, params.text, params.kind, message.createdAt);
   }
+  return message;
 }
