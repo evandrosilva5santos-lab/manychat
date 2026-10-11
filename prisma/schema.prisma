@@ -28,11 +28,61 @@ enum TokenStatus {
   REVOKED
 }
 
+/// Papéis globais da plataforma. Apenas SUPERADMIN pode operar o painel
+/// administrativo e realizar impersonação auditável de clientes.
+enum UserRole {
+  SUPERADMIN
+  CLIENT
+}
+
+/// Pessoa autenticada no Fluxo. Clientes possuem workspaces próprios; a
+/// agência usa SUPERADMIN para administrar todos os workspaces.
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      UserRole @default(CLIENT)
+  createdAt DateTime @default(now())
+
+  workspacesOwned Workspace[]   @relation("WorkspaceOwner")
+  sessions        UserSession[]
+}
+
+/// Limite de tenancy: um workspace pertence a um cliente e agrupa uma ou mais
+/// contas do Instagram. Todos os dados operacionais continuam vinculados à
+/// InstagramAccount para preservar o isolamento por conta.
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+
+  owner    User               @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  accounts InstagramAccount[]
+
+  @@index([ownerId])
+}
+
+/// Sessão opaca: somente o hash do token vai para o banco. O token em texto
+/// puro existe exclusivamente no cookie HTTP-only gerenciado pela autenticação.
+model UserSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
 /// Perfil profissional do Instagram ligado ao sistema.
 /// Cada contato, etiqueta, fluxo e card pertence a uma conta — assim dá pra
 /// atender mais de um perfil (agência) sem misturar dados.
 model InstagramAccount {
   id             String           @id @default(cuid())
+  workspaceId    String
   igUserId       String           @unique // ID da conta no Instagram (vem da Meta)
   username       String
   name           String?
@@ -46,13 +96,16 @@ model InstagramAccount {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  contacts     Contact[]
-  tags         Tag[]
-  flows        Flow[]
-  catalogItems CatalogItem[]
-  messages     Message[]
-  trackedLinks TrackedLink[]
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  contacts       Contact[]
+  tags           Tag[]
+  flows          Flow[]
+  catalogItems   CatalogItem[]
+  messages       Message[]
+  trackedLinks   TrackedLink[]
   privateReplies PrivateReply[]
+
+  @@index([workspaceId])
 }
 
 // ─────────────────────────────────────────────────────────────
