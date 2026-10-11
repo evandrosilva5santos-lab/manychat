@@ -93,4 +93,4 @@
 - Criada migration `20261011120000_multi_tenancy`: cria workspace legado e associa todas as contas históricas antes de exigir a chave estrangeira.
 - Adicionados painel `/admin`, troca de conta ativa em cookie HTTP-only e impersonação limitada a `SUPERADMIN`.
 - Todas as operações sensíveis de contatos, catálogo e fluxos agora verificam `accountId` da conta ativa; OAuth só vincula perfis ao workspace do ator autenticado.
-- Validação: `npx tsc --noEmit`, 289 testes Vitest e `npm run build` aprovados.
+- Validação: `npx tsc --noEmit`, 290 testes Vitest e `npm run build` aprovados.

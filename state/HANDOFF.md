@@ -65,4 +65,4 @@ Ler [ITEM-03-REPORT.md](ITEM-03-REPORT.md) antes de retomar. Preservar alteraç�
 - **STATUS:** `DONE`.
 - **BANCO PUBLICADO:** migration `20261011120000_multi_tenancy` aplicada com sucesso; `npx prisma migrate status` confirma que o schema está atualizado. Ela preservou as contas históricas no `Legacy Workspace` antes de tornar `workspaceId` obrigatório.
 - **CONFIGURAÇÃO:** definir `SUPERADMIN_EMAIL` e `SUPERADMIN_NAME`; o Basic Auth existente continua como bootstrap temporário do operador.
-- **VALIDAÇÃO FINAL:** TypeScript sem erros, 289 testes Vitest verdes e build de produção aprovado.
+- **VALIDAÇÃO FINAL:** TypeScript sem erros, 290 testes Vitest verdes e build de produção aprovado.

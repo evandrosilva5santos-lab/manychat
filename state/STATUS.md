@@ -63,4 +63,4 @@
 ## Atualização 2026-10-11 — Multi-tenancy e Painel Super Admin
 - **STATUS:** ✅ `DONE`
 - **ENTREGAS:** `User`, `Workspace` e sessões opacas; migration com backfill sem apagar contas existentes; `InstagramAccount.workspaceId` obrigatório; resolução de conta ativa por sessão e cookie HTTP-only; proteção contra IDOR em contatos, fluxos e catálogo; OAuth vinculado ao workspace do ator autenticado; painel `/admin` protegido, métricas e impersonação controlada; seletor de conta no cabeçalho e estado vazio de conexão.
-- **VALIDAÇÃO:** `npx tsc --noEmit` aprovado; `npm test -- --run` com **289/289** testes; `npm run build` aprovado.
+- **VALIDAÇÃO:** `npx tsc --noEmit` aprovado; `npm test -- --run` com **290/290** testes; `npm run build` aprovado.
