@@ -17,13 +17,12 @@ export async function GET(request: NextRequest) {
     const state = generateOAuthState(returnUrl);
     const redirectUri = getInstagramRedirectUri(request);
     const mode = request.nextUrl.searchParams.get("mode");
+    const useFbe = mode === "fbe" || request.nextUrl.searchParams.get("fbe") === "1";
 
-    // Por padrão ou quando mode !== "instagram", utiliza o Business Login oficial da Meta
-    // conforme https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-facebook-login/business-login-for-instagram
     const authUrl =
       mode === "instagram"
         ? getInstagramOAuthUrl(redirectUri, state)
-        : getFacebookBusinessLoginUrl(redirectUri, state);
+        : getFacebookBusinessLoginUrl(redirectUri, state, useFbe);
 
     const response = NextResponse.redirect(authUrl, 302);
 

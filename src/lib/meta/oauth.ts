@@ -82,7 +82,7 @@ export function verifyOAuthState(stateStr: string): { valid: boolean; returnTo?:
  * Constrói a URL do Business Login for Instagram oficial da Meta (via Facebook Login com IG_API_ONBOARDING).
  * Referência: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-facebook-login/business-login-for-instagram
  */
-export function getFacebookBusinessLoginUrl(redirectUri: string, state: string): string {
+export function getFacebookBusinessLoginUrl(redirectUri: string, state: string, useFbe = false): string {
   const clientId = process.env.IG_APP_ID || process.env.META_APP_ID;
   if (!clientId) {
     throw new Error("IG_APP_ID ou META_APP_ID não configurado no ambiente.");
@@ -91,7 +91,9 @@ export function getFacebookBusinessLoginUrl(redirectUri: string, state: string):
   const url = new URL("https://www.facebook.com/v21.0/dialog/oauth");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("display", "page");
-  url.searchParams.set("extras", JSON.stringify({ setup: { channel: "IG_API_ONBOARDING" } }));
+  if (useFbe) {
+    url.searchParams.set("extras", JSON.stringify({ setup: { channel: "IG_API_ONBOARDING" } }));
+  }
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
   url.searchParams.set(
