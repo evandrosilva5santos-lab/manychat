@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   exchangeCodeForShortLivedToken,
+  exchangeFacebookCodeForToken,
   exchangeForLongLivedToken,
+  fetchFacebookPagesAndInstagram,
   fetchInstagramProfile,
   getInstagramRedirectUri,
   subscribeAccountWebhooks,
+  verifyOAuthState,
 } from "@/lib/meta/oauth";
 import { encryptToken } from "@/lib/security/token";
 
@@ -31,59 +34,115 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/ajustes?error=codigo_oauth_ausente`);
   }
 
-  // Validação anti-CSRF do state
+  // Validação anti-CSRF do state:
+  // 1. Tenta validação HMAC assinada (funciona inclusive entre localhost e Vercel)
+  // 2. Ou compara com o cookie ig_oauth_state (quando no mesmo domínio)
+  const { valid: hmacValid, returnTo } = state ? verifyOAuthState(state) : { valid: false, returnTo: null };
   const cookieState = request.cookies.get("ig_oauth_state")?.value;
-  if (!state || !cookieState || state !== cookieState) {
-    console.error("[oauth/callback] State CSRF inválido ou ausente:", { state, cookieState });
+  const cookieValid = Boolean(state && cookieState && state === cookieState);
+
+  if (!hmacValid && !cookieValid) {
+    console.error("[oauth/callback] State CSRF inválido ou ausente:", { state, hmacValid, cookieValid });
     return NextResponse.redirect(`${origin}/ajustes?error=estado_csrf_invalido`);
+  }
+
+  let redirectBase = origin;
+  let redirectPath = "/ajustes";
+  if (returnTo) {
+    try {
+      if (returnTo.startsWith("http")) {
+        const u = new URL(returnTo);
+        redirectBase = u.origin;
+        redirectPath = u.pathname || "/ajustes";
+      } else if (returnTo.startsWith("/")) {
+        redirectPath = returnTo;
+      }
+    } catch {
+      // fallback
+    }
   }
 
   try {
     const redirectUri = getInstagramRedirectUri(request);
+    let connectedUsername = "instagram_account";
 
-    // 1. Troca o código pelo token de curta duração
-    const { accessToken: shortLivedToken, igUserId } = await exchangeCodeForShortLivedToken(code, redirectUri);
+    // Estratégia 1: Tenta o fluxo de Business Login for Instagram (Meta oficial via Facebook dialog)
+    // Conforme: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-facebook-login/business-login-for-instagram
+    let fbSuccess = false;
+    try {
+      const fbToken = await exchangeFacebookCodeForToken(code, redirectUri);
+      const accounts = await fetchFacebookPagesAndInstagram(fbToken.accessToken);
 
-    // 2. Troca pelo token de longa duração (60 dias)
-    const { accessToken: longLivedToken, expiresIn } = await exchangeForLongLivedToken(shortLivedToken);
+      if (accounts.length > 0) {
+        for (const acc of accounts) {
+          const encrypted = encryptToken(acc.pageAccessToken);
+          await prisma.instagramAccount.upsert({
+            where: { igUserId: acc.igUserId },
+            create: {
+              igUserId: acc.igUserId,
+              username: acc.username,
+              name: acc.name || acc.pageName || null,
+              profilePicUrl: acc.profilePicUrl || null,
+              accessTokenEnc: encrypted,
+              tokenExpiresAt: null, // Page tokens do Facebook não expiram
+              status: "CONNECTED",
+            },
+            update: {
+              username: acc.username,
+              name: acc.name || acc.pageName || null,
+              profilePicUrl: acc.profilePicUrl || null,
+              accessTokenEnc: encrypted,
+              tokenExpiresAt: null,
+              status: "CONNECTED",
+              updatedAt: new Date(),
+            },
+          });
+          connectedUsername = acc.username;
+        }
+        fbSuccess = true;
+      }
+    } catch (fbErr: any) {
+      console.warn("[oauth/callback] Tentativa de Facebook Business Login falhou, tentando Instagram direto:", fbErr?.message);
+    }
 
-    // 3. Busca os dados oficiais do perfil autenticado
-    const profile = await fetchInstagramProfile(longLivedToken);
+    // Estratégia 2: Se não foi pelo Facebook ou se nenhuma página veio vinculada, tenta o fluxo direto do Instagram
+    if (!fbSuccess) {
+      const { accessToken: shortLivedToken } = await exchangeCodeForShortLivedToken(code, redirectUri);
+      const { accessToken: longLivedToken, expiresIn } = await exchangeForLongLivedToken(shortLivedToken);
+      const profile = await fetchInstagramProfile(longLivedToken);
+      await subscribeAccountWebhooks(longLivedToken);
 
-    // 4. Inscreve os Webhooks oficiais automaticamente
-    await subscribeAccountWebhooks(longLivedToken);
+      const encryptedToken = encryptToken(longLivedToken);
+      const expiresAt = new Date(Date.now() + (expiresIn || 5184000) * 1000);
 
-    // 5. Criptografa o token com AES-256-GCM para armazenamento seguro
-    const encryptedToken = encryptToken(longLivedToken);
-    const expiresAt = new Date(Date.now() + (expiresIn || 5184000) * 1000);
+      const account = await prisma.instagramAccount.upsert({
+        where: { igUserId: profile.igUserId },
+        create: {
+          igUserId: profile.igUserId,
+          username: profile.username,
+          name: profile.name || null,
+          profilePicUrl: profile.profilePicUrl || null,
+          accessTokenEnc: encryptedToken,
+          tokenExpiresAt: expiresAt,
+          status: "CONNECTED",
+        },
+        update: {
+          username: profile.username,
+          name: profile.name || null,
+          profilePicUrl: profile.profilePicUrl || null,
+          accessTokenEnc: encryptedToken,
+          tokenExpiresAt: expiresAt,
+          status: "CONNECTED",
+          updatedAt: new Date(),
+        },
+      });
+      connectedUsername = account.username;
+    }
 
-    // 6. Grava ou atualiza a conta no banco de dados real (Supabase Postgres)
-    const account = await prisma.instagramAccount.upsert({
-      where: { igUserId: profile.igUserId },
-      create: {
-        igUserId: profile.igUserId,
-        username: profile.username,
-        name: profile.name || null,
-        profilePicUrl: profile.profilePicUrl || null,
-        accessTokenEnc: encryptedToken,
-        tokenExpiresAt: expiresAt,
-        status: "CONNECTED",
-      },
-      update: {
-        username: profile.username,
-        name: profile.name || null,
-        profilePicUrl: profile.profilePicUrl || null,
-        accessTokenEnc: encryptedToken,
-        tokenExpiresAt: expiresAt,
-        status: "CONNECTED",
-        updatedAt: new Date(),
-      },
-    });
-
-    console.info(`[oauth/callback] Conta @${account.username} (${account.igUserId}) conectada com sucesso via OAuth!`);
+    console.info(`[oauth/callback] Conta @${connectedUsername} conectada com sucesso via OAuth!`);
 
     const response = NextResponse.redirect(
-      `${origin}/ajustes?connected=true&username=${encodeURIComponent(account.username)}`,
+      `${redirectBase}${redirectPath}?connected=true&username=${encodeURIComponent(connectedUsername)}`,
       302
     );
 
@@ -94,7 +153,7 @@ export async function GET(request: NextRequest) {
   } catch (err: any) {
     console.error("[oauth/callback] Erro no fluxo OAuth:", err);
     return NextResponse.redirect(
-      `${origin}/ajustes?error=${encodeURIComponent(err?.message || "falha_ao_conectar_conta")}`
+      `${redirectBase}${redirectPath}?error=${encodeURIComponent(err?.message || "falha_ao_conectar_conta")}`
     );
   }
 }

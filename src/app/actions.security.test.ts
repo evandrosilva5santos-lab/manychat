@@ -22,7 +22,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/meta/graph", () => ({ defaultGraphClient: {} }));
 
 import { UnauthorizedError } from "@/lib/auth/requireAuth";
-import { getMetaSettings, renewMetaToken } from "./ajustes/actions";
+import { getMetaSettings, renewMetaToken, revealWebhookVerifyToken } from "./ajustes/actions";
 import { deleteCatalogItem } from "./catalogo/actions";
 import { addTagToContact } from "./contatos/actions";
 import { getConversationThread, sendManualDirectMessage } from "./conversas/actions";
@@ -49,6 +49,7 @@ describe("server actions without credentials", () => {
     ["addTagToContact", () => addTagToContact("c1", "t1")],
     ["renewMetaToken", () => renewMetaToken()],
     ["getMetaSettings", () => getMetaSettings()],
+    ["revealWebhookVerifyToken", () => revealWebhookVerifyToken()],
   ])("%s is rejected before doing anything", async (_name, call) => {
     await expect(call()).rejects.toBeInstanceOf(UnauthorizedError);
   });

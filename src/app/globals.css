@@ -58,6 +58,30 @@ body {
   font-family: var(--font-sans);
 }
 
+/* ── Barra de rolagem estilizada, suave e visível ──────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-subtle);
+}
+
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;

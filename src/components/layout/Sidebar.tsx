@@ -105,6 +105,11 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
 
+  // A tela de conexão do cliente (/conectar) é 100% isolada e sem menu interno do app
+  if (pathname === "/conectar" || pathname?.startsWith("/conectar")) {
+    return null;
+  }
+
   return (
     <aside
       className="fx-side flex-none z-50 flex flex-col items-center justify-between border-r border-border bg-surface-200 py-3.5 select-none"

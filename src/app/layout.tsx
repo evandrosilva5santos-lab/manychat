@@ -29,11 +29,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-theme="light"
       className={`${jakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-row overflow-hidden bg-surface-100 text-ink">
+      <body className="h-screen h-[100dvh] w-screen flex flex-row overflow-hidden bg-surface-100 text-ink">
         <Sidebar />
-        <div className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+        <main className="flex-1 min-w-0 h-full flex flex-col overflow-y-auto overflow-x-hidden">
           {children}
-        </div>
+        </main>
       </body>
     </html>
   );

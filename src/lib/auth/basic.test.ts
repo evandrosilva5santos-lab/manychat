@@ -80,6 +80,7 @@ describe("isPublicPath", () => {
     "/exclusao-de-dados",
     "/exclusao-de-dados/status",
     "/api/auth/instagram/callback",
+    "/conectar",
   ])("treats %s as public", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });

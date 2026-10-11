@@ -1,14 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
-import { getInstagramOAuthUrl, getInstagramRedirectUri } from "@/lib/meta/oauth";
+import {
+  generateOAuthState,
+  getFacebookBusinessLoginUrl,
+  getInstagramOAuthUrl,
+  getInstagramRedirectUri,
+} from "@/lib/meta/oauth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const state = crypto.randomBytes(24).toString("hex");
+    const origin = request.nextUrl.origin;
+    const from = request.nextUrl.searchParams.get("from");
+    const returnPath = from === "conectar" ? "/conectar" : "/ajustes";
+    const returnUrl = `${origin}${returnPath}`;
+    const state = generateOAuthState(returnUrl);
     const redirectUri = getInstagramRedirectUri(request);
-    const authUrl = getInstagramOAuthUrl(redirectUri, state);
+    const mode = request.nextUrl.searchParams.get("mode");
+
+    // Por padrão ou quando mode !== "instagram", utiliza o Business Login oficial da Meta
+    // conforme https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-facebook-login/business-login-for-instagram
+    const authUrl =
+      mode === "instagram"
+        ? getInstagramOAuthUrl(redirectUri, state)
+        : getFacebookBusinessLoginUrl(redirectUri, state);
 
     const response = NextResponse.redirect(authUrl, 302);
 

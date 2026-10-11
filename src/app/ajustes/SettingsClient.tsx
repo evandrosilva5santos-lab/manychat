@@ -21,11 +21,16 @@ import {
   Radio,
   HelpCircle,
   Code2,
+  Smartphone,
+  Send,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   testMetaConnection,
   renewMetaToken,
   subscribeMetaWebhooks,
+  revealWebhookVerifyToken,
   type MetaSettingsData,
 } from "./actions";
 
@@ -40,6 +45,8 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
   // Domínio público do navegador (vazio na renderização do servidor).
   const origin = useSyncExternalStore(subscribeNoop, () => window.location.origin, () => "");
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [revealedToken, setRevealedToken] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
   const [testResult, setTestResult] = useState<{
     tested: boolean;
     ok: boolean;
@@ -55,10 +62,42 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
   const fullOauthUrl = `${oauthBase}${settings.oauthRedirectUrl}`;
   const fullWebhookUrl = `${origin || "https://seu-dominio.vercel.app"}${settings.webhookCallbackUrl}`;
 
+  const clientBase = origin.startsWith("https://")
+    ? origin
+    : "https://manychat-evandrosilva5santos-7492s-projects.vercel.app";
+  const fullClientUrl = `${clientBase}/conectar`;
+  const whatsappShareText = `Olá! Para ativarmos as automações e respostas automáticas no seu Instagram, acesse o link seguro oficial abaixo e autorize em 1 clique:\n\n👉 ${fullClientUrl}\n\nÉ 100% oficial pela Meta e leva menos de 1 minuto!`;
+
   const copyToClipboard = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldId);
     setTimeout(() => setCopiedField(null), 2500);
+  };
+
+  const handleCopyVerifyToken = async () => {
+    let token = revealedToken;
+    if (!token) {
+      const res = await revealWebhookVerifyToken();
+      if (res.ok && res.token) {
+        token = res.token;
+        setRevealedToken(res.token);
+      }
+    }
+    if (token) {
+      navigator.clipboard.writeText(token);
+      setCopiedField("verify_token");
+      setTimeout(() => setCopiedField(null), 2500);
+    }
+  };
+
+  const handleToggleTokenVisibility = async () => {
+    if (!revealedToken) {
+      const res = await revealWebhookVerifyToken();
+      if (res.ok && res.token) {
+        setRevealedToken(res.token);
+      }
+    }
+    setShowToken((prev) => !prev);
   };
 
   const handleTestConnection = () => {
@@ -120,7 +159,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface-100 text-ink">
+    <div className="flex flex-col min-h-full bg-surface-100 text-ink">
       {/* Top Header */}
       <header className="sticky top-0 z-20 border-b border-border bg-surface-200/90 backdrop-blur-md px-8 py-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-6xl mx-auto w-full">
@@ -132,6 +171,9 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
               <h1 className="text-xl font-bold tracking-tight text-ink">Ajustes & Conexão Meta</h1>
               <span className="rounded-full bg-accent-muted/20 px-2 py-0.5 text-xs font-semibold text-accent">
                 Meta for Developers
+              </span>
+              <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                Painel do Administrador
               </span>
             </div>
             <p className="mt-1 text-sm text-ink-muted">
@@ -176,6 +218,84 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
             </div>
           </div>
         )}
+
+        {/* ── CARD 0: Link de Conexão para Clientes (WhatsApp / Onboarding Limpo) ── */}
+        <section className="rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-surface-200 to-surface-200 p-6 md:p-8 shadow-xs relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border">
+            <div className="flex items-center gap-3.5">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
+                <Smartphone size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-ink">Link de Conexão para Clientes</h2>
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500 border border-emerald-500/20">
+                    Área Exclusiva do Cliente (/conectar)
+                  </span>
+                </div>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Envie este link para seu cliente no WhatsApp. Ele só vê a tela de autorização do Instagram oficial, sem acesso às suas configurações técnicas ou dados de desenvolvedor.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href="/conectar"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3.5 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
+              >
+                <span>Visualizar Tela do Cliente</span>
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
+
+          <div className="space-y-4 mt-6">
+            <div>
+              <label className="text-xs font-bold text-ink mb-1.5 block">
+                Link Oficial para Enviar ao Cliente (Cole no WhatsApp)
+              </label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={fullClientUrl}
+                  className="flex-1 rounded-xl border border-border bg-surface-100 px-3.5 py-2.5 font-mono text-xs text-ink select-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(fullClientUrl, "client_url")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-surface-300 border border-border px-4 py-2.5 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
+                >
+                  {copiedField === "client_url" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                  <span>{copiedField === "client_url" ? "Link Copiado!" : "Copiar Link"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(whatsappShareText, "whatsapp_msg")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 text-xs font-bold transition active:scale-95 shadow-xs"
+                >
+                  {copiedField === "whatsapp_msg" ? <Check size={14} /> : <Send size={14} />}
+                  <span>{copiedField === "whatsapp_msg" ? "Mensagem Copiada!" : "Copiar Texto p/ WhatsApp"}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-surface-100 p-4 text-xs text-ink-muted flex items-start gap-3">
+              <ShieldCheck size={18} className="shrink-0 text-emerald-500 mt-0.5" />
+              <div>
+                <strong className="text-ink font-semibold block mb-0.5">
+                  Isolamento Total do Cliente:
+                </strong>
+                <span>
+                  O cliente faz login pela Meta e concede permissão. O token é criptografado automaticamente com AES-256 no banco de dados e a conta passa a aparecer logo abaixo em &ldquo;Contas Conectadas no Banco de Dados&rdquo;. O cliente nunca tem acesso a webhooks, tokens ou chaves do seu painel de controle.
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ── CARD 1: Status da Conexão Instagram ────────────────────────── */}
         <section className="rounded-3xl border border-border bg-surface-200 p-6 md:p-8 shadow-xs">
@@ -317,30 +437,46 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
               </div>
             </div>
 
-            <a
-              href={settings.oauthLoginUrl}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-95 transition active:scale-95"
-            >
-              <ShieldCheck size={16} />
-              <span>Conectar com Instagram (1-Clique)</span>
-            </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={`${settings.oauthLoginUrl}?mode=facebook`}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-95 transition active:scale-95"
+              >
+                <ShieldCheck size={16} />
+                <span>Business Login Oficial (Doc Meta)</span>
+              </a>
+              <a
+                href={`${settings.oauthLoginUrl}?mode=instagram`}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-300 px-4 py-2.5 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
+              >
+                <span>Login Direto Instagram</span>
+              </a>
+            </div>
           </div>
 
           <div className="space-y-5 mt-6">
-            {/* Aviso sobre o erro da Meta na configuração dos URIs */}
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs">
+            {/* Aviso sobre o erro 'O domínio dessa URL não está incluído nos domínios do app' */}
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-xs space-y-3">
               <div className="flex items-start gap-3">
-                <AlertTriangle size={18} className="shrink-0 text-amber-400 mt-0.5" />
-                <div className="space-y-1.5">
-                  <strong className="text-amber-300 font-bold block">
-                    Por que deu erro ao salvar o URI no painel da Meta for Developers?
+                <AlertTriangle size={20} className="shrink-0 text-amber-400 mt-0.5" />
+                <div className="space-y-2">
+                  <strong className="text-amber-300 font-bold block text-sm">
+                    Como resolver: &ldquo;O domínio dessa URL não está incluído nos domínios do app&rdquo;
                   </strong>
                   <p className="text-ink-muted leading-relaxed">
-                    O modal <em>“Configure o login da empresa no Instagram”</em> exige a <strong>URL de Redirecionamento OAuth (HTTPS)</strong> abaixo. Não utilize a URL do webhook nem <code>http://localhost</code> lá, pois a Meta bloqueia URLs HTTP para login.
+                    A Meta exige que o domínio de redirecionamento esteja registrado nas Configurações Básicas do seu aplicativo antes de permitir o login. Siga estes 2 passos no painel do <strong>Meta for Developers</strong>:
                   </p>
-                  <p className="text-ink-muted">
-                    Copie a URL abaixo, cole no campo <em>“URIs de redirecionamento do OAuth válidos”</em> na Meta e clique em <strong>Salvar</strong>.
-                  </p>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-ink-muted">
+                    <li>
+                      Acesse <strong>Configurações do app &rsaquo; Básico</strong>: no campo <strong>Domínios do app</strong>, digite <code className="bg-surface-300 px-1.5 py-0.5 rounded text-amber-300 font-mono">vercel.app</code> e adicione também em <strong>URL da Política de Privacidade</strong>.
+                    </li>
+                    <li>
+                      Na mesma página, role até o final, clique em <strong>Adicionar Plataforma &rsaquo; Site</strong> e no campo <strong>URL do site</strong> coloque: <code className="bg-surface-300 px-1.5 py-0.5 rounded text-amber-300 font-mono">https://manychat-evandrosilva5santos-7492s-projects.vercel.app</code>.
+                    </li>
+                    <li>
+                      Clique em <strong>Salvar alterações</strong> no rodapé da Meta.
+                    </li>
+                  </ol>
                 </div>
               </div>
             </div>
@@ -447,13 +583,36 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
             <div>
               <label className="text-xs font-bold text-ink mb-1 block">Token de Verificação (Verify Token)</label>
               {settings.webhookVerifyTokenConfigured ? (
-                <p className="rounded-xl border border-border bg-surface-100 px-3.5 py-2 text-xs text-ink">
-                  <span className="font-mono">{settings.webhookVerifyTokenHint}</span>
-                  <span className="block mt-1 text-ink-muted">
-                    Por segurança o token não aparece aqui. Copie o valor de WEBHOOK_VERIFY_TOKEN nas variáveis de
-                    ambiente da Vercel e cole no painel da Meta.
-                  </span>
-                </p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type={showToken ? "text" : "password"}
+                      readOnly
+                      value={showToken && revealedToken ? revealedToken : (settings.webhookVerifyTokenHint || "")}
+                      className="flex-1 rounded-xl border border-border bg-surface-100 px-3.5 py-2 font-mono text-xs text-ink select-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleToggleTokenVisibility}
+                      className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
+                      title={showToken ? "Ocultar token" : "Revelar token"}
+                    >
+                      {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                      <span>{showToken ? "Ocultar" : "Mostrar"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyVerifyToken}
+                      className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
+                    >
+                      {copiedField === "verify_token" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                      <span>{copiedField === "verify_token" ? "Copiado!" : "Copiar"}</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-ink-muted">
+                    Cole este mesmo token no campo <strong>Token de Verificação</strong> ao editar o webhook no painel da Meta for Developers.
+                  </p>
+                </div>
               ) : (
                 <p role="alert" className="rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2 text-xs text-danger">
                   WEBHOOK_VERIFY_TOKEN não está configurado. Sem ele a Meta não consegue validar o webhook.

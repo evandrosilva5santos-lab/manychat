@@ -205,7 +205,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface-100 text-ink">
+    <div className="flex flex-col min-h-full bg-surface-100 text-ink">
       {/* Top Header */}
       <header className="sticky top-0 z-20 border-b border-border bg-surface-200/90 backdrop-blur-md px-8 py-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-7xl mx-auto w-full">

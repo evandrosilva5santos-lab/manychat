@@ -155,3 +155,19 @@ export async function subscribeMetaWebhooks(): Promise<{
     return { ok: false, error: META_UNAVAILABLE };
   }
 }
+
+/**
+ * Retorna o token de verificação real para o admin autenticado poder copiar ou colar no painel da Meta.
+ */
+export async function revealWebhookVerifyToken(): Promise<{
+  ok: boolean;
+  token?: string;
+  error?: string;
+}> {
+  await requireAuth();
+  const token = process.env.WEBHOOK_VERIFY_TOKEN;
+  if (!token) {
+    return { ok: false, error: "WEBHOOK_VERIFY_TOKEN não está configurado." };
+  }
+  return { ok: true, token };
+}
