@@ -9,9 +9,9 @@
 ## 1. Pré-Requisitos (Antes de Abrir o Painel)
 
 1. **Conta Profissional no Instagram:**  
-   Seu perfil precisa ser do tipo **Criador de Conteúdo** ou **Comercial (Business)**. Perfis pessoais não possuem acesso à API de mensagens.
-2. **Página no Facebook Vinculada:**  
-   No aplicativo do Instagram no celular: vá em *Configurações › Tipo de Conta e Ferramentas › Conectar ou Criar Página do Facebook*.
+   Seu perfil precisa ser do tipo **Criador de Conteúdo (Creator)** ou **Comercial (Business)**. Perfis pessoais não possuem acesso à API de mensagens.
+2. **Login com Instagram (Instagram Login):**  
+   Não é necessário vincular uma Página do Facebook. A autenticação é feita diretamente com as credenciais do Instagram Business através da **Instagram API with Instagram Login**.
 
 ---
 
@@ -31,8 +31,8 @@
 ### Passo 3 — Adicionar o Produto Instagram
 1. No painel do seu novo App, localize o cartão **API do Instagram Graph** (ou *Instagram Graph API*) e clique em **Configurar**.
 2. No menu lateral esquerdo, vá em **Configurações Básicas** do aplicativo e anote:
-   * **ID do Aplicativo** (`META_APP_ID`)
-   * **Chave Secreta do Aplicativo** (`META_APP_SECRET`)
+   * **ID do Aplicativo** (`META_APP_ID` ou `IG_APP_ID`)
+   * **Chave Secreta do Aplicativo** (`META_APP_SECRET` ou `IG_APP_SECRET`)
 
 ### Passo 4 — Gerar o Token de Acesso de Longa Duração (60 Dias)
 1. No menu superior, abra a ferramenta **Explorador da Graph API** (Graph API Explorer).
@@ -41,7 +41,7 @@
    * `instagram_business_basic`
    * `instagram_business_manage_messages`
    * `instagram_business_manage_comments`
-4. Clique em **Generate Access Token** e faça login com a conta que gerencia a página do Instagram.
+4. Clique em **Generate Access Token** e faça login com a conta do Instagram.
 5. Copie o token gerado. *(Observação: esse token dura 1 hora; para transformá-lo no token de 60 dias, use a ferramenta de depuração de token da Meta ou clique no botão "Renovar Token" dentro de `/ajustes` no nosso painel)*.
 
 ---
@@ -55,9 +55,10 @@ O Webhook é o "endereço de entrega" para onde o Instagram manda os comentário
    * **URL de Retorno:** `https://[seu-site-na-vercel].vercel.app/api/webhook/instagram`
    * **Token de Verificação:** O mesmo texto que você configurou no seu `.env` na variável `WEBHOOK_VERIFY_TOKEN` (ou copie da tela `/ajustes`).
 3. Clique em **Verificar e Salvar**. A Meta fará uma chamada de teste GET instantânea; nosso sistema responderá com o `hub.challenge` e a conexão será ativada com sucesso!
-4. Na tabela de campos, clique em **Assinar** para os dois campos obrigatórios:
+4. Na tabela de campos, clique em **Assinar** para os três campos obrigatórios:
    * `comments` (para escutar comentários em posts e reels)
-   * `messages` (para escutar DMs e cliques de botões)
+   * `messages` (para escutar DMs e respostas a stories)
+   * `messaging_postbacks` (para escutar cliques nos botões fixos das DMs)
 
 ---
 

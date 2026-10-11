@@ -123,3 +123,24 @@ describe("limites da receita", () => {
     expect(readRecipe({ welcome: { text: "Oi" } }).welcome.text).toBe("Oi");
   });
 });
+
+describe("trigger persistence and Meta limits", () => {
+  it("preserves ANY, negatives, cooldown and priority through the save plan", async () => {
+    const { toSavePlan } = await import("./convert");
+    const r = recipe((r) => Object.assign(r.trigger, { matchType: "any", keywords: [], negativeKeywords: ["não"], cooldownSeconds: 60, priority: 3 }));
+    expect(lintRecipe(r)).toEqual([]);
+    const parsed = snapshotSchema.parse(compileRecipe(FLOW, recipeSchema.parse(r)));
+    expect(toSavePlan(parsed, () => undefined).triggers[0]).toMatchObject({ match: "ANY", negativeKeywords: ["não"], cooldownSeconds: 60, priority: 3 });
+  });
+  it("rejects a specific post without media and never compiles it as global", () => {
+    const r = recipe((r) => { r.trigger.scope = "specific"; r.trigger.mediaId = ""; });
+    expect(recipeSchema.safeParse(r).success).toBe(false);
+    expect(lintRecipe(r).some((p) => p.section === "trigger")).toBe(true);
+    expect(() => compileRecipe(FLOW, r)).toThrow();
+  });
+  it("rejects delays beyond 23h and template texts beyond 640", () => {
+    expect(recipeSchema.safeParse(recipe((r) => { r.reminder.delaySeconds = 23 * 3600; })).success).toBe(true);
+    expect(recipeSchema.safeParse(recipe((r) => { r.reminder.delaySeconds = 23 * 3600 + 1; })).success).toBe(false);
+    expect(recipeSchema.safeParse(recipe((r) => { r.link.text = "x".repeat(641); })).success).toBe(false);
+  });
+});

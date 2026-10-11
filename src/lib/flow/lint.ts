@@ -1,6 +1,7 @@
 // Avisos de "falta alguma coisa" em cada caixinha. Não impedem salvar,
-// mas o fluxo só vai poder ser publicado quando não houver nenhum aviso.
+// mas o fluxo só vai poder ser publicado (Etapa 6) sem nenhum aviso.
 import type { EditorEdge, EditorNode } from "./types";
+import { configSchemas } from "./schema";
 
 export type Problem = { nodeId: string | null; message: string };
 
@@ -17,6 +18,10 @@ export function lintFlow(nodes: EditorNode[], edges: EditorEdge[]): Problem[] {
 
   for (const node of nodes) {
     const data = node.data;
+    const validated = configSchemas[data.kind].safeParse(data.config);
+    if (!validated.success) {
+      for (const issue of validated.error.issues) add(node.id, issue.message);
+    }
     switch (data.kind) {
       case "TRIGGER": {
         const { type, keywords, match, payload } = data.config;

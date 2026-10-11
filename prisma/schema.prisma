@@ -21,6 +21,13 @@ enum ConnectionStatus {
   DISCONNECTED
 }
 
+enum TokenStatus {
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  REVOKED
+}
+
 /// Perfil profissional do Instagram ligado ao sistema.
 /// Cada contato, etiqueta, fluxo e card pertence a uma conta — assim dá pra
 /// atender mais de um perfil (agência) sem misturar dados.
@@ -31,6 +38,7 @@ model InstagramAccount {
   name           String?
   profilePicUrl  String?
   status         ConnectionStatus @default(CONNECTED)
+  tokenStatus    TokenStatus?
   /// Token de acesso criptografado. Enquanto houver uma conta só, o token
   /// fica no .env (IG_ACCESS_TOKEN) e este campo fica vazio.
   accessTokenEnc String?
@@ -44,6 +52,7 @@ model InstagramAccount {
   catalogItems CatalogItem[]
   messages     Message[]
   trackedLinks TrackedLink[]
+  privateReplies PrivateReply[]
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -274,6 +283,9 @@ model Trigger {
   flowId        String
   type          TriggerType
   keywords      String[] // ["casamento", "eu quero"]
+  negativeKeywords String[] @default([])
+  cooldownSeconds Int      @default(0)
+  priority      Int        @default(0)
   match         KeywordMatch @default(CONTAINS)
   /// Post/reel/story específico. null = vale pra qualquer publicação.
   mediaId       String?
@@ -305,6 +317,7 @@ model Trigger {
 
 enum RunStatus {
   RUNNING
+  WAITING_REPLY // private reply enviada, aguardando mensagem do contato
   WAITING_DELAY // parado numa Espera, volta em `resumeAt`
   WAITING_CLICK // mandou botões e espera o clique
   DONE
@@ -322,6 +335,7 @@ model FlowRun {
   triggerId     String?
   status        RunStatus @default(RUNNING)
   currentNodeId String?
+  triggerContext Json?
   resumeAt      DateTime?
   error         String?
   startedAt     DateTime  @default(now())
@@ -474,4 +488,17 @@ model CarouselCard {
 
   @@index([nodeId, position])
   @@index([catalogItemId])
+}
+
+// Claim durável antes de enviar; erro ambíguo não autoriza uma segunda private reply.
+model PrivateReply {
+  id        String   @id @default(cuid())
+  accountId String
+  commentId String
+  claimedAt DateTime @default(now())
+  messageId String?
+
+  account InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, commentId])
 }

@@ -1,0 +1,148 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Contact } from "@/generated/prisma/client";
+const { db, client, record, clicked, link } = vi.hoisted(() => ({
+  db: {
+    flow: { findFirst: vi.fn() }, contact: { findFirst: vi.fn(), update: vi.fn() },
+    flowRun: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    contactTag: { findUnique: vi.fn(), upsert: vi.fn() }, privateReply: { create: vi.fn(), update: vi.fn() },
+  },
+  client: { sendTextMessage: vi.fn(), sendButtonMessage: vi.fn(), sendCarouselMessage: vi.fn(), checkUserFollows: vi.fn() },
+  record: vi.fn(), clicked: vi.fn(), link: vi.fn(),
+}));
+vi.mock("@/lib/prisma", () => ({ prisma: db }));
+vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount: vi.fn(async () => client) }));
+vi.mock("./contacts", () => ({ recordOutgoingMessage: record }));
+vi.mock("./tracked-links", () => ({ trackedUrl: link, hasClickedLink: clicked }));
+import { executeFlow, resumeFlowOnClick, resumeFlowOnMessage } from "./runner";
+import { encodePostback } from "../meta/postback";
+
+const contact: Contact = {
+  id: "contact", accountId: "account", igsid: "lead", username: "ana", name: null,
+  profilePicUrl: null, followsAccount: false, lastInboundAt: new Date(),
+  lastInteractionAt: null, sourceFlowId: null, createdAt: new Date(), updatedAt: new Date(),
+  lastMessagePreview: null, lastMessageAt: null,
+};
+const options = { accountId: "account", contact, flowId: "flow", startNodeId: "first" };
+function flow(type: string, data: object, next = true) {
+  return { id: "flow", accountId: "account", status: "LIVE", nodes: [
+    { id: "first", type, data, carouselCards: [] },
+    { id: "second", type: "MESSAGE", data: { text: "Fim" }, carouselCards: [] },
+  ], edges: next ? [{ sourceNodeId: "first", targetNodeId: "second", sourceHandle: null }] : [] };
+}
+beforeEach(() => {
+  vi.resetAllMocks();
+  db.flow.findFirst.mockResolvedValue(flow("MESSAGE", { text: "Olá" }));
+  db.contact.findFirst.mockResolvedValue({ ...contact, lastInboundAt: new Date() });
+  db.flowRun.create.mockResolvedValue({ id: "run", triggerContext: null });
+  db.flowRun.update.mockResolvedValue({});
+  db.flowRun.updateMany.mockResolvedValue({ count: 1 });
+  db.privateReply.create.mockResolvedValue({ id: "claim" });
+  for (const send of [client.sendTextMessage, client.sendButtonMessage, client.sendCarouselMessage]) send.mockResolvedValue({ success: true, messageId: "mid", retryable: false });
+  link.mockResolvedValue("https://app.example/api/l/opaque");
+});
+
+describe("FlowRunner: envios reais controlados por janela e conta", () => {
+  it("envia private reply uma vez e pausa antes da próxima DM", async () => {
+    db.contact.findFirst.mockResolvedValue({ ...contact, lastInboundAt: null });
+    const result = await executeFlow({ ...options, triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now() } });
+    expect(result.success).toBe(true);
+    expect(client.sendTextMessage).toHaveBeenCalledExactlyOnceWith("lead", "Olá", { commentId: "comment" });
+    expect(db.privateReply.create).toHaveBeenCalledOnce();
+    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "WAITING_REPLY", currentNodeId: "second" }) }));
+  });
+  it("não repete private reply com claim existente", async () => {
+    db.privateReply.create.mockRejectedValue({ code: "P2002" });
+    const result = await executeFlow({ ...options, triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now() } });
+    expect(result.success).toBe(false);
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("bloqueia comentário com mais de 7 dias", async () => {
+    const result = await executeFlow({ ...options, triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now() - 8 * 86400000 } });
+    expect(result.success).toBe(false);
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("bloqueia DM fora da janela", async () => {
+    db.contact.findFirst.mockResolvedValue({ ...contact, lastInboundAt: null });
+    expect((await executeFlow(options)).success).toBe(false);
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("QUESTION só com URL rastreia e continua", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("QUESTION", { text: "Site", buttons: [{ id: "b", title: "ABRIR", type: "web_url", url: "https://example.com" }] }));
+    expect((await executeFlow(options)).success).toBe(true);
+    expect(client.sendButtonMessage).toHaveBeenCalledWith("lead", "Site", [expect.objectContaining({ url: "https://app.example/api/l/opaque" })], undefined);
+    expect(client.sendTextMessage).toHaveBeenCalledWith("lead", "Fim", undefined);
+  });
+  it("QUESTION vazia falha sem enviar", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("QUESTION", { text: "Site", buttons: [] }));
+    expect((await executeFlow(options)).success).toBe(false);
+    expect(client.sendButtonMessage).not.toHaveBeenCalled();
+  });
+  it("falha de envio registra FAILED", async () => {
+    client.sendTextMessage.mockResolvedValue({ success: false, error: "Janela encerrada", retryable: false });
+    expect((await executeFlow(options)).success).toBe(false);
+    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+  });
+  it.each([true, false])("condição link_clicked=%s escolhe ramo", async (value) => {
+    const fixture = flow("CONDITION", { rule: "link_clicked", nodeId: "link_node" });
+    fixture.edges[0].sourceHandle = (value ? "yes" : "no") as never;
+    db.flow.findFirst.mockResolvedValue(fixture);
+    clicked.mockResolvedValue(value);
+    await executeFlow(options);
+    expect(clicked).toHaveBeenCalledWith("account", "contact", "link_node");
+    expect(client.sendTextMessage).toHaveBeenCalledOnce();
+  });
+  it("ADD_TAG aplica etiqueta", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("ADD_TAG", { tagId: "tag" }, false));
+    await executeFlow(options);
+    expect(db.contactTag.upsert).toHaveBeenCalledOnce();
+  });
+  it("DELAY pausa sem executar próximo nó", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("DELAY", { seconds: 60 }));
+    await executeFlow(options);
+    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "WAITING_DELAY" }) }));
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("NOTE continua", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("NOTE", { text: "Interno" }));
+    await executeFlow(options);
+    expect(client.sendTextMessage).toHaveBeenCalledOnce();
+  });
+  it("FOLLOW_GATE não segue: pausa em botão", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("FOLLOW_GATE", { text: "Siga", notFollowingText: "Siga", buttonTitle: "JÁ SEGUI" }));
+    client.checkUserFollows.mockResolvedValue(false);
+    await executeFlow(options);
+    expect(client.sendButtonMessage).toHaveBeenCalledOnce();
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("CAROUSEL vazio falha", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("CAROUSEL", {}));
+    expect((await executeFlow(options)).success).toBe(false);
+  });
+  it("interrompe ciclo como FAILED", async () => {
+    const fixture = flow("NOTE", {});
+    fixture.edges[0].targetNodeId = "first";
+    db.flow.findFirst.mockResolvedValue(fixture);
+    expect((await executeFlow(options)).success).toBe(false);
+  });
+  it("conta divergente não executa", async () => {
+    expect((await executeFlow({ ...options, accountId: "other" })).success).toBe(false);
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("postback com underscores retoma apenas a saída e execução corretas", async () => {
+    const fixture = flow("QUESTION", { text: "Oi", buttons: [{ id: "btn_under", title: "OK", type: "postback" }] });
+    fixture.nodes[0].id = "node_under";
+    fixture.edges[0] = { sourceNodeId: "node_under", sourceHandle: "btn_under" as never, targetNodeId: "second" };
+    db.flowRun.findFirst.mockResolvedValue({ id: "run", flowId: "flow", currentNodeId: "node_under", status: "WAITING_CLICK", triggerContext: null, flow: fixture });
+    db.flow.findFirst.mockResolvedValue(fixture);
+    const payload = encodePostback({ kind: "question", nodeId: "node_under", buttonId: "btn_under", runId: "run" });
+    const result = await resumeFlowOnClick({ accountId: "account", contact, nodeId: "node_under", buttonId: "btn_under", payload });
+    expect(result.success).toBe(true);
+    expect(client.sendTextMessage).toHaveBeenCalledWith("lead", "Fim", undefined);
+  });
+  it("DM retoma WAITING_REPLY sem reenviar private reply", async () => {
+    db.flowRun.findFirst.mockResolvedValue({ id: "run", flowId: "flow", currentNodeId: "second", status: "WAITING_REPLY", triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now(), privateReplySent: true } });
+    expect((await resumeFlowOnMessage({ accountId: "account", contact, inboundText: "oi" })).success).toBe(true);
+    expect(client.sendTextMessage).toHaveBeenCalledWith("lead", "Fim", undefined);
+    expect(db.privateReply.create).not.toHaveBeenCalled();
+  });
+});

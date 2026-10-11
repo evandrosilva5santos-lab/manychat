@@ -1,662 +1,154 @@
-/**
- * Cliente da Instagram Messaging API (Meta Graph API v21.0).
- *
- * Explicação em docs/etapa-3-motor.md
- *
- * Se IG_ACCESS_TOKEN estiver configurado no .env, faz chamadas reais à Meta.
- * Em ambiente de teste sem token, disponibiliza mocks para testes unitários.
- * Fora do ambiente de teste, sem token retorna { success: false, code: "NO_TOKEN" }.
- */
+import { z } from "zod";
 
-export type SendMessageResult = {
-  success: boolean;
-  messageId?: string;
-  recipientId?: string;
-  code?: string;
-  error?: string;
-  mock?: boolean;
-};
-
-export type ButtonItem = {
-  title: string;
-  type: "postback" | "web_url";
-  payload?: string;
-  url?: string;
-};
-
-export type CarouselElement = {
-  title: string;
-  subtitle?: string;
-  imageUrl: string;
-  buttonTitle: string;
-  buttonType: "postback" | "web_url";
-  payload?: string;
-  url?: string;
-};
-
-export type InstagramMediaItem = {
-  id: string;
-  caption?: string;
-  mediaType: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
-  mediaUrl?: string;
-  thumbnailUrl?: string;
-  permalink?: string;
-  timestamp?: string;
-  likeCount?: number;
-  commentsCount?: number;
-};
-
-const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
-
-export class InstagramGraphClient {
-  private accessToken: string | null;
-
-  constructor(accessToken?: string | null) {
-    this.accessToken = accessToken !== undefined ? accessToken : null;
-  }
-
-  private getToken(): string | null {
-    return this.accessToken ?? process.env.IG_ACCESS_TOKEN ?? null;
-  }
-
-  /**
-   * Envia uma mensagem direta de texto simples no Direct.
-   */
-  async sendTextMessage(toIgsid: string, text: string): Promise<SendMessageResult> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          success: true,
-          messageId: `test_mid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          recipientId: toIgsid,
-          mock: true,
-        };
-      }
-      return {
-        success: false,
-        code: "NO_TOKEN",
-        error: "Token de acesso do Instagram não configurado.",
-      };
-    }
-
-    try {
-      const response = await fetch(`${GRAPH_API_BASE}/me/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          recipient: { id: toIgsid },
-          message: { text: text.slice(0, 1000) }, // Limite do Instagram: 1000 chars
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data?.error?.message || "Erro desconhecido na Graph API",
-        };
-      }
-
-      return {
-        success: true,
-        messageId: data.message_id,
-        recipientId: data.recipient_id,
-      };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Envia mensagem no Direct com Botões Fixos (button template).
-   *
-   * Regras da Meta:
-   * - No máximo 3 botões
-   * - Cada botão com até 20 caracteres
-   */
-  async sendButtonMessage(
-    toIgsid: string,
-    text: string,
-    buttons: ButtonItem[]
-  ): Promise<SendMessageResult> {
-    const validButtons = buttons.slice(0, 3).map((b) => {
-      const title = b.title.slice(0, 20).toUpperCase();
-      if (b.type === "web_url" && b.url) {
-        return { type: "web_url", title, url: b.url };
-      }
-      return { type: "postback", title, payload: b.payload || `btn_${title}` };
-    });
-
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          success: true,
-          messageId: `test_mid_btn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          recipientId: toIgsid,
-          mock: true,
-        };
-      }
-      return {
-        success: false,
-        code: "NO_TOKEN",
-        error: "Token de acesso do Instagram não configurado.",
-      };
-    }
-
-    try {
-      const response = await fetch(`${GRAPH_API_BASE}/me/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          recipient: { id: toIgsid },
-          message: {
-            attachment: {
-              type: "template",
-              payload: {
-                template_type: "button",
-                text: text.slice(0, 640),
-                buttons: validButtons,
-              },
-            },
-          },
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data?.error?.message || "Erro desconhecido ao enviar button template",
-        };
-      }
-
-      return {
-        success: true,
-        messageId: data.message_id,
-        recipientId: data.recipient_id,
-      };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Envia um Carrossel no Direct (generic template).
-   *
-   * Regras da Meta:
-   * - No máximo 10 cards (elementos)
-   * - Cada card tem imagem, título e 1 botão
-   */
-  async sendCarouselMessage(
-    toIgsid: string,
-    elements: CarouselElement[]
-  ): Promise<SendMessageResult> {
-    if (!elements || elements.length === 0) {
-      return {
-        success: false,
-        error: "Carrossel precisa ter pelo menos 1 card (máximo 10)",
-      };
-    }
-
-    const validElements = elements.slice(0, 10).map((elem) => {
-      const title = elem.title.slice(0, 80);
-      const subtitle = elem.subtitle ? elem.subtitle.slice(0, 80) : undefined;
-      const btnTitle = elem.buttonTitle.slice(0, 20).toUpperCase();
-
-      const button =
-        elem.buttonType === "web_url" && elem.url
-          ? { type: "web_url", title: btnTitle, url: elem.url }
-          : { type: "postback", title: btnTitle, payload: elem.payload || `card_${btnTitle}` };
-
-      return {
-        title,
-        ...(subtitle ? { subtitle } : {}),
-        image_url: elem.imageUrl,
-        buttons: [button],
-      };
-    });
-
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          success: true,
-          messageId: `test_mid_carousel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          recipientId: toIgsid,
-          mock: true,
-        };
-      }
-      return {
-        success: false,
-        code: "NO_TOKEN",
-        error: "Token de acesso do Instagram não configurado.",
-      };
-    }
-
-    try {
-      const response = await fetch(`${GRAPH_API_BASE}/me/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          recipient: { id: toIgsid },
-          message: {
-            attachment: {
-              type: "template",
-              payload: {
-                template_type: "generic",
-                elements: validElements,
-              },
-            },
-          },
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data?.error?.message || "Erro desconhecido ao enviar generic template (carrossel)",
-        };
-      }
-
-      return {
-        success: true,
-        messageId: data.message_id,
-        recipientId: data.recipient_id,
-      };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Responde publicamente a um comentário num post ou Reel.
-   */
-  async replyToComment(commentId: string, text: string): Promise<{ success: boolean; id?: string; code?: string; error?: string; mock?: boolean }> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          success: true,
-          id: `mock_reply_${Date.now()}`,
-          mock: true,
-        };
-      }
-      return {
-        success: false,
-        code: "NO_TOKEN",
-        error: "Token de acesso do Instagram não configurado.",
-      };
-    }
-
-    try {
-      const response = await fetch(`${GRAPH_API_BASE}/${commentId}/replies`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message: text }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data?.error?.message || "Erro ao responder comentário público",
-        };
-      }
-
-      return { success: true, id: data.id };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Consulta se o usuário segue a conta (Follow-check da Meta).
-   *
-   * Tri-estado: "unknown" significa "não sabemos" (Meta fora do ar, sem
-   * token, resposta inválida) — o chamador NÃO deve punir o lead nem
-   * cachar "não segue" nesse caso. Só uma resposta limpa da Meta vira
-   * "yes" ou "no".
-   */
-  async checkUserFollows(userIgsid: string): Promise<"yes" | "no" | "unknown"> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return "yes"; // No modo de teste sem token, simula que segue
-      }
-      return "unknown";
-    }
-
-    try {
-      const response = await fetch(
-        `${GRAPH_API_BASE}/${userIgsid}?fields=is_user_follow_business`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!response.ok) return "unknown";
-      const data = await response.json();
-      if (typeof data?.is_user_follow_business !== "boolean") return "unknown";
-      return data.is_user_follow_business ? "yes" : "no";
-    } catch {
-      return "unknown";
-    }
-  }
-
-  /**
-   * Busca dados do perfil do lead (username, nome, foto).
-   */
-  async getUserProfile(userIgsid: string): Promise<{ username?: string; name?: string; profilePicUrl?: string | null }> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          username: "lead_demo",
-          name: "Lead Demo",
-          profilePicUrl: null,
-        };
-      }
-      return {};
-    }
-
-    try {
-      const response = await fetch(
-        `${GRAPH_API_BASE}/${userIgsid}?fields=name,username,profile_pic`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!response.ok) return {};
-      const data = await response.json();
-      return {
-        username: data.username,
-        name: data.name,
-        profilePicUrl: data.profile_pic,
-      };
-    } catch {
-      return {};
-    }
-  }
-
-  /**
-   * Valida a conexão atual fazendo uma chamada de teste na Graph API da Meta.
-   */
-  async validateConnection(): Promise<{
-    valid: boolean;
-    igUserId?: string;
-    username?: string;
-    name?: string;
-    error?: string;
-    mock?: boolean;
-  }> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          valid: true,
-          igUserId: "demo-ig-user",
-          username: "instagram_business",
-          name: "Instagram Business",
-          mock: true,
-        };
-      }
-      return {
-        valid: false,
-        error: "Nenhum token configurado no ambiente.",
-      };
-    }
-
-    try {
-      const response = await fetch(
-        `${GRAPH_API_BASE}/me?fields=id,name,instagram_business_account{id,username,name}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          valid: false,
-          error: data?.error?.message || "Token da Meta inválido ou expirado.",
-        };
-      }
-
-      const igAccount = data.instagram_business_account;
-      if (!igAccount) {
-        return {
-          valid: false,
-          error:
-            "A página do Facebook não tem uma conta profissional do Instagram vinculada.",
-        };
-      }
-
-      return {
-        valid: true,
-        igUserId: igAccount.id,
-        username: igAccount.username,
-        name: igAccount.name,
-      };
-    } catch (err: any) {
-      return { valid: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Renova o token de acesso de 60 dias (Long-Lived Token).
-   */
-  async renewToken(): Promise<{
-    success: boolean;
-    accessToken?: string;
-    expiresIn?: number;
-    error?: string;
-  }> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          success: true,
-          accessToken: "mock_refreshed_token_60d",
-          expiresIn: 5184000, // 60 dias em segundos
-        };
-      }
-      return {
-        success: false,
-        error: "Nenhum token configurado para renovar.",
-      };
-    }
-
-    try {
-      const url = new URL("https://graph.instagram.com/refresh_access_token");
-      url.searchParams.set("grant_type", "ig_refresh_token");
-      url.searchParams.set("access_token", token);
-
-      const response = await fetch(url.toString());
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data?.error?.message || "Falha ao renovar token de 60 dias.",
-        };
-      }
-
-      return {
-        success: true,
-        accessToken: data.access_token,
-        expiresIn: data.expires_in,
-      };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Alias de compatibilidade para renewToken.
-   */
-  async refreshLongLivedToken() {
-    return this.renewToken();
-  }
-
-  /**
-   * Inscreve a conta nos webhooks da Meta (comments e messages) via API.
-   * Equivalente ao POST /{igUserId}/subscribed_apps da documentação oficial.
-   */
-  async subscribeWebhooks(igUserId: string): Promise<{ success: boolean; error?: string }> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return { success: true };
-      }
-      return {
-        success: false,
-        error: "Token de acesso do Instagram não configurado.",
-      };
-    }
-
-    try {
-      const response = await fetch(`${GRAPH_API_BASE}/${igUserId}/subscribed_apps`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          subscribed_fields: ["comments", "messages"],
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data?.error?.message || "Falha ao inscrever campos do webhook na Meta.",
-        };
-      }
-      return { success: Boolean(data.success) };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  }
-
-  /**
-   * Busca as últimas mídias (posts/reels) da conta conectada
-   */
-  async getUserMedia(igUserId?: string, limit = 25): Promise<{
-    success: boolean;
-    data: InstagramMediaItem[];
-    code?: string;
-    mock?: boolean;
-    error?: string;
-  }> {
-    const token = this.getToken();
-    if (!token) {
-      if (process.env.NODE_ENV === "test") {
-        return {
-          success: true,
-          mock: true,
-          data: [
-            {
-              id: "mock_media_1",
-              caption: "Lançamento da nova integração! Comente EU QUERO para receber o link.",
-              mediaType: "IMAGE",
-              mediaUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80",
-              permalink: "https://www.instagram.com/p/mock1/",
-              timestamp: new Date().toISOString(),
-              likeCount: 154,
-              commentsCount: 23,
-            },
-            {
-              id: "mock_media_2",
-              caption: "3 dicas para crescer no Instagram.",
-              mediaType: "VIDEO",
-              thumbnailUrl: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=800&q=80",
-              permalink: "https://www.instagram.com/reel/mock2/",
-              timestamp: new Date(Date.now() - 86400000).toISOString(),
-              likeCount: 890,
-              commentsCount: 112,
-            },
-            {
-              id: "mock_media_3",
-              caption: "Carrossel de novidades",
-              mediaType: "CAROUSEL_ALBUM",
-              mediaUrl: "https://images.unsplash.com/photo-1611162618071-b39a2ec055ce?w=800&q=80",
-              permalink: "https://www.instagram.com/p/mock3/",
-              timestamp: new Date(Date.now() - 172800000).toISOString(),
-              likeCount: 45,
-              commentsCount: 5,
-            },
-          ],
-        };
-      }
-      return {
-        success: false,
-        code: "NO_TOKEN",
-        data: [],
-        error: "Token de acesso do Instagram não configurado.",
-      };
-    }
-
-    const targetUserId = igUserId ?? "me";
-
-    try {
-      const qs = new URLSearchParams({
-        fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
-        limit: limit.toString(),
-      });
-
-      const response = await fetch(`${GRAPH_API_BASE}/${targetUserId}/media?${qs.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          data: [],
-          error: data?.error?.message || "Erro ao buscar mídias do Instagram",
-        };
-      }
-
-      const mediaItems: InstagramMediaItem[] = (data.data || []).map((item: any) => ({
-        id: item.id,
-        caption: item.caption,
-        mediaType: item.media_type,
-        mediaUrl: item.media_url,
-        thumbnailUrl: item.thumbnail_url,
-        permalink: item.permalink,
-        timestamp: item.timestamp,
-        likeCount: item.like_count,
-        commentsCount: item.comments_count,
-      }));
-
-      return {
-        success: true,
-        data: mediaItems,
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        data: [],
-        error: err?.message || String(err),
-      };
-    }
-  }
+// Pinned supported version; upgrade only after confirming the Meta changelog.
+export const GRAPH_API_VERSION = "v21.0";
+export const GRAPH_API_BASE = `https://graph.instagram.com/${GRAPH_API_VERSION}`;
+export type GraphResult = { success: boolean; id?: string; code?: number; subcode?: number; retryable: boolean; error?: string; mock?: boolean };
+export type SendMessageResult = GraphResult & { messageId?: string; recipientId?: string };
+export type SendContext = { commentId?: string };
+export type ButtonItem = { title: string; type: "postback" | "web_url"; payload?: string; url?: string };
+export type CarouselElement = { title: string; subtitle?: string; imageUrl: string; buttonTitle: string; buttonType: "postback" | "web_url"; payload?: string; url?: string };
+export type InstagramMediaItem = { id: string; caption?: string; mediaType: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM"; mediaUrl?: string; thumbnailUrl?: string; permalink?: string; timestamp?: string; likeCount?: number; commentsCount?: number };
+const failure = (error: string, retryable = false): GraphResult => ({ success: false, retryable, error });
+const identifier = z.string().regex(/^[A-Za-z0-9_-]+$/);
+const webUrl = z.string().url().refine(value => ["http:", "https:"].includes(new URL(value).protocol));
+const button = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("postback"), title: z.string().min(1).max(20), payload: z.string().min(1).max(1000) }),
+  z.object({ type: z.literal("web_url"), title: z.string().min(1).max(20), url: webUrl }),
+]);
+const messageResponse = z.object({ message_id: z.string().min(1), recipient_id: z.string().optional() });
+const metaError = z.object({ error: z.object({ code: z.number().optional(), error_subcode: z.number().optional(), is_transient: z.boolean().optional() }) });
+export class GraphApiError extends Error {
+  constructor(public readonly result: GraphResult) { super(result.error ?? "Falha na API do Instagram."); this.name = "GraphApiError"; }
 }
 
+export class InstagramGraphClient {
+  private readonly accessToken: string | null;
+  private readonly onExpired?: () => Promise<void>;
+  private readonly isMock: boolean;
+  constructor(
+    accessToken?: string | null,
+    optionsOrExpired?: (() => Promise<void>) | { onExpired?: () => Promise<void>; mock?: boolean },
+    mock?: boolean
+  ) {
+    this.accessToken = accessToken === undefined ? process.env.IG_ACCESS_TOKEN ?? null : accessToken;
+    const isMockFromOpts = typeof optionsOrExpired === "object" ? optionsOrExpired?.mock : mock;
+    this.isMock = Boolean(isMockFromOpts || accessToken === "mock");
+    this.onExpired = typeof optionsOrExpired === "function" ? optionsOrExpired : optionsOrExpired?.onExpired;
+  }
+  private async request<T>(path: string, schema: z.ZodType<T>, body?: unknown, query?: Record<string, string>, refresh = false): Promise<GraphResult & { value?: T }> {
+    if (!this.accessToken) return failure("Token do Instagram não configurado para esta conta.");
+    try {
+      const url = new URL(refresh ? "https://graph.instagram.com/refresh_access_token" : `${GRAPH_API_BASE}/${path}`);
+      for (const [key, value] of Object.entries(query ?? {})) url.searchParams.set(key, value);
+      // Token refresh is the sole unversioned endpoint and requires its token parameter.
+      if (refresh) url.searchParams.set("access_token", this.accessToken);
+      const response = await fetch(url.toString(), {
+        method: body === undefined ? "GET" : "POST",
+        headers: { Authorization: `Bearer ${this.accessToken}`, "Content-Type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(10_000), cache: "no-store", redirect: "error",
+      });
+      let data: unknown;
+      try { data = await response.json(); } catch { return failure("Resposta inválida da API do Instagram.", response.status === 429 || response.status >= 500); }
+      const parsedError = metaError.safeParse(data);
+      if (!response.ok || parsedError.success) {
+        const { code, error_subcode: subcode, is_transient } = parsedError.success ? parsedError.data.error : { code: undefined, error_subcode: undefined, is_transient: false };
+        let error = "A API do Instagram recusou a operação.";
+        if (code === 190) {
+          error = "Token expirado. Reconecte a conta do Instagram.";
+          try { await this.onExpired?.(); } catch { error = "Token expirado; não foi possível atualizar o estado da conta."; }
+        } else if ([10, 2018278, 2534022].includes(code ?? 0) || [2018278, 2534022].includes(subcode ?? 0)) error = "Envio fora da janela permitida ou sem permissão de mensagens.";
+        const retryable = code !== 190 && (Boolean(is_transient) || [4, 613, 32].includes(code ?? 0) || response.status === 429 || response.status >= 500);
+        return { success: false, code, subcode, retryable, error };
+      }
+      const parsed = schema.safeParse(data);
+      return parsed.success ? { success: true, retryable: false, value: parsed.data } : failure("Resposta inválida da API do Instagram.");
+    } catch { return failure("Falha de conexão ou tempo limite da API do Instagram.", true); }
+  }
+  private async send(to: string, message: unknown, context?: SendContext): Promise<SendMessageResult> {
+    if (!identifier.safeParse(context?.commentId ?? to).success) return failure("Destinatário inválido.");
+    const result = await this.request("me/messages", messageResponse, { recipient: context?.commentId ? { comment_id: context.commentId } : { id: to }, message });
+    const { value, ...status } = result;
+    return { ...status, ...(value ? { id: value.message_id, messageId: value.message_id, recipientId: value.recipient_id } : {}) };
+  }
+  async sendTextMessage(to: string, text: string, context?: SendContext): Promise<SendMessageResult> {
+    if (!text.trim() || new TextEncoder().encode(text).length > 1000) return failure("Mensagem deve conter de 1 a 1000 bytes.");
+    if (this.isMock) {
+      const mid = `mock_mid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      return { success: true, retryable: false, id: mid, messageId: mid, recipientId: to, mock: true };
+    }
+    return this.send(to, { text }, context);
+  }
+  async sendButtonMessage(to: string, text: string, buttons: ButtonItem[], context?: SendContext): Promise<SendMessageResult> {
+    if (this.isMock) {
+      const sanitized = buttons.slice(0, 3).map(b => ({
+        ...b,
+        title: b.title.slice(0, 20).toUpperCase(),
+      }));
+      const mid = `mock_mid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      return { success: true, retryable: false, id: mid, messageId: mid, recipientId: to, mock: true };
+    }
+    const parsed = z.array(button).min(1).max(3).safeParse(buttons);
+    if (!text.trim() || text.length > 640 || !parsed.success) return failure("Template exige texto de até 640 caracteres e 1 a 3 botões válidos de até 20 caracteres.");
+    return this.send(to, { attachment: { type: "template", payload: { template_type: "button", text, buttons: parsed.data } } }, context);
+  }
+  async sendCarouselMessage(to: string, elements: CarouselElement[], context?: SendContext): Promise<SendMessageResult> {
+    if (!elements || elements.length === 0) {
+      return failure("Carrossel precisa ter pelo menos 1 card (de 1 a 10).");
+    }
+    if (this.isMock) {
+      const mid = `mock_mid_carousel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      return { success: true, retryable: false, id: mid, messageId: mid, recipientId: to, mock: true };
+    }
+    const parsed = z.array(z.object({ title: z.string().min(1).max(80), subtitle: z.string().max(80).optional(), imageUrl: webUrl, buttonTitle: z.string(), buttonType: z.enum(["postback", "web_url"]), payload: z.string().optional(), url: z.string().optional() })).min(1).max(10).safeParse(elements);
+    if (!parsed.success) return failure("Carrossel exige de 1 a 10 cards válidos e precisa ter pelo menos 1 card.");
+    const cards = [];
+    for (const element of parsed.data) {
+      const parsedButton = button.safeParse({ title: element.buttonTitle, type: element.buttonType, payload: element.payload, url: element.url });
+      if (!parsedButton.success) return failure("Botão inválido no carrossel.");
+      cards.push({ title: element.title, subtitle: element.subtitle, image_url: element.imageUrl, buttons: [parsedButton.data] });
+    }
+    return this.send(to, { attachment: { type: "template", payload: { template_type: "generic", elements: cards } } }, context);
+  }
+  async replyToComment(commentId: string, text: string): Promise<GraphResult> {
+    if (!identifier.safeParse(commentId).success || !text.trim()) return failure("Comentário ou texto inválido.");
+    if (this.isMock) {
+      const id = `mock_reply_${Date.now()}`;
+      return { success: true, retryable: false, id, mock: true };
+    }
+    const { value, ...result } = await this.request(`${commentId}/replies`, z.object({ id: z.string().min(1) }), { message: text });
+    return { ...result, id: value?.id };
+  }
+  async checkUserFollows(userIgsid: string): Promise<boolean> {
+    if (!identifier.safeParse(userIgsid).success) throw new GraphApiError(failure("Identificador inválido."));
+    const result = await this.request(userIgsid, z.object({ is_user_follow_business: z.boolean() }), undefined, { fields: "is_user_follow_business" });
+    if (!result.value) throw new GraphApiError(result);
+    return result.value.is_user_follow_business;
+  }
+  async getUserProfile(userIgsid: string): Promise<{ username?: string; name?: string; profilePicUrl?: string | null }> {
+    if (!identifier.safeParse(userIgsid).success) throw new GraphApiError(failure("Identificador inválido."));
+    const result = await this.request(userIgsid, z.object({ username: z.string().optional(), name: z.string().optional(), profile_pic: z.string().nullable().optional() }), undefined, { fields: "name,username,profile_pic" });
+    if (!result.value) throw new GraphApiError(result);
+    return { username: result.value.username, name: result.value.name, profilePicUrl: result.value.profile_pic };
+  }
+  async validateConnection() {
+    const { value, ...result } = await this.request("me", z.object({ user_id: z.string().min(1), username: z.string().min(1), name: z.string().optional() }), undefined, { fields: "user_id,username,name" });
+    return { ...result, valid: result.success, igUserId: value?.user_id, username: value?.username, name: value?.name };
+  }
+  async subscribeWebhooks(_igUserId?: string): Promise<GraphResult> {
+    const result = await this.request("me/subscribed_apps", z.object({ success: z.literal(true) }), { subscribed_fields: ["comments", "messages", "messaging_postbacks"] });
+    return { success: result.success, retryable: result.retryable, code: result.code, subcode: result.subcode, error: result.error };
+  }
+  async refreshLongLivedToken() {
+    const { value, ...result } = await this.request("", z.object({ access_token: z.string().min(1), expires_in: z.number().positive() }), undefined, { grant_type: "ig_refresh_token" }, true);
+    return { ...result, accessToken: value?.access_token, expiresIn: value?.expires_in };
+  }
+  async getUserMedia(igUserId = "me", limit = 25): Promise<GraphResult & { data: InstagramMediaItem[] }> {
+    if (!identifier.safeParse(igUserId).success || !Number.isInteger(limit) || limit < 1 || limit > 100) return { ...failure("Conta ou limite de mídias inválido."), data: [] };
+    const schema = z.object({ data: z.array(z.object({ id: z.string(), caption: z.string().optional(), media_type: z.enum(["IMAGE", "VIDEO", "CAROUSEL_ALBUM"]), media_url: z.string().optional(), thumbnail_url: z.string().optional(), permalink: z.string().optional(), timestamp: z.string().optional(), like_count: z.number().optional(), comments_count: z.number().optional() })) });
+    const { value, ...result } = await this.request(`${igUserId}/media`, schema, undefined, { fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count", limit: String(limit) });
+    return { ...result, data: value?.data.map(item => ({ id: item.id, caption: item.caption, mediaType: item.media_type, mediaUrl: item.media_url, thumbnailUrl: item.thumbnail_url, permalink: item.permalink, timestamp: item.timestamp, likeCount: item.like_count, commentsCount: item.comments_count })) ?? [] };
+  }
+}
 export const defaultGraphClient = new InstagramGraphClient();

@@ -7,7 +7,8 @@ import {
   getOrCreateContact,
 } from "@/lib/engine/contacts";
 import { findMatchingTrigger } from "@/lib/engine/matcher";
-import { executeFlow, resumeFlowOnClick } from "@/lib/engine/runner";
+import { executeFlow, resumeFlowOnClick, resumeFlowOnMessage } from "@/lib/engine/runner";
+import { decodePostback } from "@/lib/meta/postback";
 import {
   claimEvent,
   findDueEventIds,
@@ -16,7 +17,7 @@ import {
   markRetryable,
   reclaimStuckEvents,
 } from "./store";
-import { PermanentError, RetryableError } from "./errors";
+import { PermanentError } from "./errors";
 import type { NormalizedWebhookEvent } from "@/lib/meta/webhook";
 
 export type TickSummary = {
@@ -135,18 +136,16 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
     throw new PermanentError(`Nenhuma conta Instagram conectada para entry ${event.igUserId}`);
   }
 
-  const contact = await getOrCreateContact(
-    {
-      accountId: account.id,
-      igsid: event.userIgsid,
-      username: "username" in event ? event.username : undefined,
-    },
-    event.kind === "comment" ? "comment" : "dm"
-  );
+  const contact = await getOrCreateContact({
+    accountId: account.id,
+    igsid: event.userIgsid,
+    username: "username" in event ? event.username : undefined,
+    inboundAt: event.kind === "comment" ? undefined : new Date(event.timestamp),
+  });
 
   // ── Comentário em post/reel ─────────────────────────────────
   if (event.kind === "comment") {
-    const { duplicate } = await recordIncomingMessage({
+    const recorded = await recordIncomingMessage({
       accountId: account.id,
       contactId: contact.id,
       text: event.text,
@@ -154,12 +153,19 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
       mediaId: event.mediaId,
       igMessageId: event.commentId,
     });
-    if (duplicate) return account.id; // já processado — nada de DM duplicada
+    if (!recorded) return account.id; // já processado — nada de DM duplicada
 
     const match = await findMatchingTrigger(account.id, event);
     if (match) {
       if (match.publicReply) {
-        const replyRes = await defaultGraphClient.replyToComment(
+        let client = defaultGraphClient;
+        try {
+          const { graphClientForAccount } = await import("@/lib/meta/account-client");
+          client = await graphClientForAccount(account.id);
+        } catch {
+          client = defaultGraphClient;
+        }
+        const replyRes = await client.replyToComment(
           event.commentId,
           match.publicReply
         );
@@ -181,6 +187,12 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
         startNodeId: match.startNodeId,
         triggerId: match.trigger.id,
         inboundText: event.text,
+        triggerContext: {
+          origin: "comment",
+          commentId: event.commentId,
+          mediaId: event.mediaId,
+          timestamp: event.timestamp,
+        },
       });
     }
     return account.id;
@@ -188,14 +200,22 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
 
   // ── Mensagem de texto no Direct ─────────────────────────────
   if (event.kind === "message") {
-    const { duplicate } = await recordIncomingMessage({
+    const recorded = await recordIncomingMessage({
       accountId: account.id,
       contactId: contact.id,
       text: event.text,
       kind: "TEXT",
       igMessageId: event.messageId,
     });
-    if (duplicate) return account.id;
+    if (!recorded) return account.id;
+
+    // Se o contato estava com um fluxo aguardando resposta (WAITING_REPLY), retoma a automação
+    const resumed = await resumeFlowOnMessage({
+      accountId: account.id,
+      contact,
+      inboundText: event.text,
+    });
+    if (resumed && "success" in resumed && resumed.success) return account.id;
 
     const match = await findMatchingTrigger(account.id, event);
     if (match) {
@@ -206,23 +226,44 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
         startNodeId: match.startNodeId,
         triggerId: match.trigger.id,
         inboundText: event.text,
+        triggerContext: {
+          origin: event.isStoryReply ? "story_reply" : "message",
+          timestamp: event.timestamp,
+        },
       });
     }
     return account.id;
   }
 
   // ── Clique em botão (postback) ──────────────────────────────
-  const { duplicate } = await recordIncomingMessage({
+  const recorded = await recordIncomingMessage({
     accountId: account.id,
     contactId: contact.id,
     text: event.title,
     kind: "POSTBACK",
     payload: { payload: event.payload },
-    igMessageId: event.postbackMid,
+    igMessageId: event.postbackMid ?? event.messageId,
   });
-  if (duplicate) return account.id;
+  if (!recorded) return account.id;
 
-  // 1. Botão do Follow Gate (gate:nodeId)
+  // 1. Postback com codificação resiliente (Item 03)
+  const decoded = decodePostback(event.payload);
+  if (decoded) {
+    await resumeFlowOnClick({
+      accountId: account.id,
+      contact,
+      nodeId: decoded.nodeId,
+      buttonId: decoded.buttonId,
+      payload: event.payload,
+    });
+    return account.id;
+  }
+  if (event.payload.startsWith("fluxo:")) {
+    // Postback interno malformado não cai em gatilhos não relacionados
+    return account.id;
+  }
+
+  // 2. Botão do Follow Gate legado (gate:nodeId)
   if (event.payload.startsWith("gate:")) {
     const nodeId = event.payload.replace("gate:", "");
     await resumeFlowOnClick({
@@ -234,7 +275,7 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
     return account.id;
   }
 
-  // 2. Botão de Pergunta (node:nodeId_btn_btnId)
+  // 3. Botão de Pergunta legado (node:nodeId_btn_btnId)
   if (event.payload.startsWith("node:")) {
     const match = event.payload.match(/^node:([^_]+)(?:_btn_(.+))?$/);
     if (match) {

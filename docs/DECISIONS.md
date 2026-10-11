@@ -59,3 +59,26 @@
 - **IMPACT:** Elimina risco de regressões e mantém a suíte de testes 100% verde em cada etapa.
 - **STATUS:** `ACTIVE`
 - **SOURCE:** Master Prompt e Auditoria Inicial.
+
+---
+
+## ADR-005: Adoção Exclusiva da Instagram API with Instagram Login (`graph.instagram.com/v21.0`)
+- **ID:** `ADR-005`
+- **DATE:** 2026-10-11
+- **CATEGORY:** INTEGRATION / META API
+- **CONTEXT:** O PRD original (REQ-001) previa "Facebook Login" e dependência de Página do Facebook vinculada, causando fragmentação de endpoints (`graph.facebook.com` vs `graph.instagram.com`), complexidade de permissões de Página e erros em contas que utilizam login direto do Instagram.
+- **DECISION:** Adotar **exclusivamente** a **Instagram API with Instagram Login**:
+  1. Base unificada fixada em `https://graph.instagram.com/v21.0` com `AbortSignal.timeout(10_000)` e retorno tipado (`GraphResult`).
+  2. Escopos de autorização restritos ao Instagram: `instagram_business_basic`, `instagram_business_manage_messages`, `instagram_business_manage_comments` — sem necessidade de Página do Facebook.
+  3. Envio da primeira DM em resposta a comentário via **Private Reply** oficial (`recipient: { comment_id }`), respeitando a janela de 7 dias da Meta e garantindo unicidade atômica via tabela `PrivateReply`.
+  4. Janela de 24 horas: verificada estritamente antes de qualquer envio de DM que não seja private reply. Comentários públicos não abrem e não prolongam a janela (`lastInboundAt` atualiza somente via DM ou postback).
+  5. Inscrição e roteamento de Webhook: assinatura obrigatória de `comments`, `messages` e `messaging_postbacks`, com roteamento por `entry[].id` (`igUserId`) e descarte defensivo de `is_echo` e comentários da própria conta.
+  6. Tratamento estruturado de códigos de erro da Meta:
+     - `190`: Token expirado/revogado (`TOKEN_EXPIRED`), alertando o operador.
+     - `10`, `2018278`, `2534022`: Janela de 24h fechada ou falta de permissão, pausando o fluxo sem retentativa cega.
+     - `4`, `613`, `32`: Rate limit ou falha transitória (`retryable: true`), permitindo retentativa com backoff exponencial na fila.
+- **RATIONALE:** Alinha o sistema com a arquitetura moderna recomendada pela Meta para contas Creator/Business, reduzindo atrito de onboarding e eliminando falhas de entrega.
+- **IMPACT:** Atualiza `PRD.md` (REQ-001), `PRD_TRACEABILITY.md`, `ARCHITECTURE.md` e `docs/etapa-7-meta-app.md`.
+- **STATUS:** `ACTIVE`
+- **SOURCE:** Item 03 do Plano de Execução e Especificação Oficial da Meta.
+

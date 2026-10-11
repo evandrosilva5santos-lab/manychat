@@ -194,3 +194,21 @@ describe("avisos", () => {
     expect(messages.some((message) => message.includes("https://"))).toBe(true);
   });
 });
+
+describe("publication limits", () => {
+  it("permits empty question drafts but blocks publication", () => {
+    const q = question(0);
+    expect(snapshotSchema.safeParse(snap([q])).success).toBe(true);
+    expect(lintFlow([q], []).some((p) => p.message.includes("pelo menos 1 botão"))).toBe(true);
+  });
+  it("checks UTF-8 bytes for messages and 640 characters for templates", () => {
+    const node: EditorNode = { id: "m", type: "MESSAGE", position: { x: 0, y: 0 }, data: { kind: "MESSAGE", name: null, config: { text: "😀".repeat(250) } } };
+    expect(snapshotSchema.safeParse(snap([node])).success).toBe(true);
+    if (node.data.kind === "MESSAGE") node.data.config.text += "a";
+    expect(snapshotSchema.safeParse(snap([node])).success).toBe(false);
+    const q = question(1);
+    if (q.data.kind === "QUESTION") q.data.config.text = "a".repeat(641);
+    expect(snapshotSchema.safeParse(snap([q])).success).toBe(false);
+    expect(lintFlow([q], []).some((p) => p.message.includes("640"))).toBe(true);
+  });
+});

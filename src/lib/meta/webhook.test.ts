@@ -74,3 +74,45 @@ describe("verifyWebhookChallenge", () => {
     expect(verifyWebhookChallenge(params(""), "")).toBeNull();
   });
 });
+
+import { parseInstagramWebhookPayload } from "./webhook";
+
+describe("Instagram event normalization", () => {
+  const comment = { field: "comments", value: { id: "comment", from: { id: "lead" }, text: "guia", media: { id: "media" }, created_time: 1700000000 } };
+  const dm = { sender: { id: "lead" }, recipient: { id: "account" }, timestamp: 1700000000123, message: { mid: "message", text: "guia" } };
+  const wrap = (entry: object) => ({ object: "instagram", entry: [{ id: "account", time: 1700000000, ...entry }] });
+  it("preserves comment account, actor, media and normalizes seconds to milliseconds", () => {
+    expect(parseInstagramWebhookPayload(wrap({ changes: [comment] }))).toEqual([expect.objectContaining({ kind: "comment", igUserId: "account", commentId: "comment", userIgsid: "lead", mediaId: "media", timestamp: 1700000000000 })]);
+  });
+  it("preserves DM millisecond timestamps and identifies story replies", () => {
+    const events = parseInstagramWebhookPayload(wrap({ messaging: [dm, { ...dm, message: { ...dm.message, reply_to: { story: { id: "story" } } } }] }));
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ kind: "message", timestamp: 1700000000123 });
+    expect(events[1]).toMatchObject({ kind: "message", isStoryReply: true });
+  });
+  it("normalizes postbacks including their Meta delivery id", () => {
+    expect(parseInstagramWebhookPayload(wrap({ messaging: [{ ...dm, message: undefined, postback: { mid: "postback-id", title: "abrir", payload: "fluxo:abc" } }] }))[0]).toMatchObject({ kind: "postback", messageId: "postback-id", payload: "fluxo:abc" });
+  });
+  it("ignores malformed actors, own comments and threaded comments", () => {
+    expect(parseInstagramWebhookPayload(wrap({ changes: [
+      { ...comment, value: { ...comment.value, from: {} } },
+      { ...comment, value: { ...comment.value, from: { id: "account" } } },
+      { ...comment, value: { ...comment.value, parent_id: "parent" } },
+    ] }))).toEqual([]);
+  });
+  it("ignores message echoes, self messages and foreign recipients", () => {
+    expect(parseInstagramWebhookPayload(wrap({ messaging: [
+      { ...dm, message: { ...dm.message, is_echo: true } },
+      { ...dm, sender: { id: "account" } },
+      { ...dm, recipient: { id: "foreign" } },
+    ] }))).toEqual([]);
+  });
+  it("never substitutes the delivery time for a missing event timestamp", () => {
+    const payload = { object: "instagram", entry: [{ id: "account", messaging: [{ ...dm, timestamp: undefined }] }] };
+    expect(parseInstagramWebhookPayload(payload)[0].timestamp).toBe(0);
+  });
+  it("ignores malformed envelopes and unsupported events", () => {
+    expect(parseInstagramWebhookPayload(null)).toEqual([]);
+    expect(parseInstagramWebhookPayload(wrap({ messaging: [{ sender: { id: "lead" }, read: { mid: "read" } }], changes: [{ field: "likes" }] }))).toEqual([]);
+  });
+});

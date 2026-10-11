@@ -218,7 +218,12 @@ export async function deleteFlow(flowId: string): Promise<SaveResult> {
   if (!account) return { ok: false, error: "Fluxo não encontrado." };
 
   try {
-    await prisma.flow.delete({ where: { id: flowId } });
+    // Soft-delete: o histórico (FlowRun, Message) é preservado — apagar
+    // de verdade levaria o registro de envios junto (Cascade).
+    await prisma.flow.update({
+      where: { id: flowId },
+      data: { archivedAt: new Date(), status: "STOPPED" },
+    });
     revalidatePath("/fluxos");
     return { ok: true, savedAt: new Date().toISOString() };
   } catch (err: any) {

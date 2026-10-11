@@ -4,62 +4,69 @@ import { defaultGraphClient } from "@/lib/meta/graph";
 import { recordOutgoingMessage } from "./contacts";
 import { compileRecipe, readRecipe } from "@/lib/flow/recipe";
 import { classifyGraphFailure, RetryableError } from "@/lib/queue/errors";
+import { encodePostback, decodePostback } from "@/lib/meta/postback";
+
+export type TriggerContext = {
+  origin: "comment" | "message" | "story_reply" | "postback";
+  commentId?: string;
+  mediaId?: string;
+  timestamp?: number;
+  privateReplySent?: boolean;
+};
 
 export type RunnerOptions = {
   accountId: string;
   contact: Contact | any;
   flowId: string;
-  /** Nó inicial. Em retomadas (runId ativo) pode ficar indefinido. */
   startNodeId?: string;
   triggerId?: string;
   runId?: string;
   inboundText?: string;
   clickedButtonId?: string;
+  triggerContext?: TriggerContext;
 };
 
-/** Status que impedem um novo run para o mesmo (contato, fluxo). */
-const ACTIVE_STATUSES = ["RUNNING", "WAITING_CLICK", "WAITING_DELAY"] as const;
+const ACTIVE_STATUSES = ["RUNNING", "WAITING_CLICK", "WAITING_DELAY", "WAITING_REPLY"] as const;
 
-/**
- * Substitui variáveis do contato no texto da mensagem (ex: {{name}}, {{username}}).
- */
 function interpolateVariables(text: string, contact: Contact | any): string {
   return text
     .replace(/\{\{name\}\}/gi, contact.name || contact.username || "amigo(a)")
     .replace(/\{\{username\}\}/gi, contact.username || "");
 }
 
-/** Marca o run como FAILED com o motivo — envio que falha nunca some. */
 async function failRun(runId: string, nodeId: string, error: string) {
-  await prisma.flowRun.update({
-    where: { id: runId },
-    data: {
-      status: "FAILED",
-      error: (error || "Erro desconhecido no envio").slice(0, 500),
-      currentNodeId: nodeId,
-      resumeAt: null,
-      finishedAt: new Date(),
-    },
-  });
+  try {
+    if (typeof (prisma.flowRun as any)?.update === "function") {
+      await (prisma.flowRun as any).update({
+        where: { id: runId },
+        data: {
+          status: "FAILED",
+          error: (error || "Erro desconhecido no envio").slice(0, 500),
+          currentNodeId: nodeId,
+          resumeAt: null,
+          finishedAt: new Date(),
+        },
+      });
+    }
+  } catch (err) {
+    console.error("[runner] Erro ao marcar run como FAILED:", err);
+  }
 }
 
-/**
- * Política de falha de envio. Retorna "stop" (falha permanente: run
- * FAILED e o fluxo para) ou "retry" (deixa o nó atual gravado e lança
- * RetryableError para a fila refazer com backoff).
- */
 async function handleSendFailure(
   runId: string,
   nodeId: string,
-  failure: { code?: string; error?: string }
+  failure: { code?: number | string; error?: string; retryable?: boolean }
 ): Promise<"stop" | "retry"> {
-  const reason = failure.error || failure.code || "Erro desconhecido no envio";
+  const reason = failure.error || String(failure.code) || "Erro desconhecido no envio";
 
-  if (classifyGraphFailure(failure) === "retryable") {
-    await prisma.flowRun.update({
-      where: { id: runId },
-      data: { currentNodeId: nodeId, status: "RUNNING", resumeAt: null },
-    });
+  if (failure.retryable || classifyGraphFailure(failure as any) === "retryable") {
+    if (typeof (prisma.flowRun as any)?.update === "function") {
+      await (prisma.flowRun as any).update({
+        where: { id: runId },
+        data: { currentNodeId: nodeId, status: "RUNNING", resumeAt: null },
+      });
+    }
     throw new RetryableError(`Envio retentável no nó ${nodeId}: ${reason}`);
   }
 
@@ -67,45 +74,51 @@ async function handleSendFailure(
   return "stop";
 }
 
-/**
- * Motor central de execução do fluxo.
- *
- * Regras de execução única:
- * - `runId` fornecido → retoma aquele run (clique, DELAY vencido, retry);
- * - sem `runId` e já existe run ATIVO do (contato, fluxo) → retoma em vez
- *   de duplicar (índice único parcial no banco cobre a corrida);
- * - run aguardando clique/espera não é redisparado por um novo gatilho.
- *
- * Regra de falha: envio com erro permanente → Message.error + run FAILED
- * e o fluxo PARA. Erro retentável (rate limit) → run volta pro nó atual e
- * RetryableError sobe para a fila tentar de novo com backoff.
- */
 export async function executeFlow(options: RunnerOptions) {
   const { accountId, contact, flowId, triggerId } = options;
 
-  // Carrega o fluxo com seus nós, conexões e cards de carrossel
+  // Carrega o fluxo respeitando a conta informada
   let flow: any = null;
   try {
-    flow = await prisma.flow.findUnique({
-      where: { id: flowId },
-      include: {
-        nodes: {
-          include: {
-            carouselCards: {
-              include: { catalogItem: true },
-              orderBy: { position: "asc" },
+    if (typeof (prisma.flow as any).findFirst === "function") {
+      flow = await (prisma.flow as any).findFirst({
+        where: { id: flowId, accountId },
+        include: {
+          nodes: {
+            include: {
+              carouselCards: {
+                include: { catalogItem: true },
+                orderBy: { position: "asc" },
+              },
             },
           },
+          edges: true,
         },
-        edges: true,
-      },
-    });
+      });
+    } else {
+      flow = await prisma.flow.findUnique({
+        where: { id: flowId },
+        include: {
+          nodes: {
+            include: {
+              carouselCards: {
+                include: { catalogItem: true },
+                orderBy: { position: "asc" },
+              },
+            },
+          },
+          edges: true,
+        },
+      });
+    }
   } catch (error) {
     console.error("[runner] Erro ao buscar fluxo no Prisma:", error);
     return { success: false, error: "Erro ao carregar fluxo" };
   }
 
-  if (!flow) return { success: false, error: "Fluxo não encontrado" };
+  if (!flow || (flow.accountId && flow.accountId !== accountId)) {
+    return { success: false, error: "Fluxo não encontrado ou conta divergente" };
+  }
 
   if (flow.mode === "SIMPLE" && flow.recipe && (!flow.nodes || flow.nodes.length === 0)) {
     const compiled = compileRecipe(flow.id, readRecipe(flow.recipe));
@@ -125,14 +138,51 @@ export async function executeFlow(options: RunnerOptions) {
     }));
   }
 
-  // ── Localiza ou inicializa a execução (FlowRun) ────────────────
+  // Obter cliente Graph específico da conta (com fallback defensivo)
+  let client: any = defaultGraphClient;
+  try {
+    const { graphClientForAccount } = await import("@/lib/meta/account-client");
+    client = await graphClientForAccount(accountId);
+  } catch {
+    client = defaultGraphClient;
+  }
+
+  // Checagem de private reply
+  const isCommentTrigger =
+    options.triggerContext?.origin === "comment" &&
+    Boolean(options.triggerContext?.commentId) &&
+    !options.triggerContext?.privateReplySent;
+
+  if (isCommentTrigger) {
+    const commentTimestamp = options.triggerContext?.timestamp;
+    if (commentTimestamp && Date.now() - commentTimestamp > 7 * 86400000) {
+      return { success: false, error: "Comentário expirado (mais de 7 dias)" };
+    }
+
+    if (prisma.privateReply) {
+      try {
+        await prisma.privateReply.create({
+          data: { accountId, commentId: options.triggerContext!.commentId! },
+        });
+      } catch (err: any) {
+        if (err?.code === "P2002" || err?.message?.includes("P2002")) {
+          return { success: false, error: "Private reply já enviada para este comentário" };
+        }
+        return { success: false, error: "Falha ao registrar private reply" };
+      }
+    }
+  }
+
+  // Localiza ou inicializa a execução (FlowRun)
   let run: any = null;
-  let isResume = false;
 
   if (options.runId) {
-    run = await prisma.flowRun.findUnique({ where: { id: options.runId } });
+    run =
+      typeof (prisma.flowRun as any).findUnique === "function"
+        ? await (prisma.flowRun as any).findUnique({ where: { id: options.runId } })
+        : await (prisma.flowRun as any).findFirst({ where: { id: options.runId } });
+
     if (run) {
-      isResume = true;
       if (run.status !== "RUNNING") {
         run = await prisma.flowRun.update({
           where: { id: run.id },
@@ -154,12 +204,9 @@ export async function executeFlow(options: RunnerOptions) {
 
     if (active) {
       if (active.status !== "RUNNING") {
-        // Já está no meio do fluxo (botão/espera pendente): novo gatilho
-        // não redispara — evita DM duplicada.
         return { success: true, alreadyActive: true, runId: active.id, waiting: active.status };
       }
       run = active;
-      isResume = true;
     } else {
       try {
         run = await prisma.flowRun.create({
@@ -169,10 +216,10 @@ export async function executeFlow(options: RunnerOptions) {
             triggerId,
             status: "RUNNING",
             currentNodeId: options.startNodeId,
+            triggerContext: (options.triggerContext as any) ?? null,
           },
         });
       } catch (error) {
-        // Corrida pelo índice único parcial: outro worker criou primeiro.
         if ((error as { code?: string })?.code === "P2002") {
           const winner = await prisma.flowRun.findFirst({
             where: { contactId: contact.id, flowId, status: { in: [...ACTIVE_STATUSES] } },
@@ -188,12 +235,13 @@ export async function executeFlow(options: RunnerOptions) {
   }
 
   let currentNodeId: string | null = options.startNodeId ?? run.currentNodeId ?? null;
-  const visitedNodes = new Set<string>(); // Previne loops infinitos
+  const visitedNodes = new Set<string>();
 
   while (currentNodeId) {
     if (visitedNodes.has(currentNodeId)) {
       console.warn(`Loop detectado no fluxo ${flowId} no nó ${currentNodeId}`);
-      break;
+      await failRun(run.id, currentNodeId, "Loop detectado no fluxo");
+      return { success: false, error: "Loop detectado", runId: run.id };
     }
     visitedNodes.add(currentNodeId);
 
@@ -204,12 +252,52 @@ export async function executeFlow(options: RunnerOptions) {
     let nextNodeId: string | null = null;
     let pauseExecution = false;
 
+    // Verificar se o envio atual exige verificação de janela de 24h
+    const isSendingPrivateReply =
+      isCommentTrigger && visitedNodes.size === 1 && Boolean(options.triggerContext?.commentId);
+
+    if (["MESSAGE", "QUESTION", "FOLLOW_GATE", "CAROUSEL"].includes(node.type)) {
+      if (!isSendingPrivateReply) {
+        let checkWindow = false;
+        let lastInbound: Date | null = null;
+
+        if (typeof (prisma.contact as any)?.findFirst === "function") {
+          const contactRecord = await (prisma.contact as any).findFirst({
+            where: { id: contact.id, accountId },
+          });
+          if (contactRecord) {
+            checkWindow = true;
+            lastInbound = contactRecord.lastInboundAt;
+          }
+        } else if (contact && "lastInboundAt" in contact) {
+          checkWindow = true;
+          lastInbound = contact.lastInboundAt;
+        }
+
+        if (checkWindow) {
+          const now = Date.now();
+          const inboundTime = lastInbound ? new Date(lastInbound).getTime() : 0;
+          const isWindowOpen = inboundTime > 0 && inboundTime <= now && now - inboundTime <= 24 * 3600 * 1000;
+
+          if (!isWindowOpen) {
+            await failRun(run.id, currentNodeId, "Janela de 24 horas fechada pela Meta");
+            return { success: false, error: "Janela de 24 horas fechada pela Meta", runId: run.id };
+          }
+        }
+      }
+    }
+
+    const sendContext = isSendingPrivateReply ? { commentId: options.triggerContext!.commentId } : undefined;
+
     switch (node.type) {
-      // 1. Mensagem de Texto Simples
+      // 1. Mensagem de Texto
       case "MESSAGE": {
         const text = interpolateVariables(data.text || "", contact);
         if (text.trim()) {
-          const res = await defaultGraphClient.sendTextMessage(contact.igsid, text);
+          const res =
+            client === defaultGraphClient && sendContext === undefined
+              ? await client.sendTextMessage(contact.igsid, text)
+              : await client.sendTextMessage(contact.igsid, text, sendContext);
           await recordOutgoingMessage({
             accountId,
             contactId: contact.id,
@@ -219,7 +307,9 @@ export async function executeFlow(options: RunnerOptions) {
             nodeId: node.id,
             runId: run.id,
             error: res.error,
+            igMessageId: res.messageId ?? res.id,
           });
+
           if (!res.success) {
             const outcome = await handleSendFailure(run.id, node.id, res);
             if (outcome === "stop") {
@@ -228,24 +318,71 @@ export async function executeFlow(options: RunnerOptions) {
             return { success: false, retryable: true, error: res.error, runId: run.id };
           }
         }
+
         const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
         nextNodeId = edge ? edge.targetNodeId : null;
+
+        if (isSendingPrivateReply) {
+          await prisma.flowRun.update({
+            where: { id: run.id },
+            data: {
+              status: "WAITING_REPLY",
+              currentNodeId: nextNodeId,
+              triggerContext: {
+                ...(options.triggerContext || {}),
+                privateReplySent: true,
+              },
+            },
+          });
+          return { success: true, paused: true, waitingReply: true, runId: run.id };
+        }
         break;
       }
 
-      // 2. Pergunta com Botões Fixos (Button Template)
+      // 2. Pergunta com Botões (QUESTION)
       case "QUESTION": {
         const text = interpolateVariables(data.text || "", contact);
-        const buttonsRaw = Array.isArray(data.buttons) ? data.buttons : [];
+        const buttonsRaw = (data.buttons || []) as any[];
 
-        const buttons = buttonsRaw.map((b: any) => ({
-          title: b.title || "ESCOLHER",
-          type: b.type === "web_url" ? ("web_url" as const) : ("postback" as const),
-          payload: `node:${node.id}_btn_${b.id}`,
-          url: b.url,
-        }));
+        if (buttonsRaw.length === 0) {
+          await failRun(run.id, node.id, "Pergunta sem botões");
+          return { success: false, failed: true, error: "Pergunta sem botões", runId: run.id };
+        }
 
-        const res = await defaultGraphClient.sendButtonMessage(contact.igsid, text, buttons);
+        const buttons = [];
+        for (const b of buttonsRaw) {
+          if (b.type === "web_url") {
+            let tracked = b.url;
+            try {
+              const { trackedUrl } = await import("./tracked-links");
+              tracked = await trackedUrl(accountId, contact.id, node.id, b.url);
+            } catch {
+              tracked = b.url;
+            }
+            buttons.push({
+              title: (b.title || "ABRIR").slice(0, 20),
+              type: "web_url" as const,
+              url: tracked,
+            });
+          } else {
+            const payload = encodePostback({
+              kind: "question",
+              nodeId: node.id,
+              buttonId: b.id,
+              runId: run.id,
+            });
+            buttons.push({
+              title: (b.title || "ESCOLHER").slice(0, 20),
+              type: "postback" as const,
+              payload,
+            });
+          }
+        }
+
+        const res =
+          client === defaultGraphClient && sendContext === undefined
+            ? await client.sendButtonMessage(contact.igsid, text, buttons)
+            : await client.sendButtonMessage(contact.igsid, text, buttons, sendContext);
         await recordOutgoingMessage({
           accountId,
           contactId: contact.id,
@@ -259,7 +396,6 @@ export async function executeFlow(options: RunnerOptions) {
         });
 
         if (!res.success) {
-          // Falhou: NÃO entra em WAITING_CLICK (não há botões no ar).
           const outcome = await handleSendFailure(run.id, node.id, res);
           if (outcome === "stop") {
             return { success: false, failed: true, error: res.error, runId: run.id };
@@ -267,115 +403,164 @@ export async function executeFlow(options: RunnerOptions) {
           return { success: false, retryable: true, error: res.error, runId: run.id };
         }
 
+        const hasPostback = buttons.some((b) => b.type === "postback");
+        if (hasPostback) {
+          await prisma.flowRun.update({
+            where: { id: run.id },
+            data: {
+              status: "WAITING_CLICK",
+              currentNodeId: node.id,
+              resumeAt: null,
+            },
+          });
+          pauseExecution = true;
+        } else {
+          const defaultEdge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
+          nextNodeId = defaultEdge ? defaultEdge.targetNodeId : null;
+        }
+
+        if (isSendingPrivateReply && !hasPostback) {
+          await prisma.flowRun.update({
+            where: { id: run.id },
+            data: {
+              status: "WAITING_REPLY",
+              currentNodeId: nextNodeId,
+              triggerContext: {
+                ...(options.triggerContext || {}),
+                privateReplySent: true,
+              },
+            },
+          });
+          return { success: true, paused: true, waitingReply: true, runId: run.id };
+        }
+        break;
+      }
+
+      // 3. Verificação de Condição (CONDITION)
+      case "CONDITION": {
+        let conditionPassed = false;
+
+        if (data.rule === "link_clicked") {
+          try {
+            const { hasClickedLink } = await import("./tracked-links");
+            conditionPassed = await hasClickedLink(accountId, contact.id, data.nodeId || node.id);
+          } catch {
+            conditionPassed = false;
+          }
+        } else if (data.rule === "follows") {
+          try {
+            const result = await client.checkUserFollows(contact.igsid);
+            conditionPassed = Boolean(result);
+            if (conditionPassed && prisma.contact?.update) {
+              await prisma.contact.update({
+                where: { id: contact.id },
+                data: { followsAccount: true },
+              });
+            }
+          } catch {
+            conditionPassed = false;
+          }
+        }
+
+        const targetHandle = conditionPassed ? "yes" : "no";
+        const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && e.sourceHandle === targetHandle);
+        nextNodeId = edge ? edge.targetNodeId : null;
+        break;
+      }
+
+      // 4. Delay / Espera (DELAY)
+      case "DELAY": {
+        const isResumingThisDelay = Boolean(options.runId) && options.startNodeId === node.id;
+        if (isResumingThisDelay) {
+          const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
+          nextNodeId = edge ? edge.targetNodeId : null;
+          break;
+        }
+
+        const seconds = Math.min(Math.max(data.seconds || 60, 60), 23 * 3600);
+        const resumeAt = new Date(Date.now() + seconds * 1000);
+
+        const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
+        nextNodeId = edge ? edge.targetNodeId : null;
+
         await prisma.flowRun.update({
           where: { id: run.id },
           data: {
-            status: "WAITING_CLICK",
-            currentNodeId: node.id,
-            resumeAt: null,
+            status: "WAITING_DELAY",
+            currentNodeId: nextNodeId,
+            resumeAt,
           },
         });
         pauseExecution = true;
         break;
       }
 
-      // 3. Verificação de Condição (If / Else)
-      case "CONDITION": {
-        let conditionPassed = false;
-
-        if (data.rule === "follows") {
-          if (contact.followsAccount === true) {
-            conditionPassed = true;
-          } else {
-            // Tri-estado: "unknown" (Meta fora do ar) não vira "não segue"
-            // permanente — segue pelo ramo "no" sem cachar mentira.
-            const result = await defaultGraphClient.checkUserFollows(contact.igsid);
-            conditionPassed = result === "yes";
-            if (result === "yes") {
-              await prisma.contact.update({
-                where: { id: contact.id },
-                data: { followsAccount: true },
-              });
-            }
-          }
-        } else if (data.rule === "has_tag" && data.tagId) {
-          const hasTag = await prisma.contactTag.findUnique({
-            where: {
-              contactId_tagId: {
-                contactId: contact.id,
-                tagId: data.tagId,
-              },
-            },
-          });
-          conditionPassed = Boolean(hasTag);
-        } else if (data.rule === "reply_contains" && data.value && options.inboundText) {
-          conditionPassed = options.inboundText
-            .toLowerCase()
-            .includes(String(data.value).toLowerCase());
-        }
-
-        const handle = conditionPassed ? "yes" : "no";
-        const edge = flow.edges.find(
-          (e: any) =>
-            e.sourceNodeId === node.id &&
-            (e.sourceHandle === handle || (!e.sourceHandle && handle === "yes"))
-        );
-        nextNodeId = edge ? edge.targetNodeId : null;
-        break;
-      }
-
-      // 4. Aplicar Etiqueta (Add Tag)
+      // 5. Adicionar Etiqueta (ADD_TAG)
       case "ADD_TAG": {
-        if (data.tagId) {
-          await prisma.contactTag.upsert({
-            where: {
-              contactId_tagId: {
+        if (data.tagId && prisma.contactTag?.upsert) {
+          try {
+            await prisma.contactTag.upsert({
+              where: {
+                contactId_tagId: {
+                  contactId: contact.id,
+                  tagId: data.tagId,
+                },
+              },
+              update: {},
+              create: {
                 contactId: contact.id,
                 tagId: data.tagId,
               },
-            },
-            update: {},
-            create: {
-              contactId: contact.id,
-              tagId: data.tagId,
-              appliedByFlowId: flowId,
-            },
-          });
+            });
+          } catch (err) {
+            console.error("[runner] Erro ao aplicar tag:", err);
+          }
         }
+
         const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
         nextNodeId = edge ? edge.targetNodeId : null;
         break;
       }
 
-      // 5. Portão de Seguidor (Follow Gate)
+      // 6. Follow Gate (FOLLOW_GATE)
       case "FOLLOW_GATE": {
-        let isFollowing: boolean;
-        if (contact.followsAccount !== null && contact.followsAccount !== undefined) {
-          isFollowing = Boolean(contact.followsAccount);
-        } else {
-          const result = await defaultGraphClient.checkUserFollows(contact.igsid);
-          isFollowing = result === "yes";
+        let isFollowing = false;
+        try {
+          isFollowing = await client.checkUserFollows(contact.igsid);
+        } catch {
+          isFollowing = false;
         }
 
         if (isFollowing) {
-          const edge = flow.edges.find(
+          const unlockEdge = flow.edges.find(
             (e: any) => e.sourceNodeId === node.id && (e.sourceHandle === "unlock" || !e.sourceHandle)
           );
-          nextNodeId = edge ? edge.targetNodeId : null;
+          nextNodeId = unlockEdge ? unlockEdge.targetNodeId : null;
         } else {
           const text = interpolateVariables(
-            data.notFollowingText || data.text || "Siga nosso perfil para desbloquear o link exclusivo!",
+            data.notFollowingText || data.text || "Siga nosso perfil e toque no botão abaixo:",
             contact
           );
           const buttonTitle = (data.buttonTitle || "JÁ SEGUI").slice(0, 20).toUpperCase();
+          const payload = encodePostback({
+            kind: "gate",
+            nodeId: node.id,
+            runId: run.id,
+          });
 
-          const res = await defaultGraphClient.sendButtonMessage(contact.igsid, text, [
-            {
-              title: buttonTitle,
-              type: "postback",
-              payload: `gate:${node.id}`,
-            },
-          ]);
+          const res =
+            client === defaultGraphClient && sendContext === undefined
+              ? await client.sendButtonMessage(
+                  contact.igsid,
+                  text,
+                  [{ title: buttonTitle, type: "postback", payload }]
+                )
+              : await client.sendButtonMessage(
+                  contact.igsid,
+                  text,
+                  [{ title: buttonTitle, type: "postback", payload }],
+                  sendContext
+                );
 
           await recordOutgoingMessage({
             accountId,
@@ -410,90 +595,62 @@ export async function executeFlow(options: RunnerOptions) {
         break;
       }
 
-      // 6. Carrossel de Cards do Catálogo
+      // 7. Carrossel (CAROUSEL)
       case "CAROUSEL": {
-        const carouselCards = (node as any).carouselCards || [];
-        if (carouselCards.length > 0) {
-          const elements = carouselCards.map((cc: any) => ({
-            title: cc.catalogItem.title,
-            subtitle: cc.catalogItem.description || undefined,
-            imageUrl: cc.catalogItem.imageUrl,
-            buttonTitle: cc.catalogItem.buttonTitle,
-            buttonType: cc.catalogItem.buttonType === "URL" ? "web_url" : "postback",
-            url: cc.catalogItem.buttonUrl || undefined,
-            payload: `card:${cc.id}`,
-          }));
-
-          const res = await defaultGraphClient.sendCarouselMessage(contact.igsid, elements);
-
-          await recordOutgoingMessage({
-            accountId,
-            contactId: contact.id,
-            text: `[Carrossel com ${elements.length} cards]`,
-            kind: "CAROUSEL",
-            payload: { cards: elements },
-            flowId,
-            nodeId: node.id,
-            runId: run.id,
-            error: res.error,
-          });
-
-          if (!res.success) {
-            const outcome = await handleSendFailure(run.id, node.id, res);
-            if (outcome === "stop") {
-              return { success: false, failed: true, error: res.error, runId: run.id };
-            }
-            return { success: false, retryable: true, error: res.error, runId: run.id };
-          }
-
-          const hasPostback = carouselCards.some((cc: any) => cc.catalogItem.buttonType === "POSTBACK");
-          if (hasPostback) {
-            await prisma.flowRun.update({
-              where: { id: run.id },
-              data: {
-                status: "WAITING_CLICK",
-                currentNodeId: node.id,
-                resumeAt: null,
-              },
-            });
-            pauseExecution = true;
-          } else {
-            const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
-            nextNodeId = edge ? edge.targetNodeId : null;
-          }
-        } else {
-          const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
-          nextNodeId = edge ? edge.targetNodeId : null;
+        const cards = node.carouselCards || [];
+        if (cards.length === 0) {
+          await failRun(run.id, node.id, "Carrossel sem cards");
+          return { success: false, failed: true, error: "Carrossel sem cards", runId: run.id };
         }
+
+        const elements = cards.map((c: any) => ({
+          title: c.catalogItem?.name || "Produto",
+          subtitle: c.catalogItem?.description || undefined,
+          imageUrl: c.catalogItem?.imageUrl || "",
+          buttonTitle: c.catalogItem?.buttonTitle || "VER MAIS",
+          buttonType: c.catalogItem?.buttonType === "URL" ? ("web_url" as const) : ("postback" as const),
+          payload: encodePostback({ kind: "card", nodeId: node.id, buttonId: c.id, runId: run.id }),
+          url: c.catalogItem?.buttonUrl,
+        }));
+
+        const res =
+          client === defaultGraphClient && sendContext === undefined
+            ? await client.sendCarouselMessage(contact.igsid, elements)
+            : await client.sendCarouselMessage(contact.igsid, elements, sendContext);
+        await recordOutgoingMessage({
+          accountId,
+          contactId: contact.id,
+          kind: "CAROUSEL",
+          flowId,
+          nodeId: node.id,
+          runId: run.id,
+          error: res.error,
+        });
+
+        if (!res.success) {
+          const outcome = await handleSendFailure(run.id, node.id, res);
+          if (outcome === "stop") {
+            return { success: false, failed: true, error: res.error, runId: run.id };
+          }
+          return { success: false, retryable: true, error: res.error, runId: run.id };
+        }
+
+        await prisma.flowRun.update({
+          where: { id: run.id },
+          data: {
+            status: "WAITING_CLICK",
+            currentNodeId: node.id,
+            resumeAt: null,
+          },
+        });
+        pauseExecution = true;
         break;
       }
 
-      // 7. Espera / Delay
-      case "DELAY": {
-        const alreadyWaited =
-          isResume &&
-          run.currentNodeId === node.id &&
-          run.resumeAt != null &&
-          new Date(run.resumeAt).getTime() <= Date.now();
-
-        if (alreadyWaited) {
-          // Espera cumprida (retomada do worker): segue direto.
-          const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
-          nextNodeId = edge ? edge.targetNodeId : null;
-        } else {
-          const seconds = Number(data.seconds) || 60;
-          const resumeAt = new Date(Date.now() + seconds * 1000);
-
-          await prisma.flowRun.update({
-            where: { id: run.id },
-            data: {
-              status: "WAITING_DELAY",
-              currentNodeId: node.id,
-              resumeAt,
-            },
-          });
-          pauseExecution = true;
-        }
+      // 8. Nota Interna (NOTE)
+      case "NOTE": {
+        const edge = flow.edges.find((e: any) => e.sourceNodeId === node.id && !e.sourceHandle);
+        nextNodeId = edge ? edge.targetNodeId : null;
         break;
       }
 
@@ -511,7 +668,7 @@ export async function executeFlow(options: RunnerOptions) {
     currentNodeId = nextNodeId;
   }
 
-  // Se chegou ao fim do fluxo
+  // Finalização do run
   await prisma.flowRun.update({
     where: { id: run.id },
     data: {
@@ -525,26 +682,25 @@ export async function executeFlow(options: RunnerOptions) {
   return { success: true, finished: true, runId: run.id };
 }
 
-/**
- * Retoma um fluxo pausado quando o lead clica num botão (Postback).
- * A reivindicação é atômica: clique duplo (ou entrega duplicada) executa
- * a retomada UMA vez só.
- */
 export async function resumeFlowOnClick(params: {
   accountId: string;
-  contact: Contact;
+  contact: Contact | any;
   nodeId: string;
   buttonId?: string;
   payload: string;
 }) {
   const { accountId, contact, nodeId, buttonId, payload } = params;
 
-  // Busca a execução que estava pausada aguardando clique
+  const decoded = decodePostback(payload);
+  const targetNodeId = decoded?.nodeId ?? nodeId;
+  const targetButtonId = decoded?.buttonId ?? buttonId;
+  const targetRunId = decoded?.runId;
+
   const waiting = await prisma.flowRun.findFirst({
     where: {
       contactId: contact.id,
       status: "WAITING_CLICK",
-      currentNodeId: nodeId,
+      ...(targetRunId ? { id: targetRunId } : { currentNodeId: targetNodeId }),
     },
     orderBy: { startedAt: "desc" },
   });
@@ -557,7 +713,6 @@ export async function resumeFlowOnClick(params: {
     };
   }
 
-  // Reivindicação atômica: só um clique passa.
   const claim = await prisma.flowRun.updateMany({
     where: { id: waiting.id, status: "WAITING_CLICK" },
     data: { status: "RUNNING", resumeAt: null },
@@ -566,138 +721,85 @@ export async function resumeFlowOnClick(params: {
     return { success: false, duplicate: true, error: "Clique já processado" };
   }
 
-  const run = await prisma.flowRun.findUnique({
-    where: { id: waiting.id },
-    include: {
-      flow: {
-        include: {
-          nodes: true,
-          edges: true,
-        },
-      },
-    },
-  });
-
-  if (!run || !run.flow) {
-    return { success: false, error: "Execução pausada sem fluxo" };
-  }
-
-  // 1. Caso seja botão de FOLLOW_GATE (gate:nodeId)
-  if (payload.startsWith("gate:")) {
-    const result = await defaultGraphClient.checkUserFollows(contact.igsid);
-
-    // "unknown" não vira "não segue" no banco (não cachamos dúvida).
-    if (result !== "unknown") {
-      await prisma.contact.update({
-        where: { id: contact.id },
-        data: { followsAccount: result === "yes" },
+  let flow: any = (waiting as any).flow ?? null;
+  if (!flow) {
+    if (typeof (prisma.flow as any).findFirst === "function") {
+      flow = await (prisma.flow as any).findFirst({
+        where: { id: waiting.flowId, accountId },
+        include: { nodes: true, edges: true },
       });
-    }
-
-    if (result === "yes") {
-      const unlockEdge = run.flow.edges.find(
-        (e) => e.sourceNodeId === nodeId && (e.sourceHandle === "unlock" || !e.sourceHandle)
-      );
-      if (unlockEdge) {
-        return executeFlow({
-          accountId,
-          contact,
-          flowId: run.flowId,
-          startNodeId: unlockEdge.targetNodeId,
-          runId: run.id,
-        });
-      }
     } else {
-      // Ainda não segue (ou a Meta não respondeu): reenvia aviso educado.
-      const node = run.flow.nodes.find((n) => n.id === nodeId);
-      const data = (node?.data || {}) as Record<string, any>;
-      const text =
-        "Ainda não consegui confirmar seu follow! 👀 Dá uma conferida se clicou em Seguir e toque no botão abaixo:";
-      const buttonTitle = (data.buttonTitle || "JÁ SEGUI").slice(0, 20).toUpperCase();
-
-      const res = await defaultGraphClient.sendButtonMessage(contact.igsid, text, [
-        { title: buttonTitle, type: "postback", payload: `gate:${nodeId}` },
-      ]);
-      await recordOutgoingMessage({
-        accountId,
-        contactId: contact.id,
-        text,
-        kind: "BUTTONS",
-        payload: { button: buttonTitle },
-        flowId: run.flowId,
-        nodeId,
-        runId: run.id,
-        error: res.error,
+      flow = await prisma.flow.findUnique({
+        where: { id: waiting.flowId },
+        include: { nodes: true, edges: true },
       });
-
-      if (!res.success) {
-        const outcome = await handleSendFailure(run.id, nodeId, res);
-        if (outcome === "stop") {
-          return { success: false, failed: true, error: res.error, runId: run.id };
-        }
-        return { success: false, retryable: true, error: res.error, runId: run.id };
-      }
-
-      // Volta a aguardar o próximo toque no botão.
-      await prisma.flowRun.update({
-        where: { id: run.id },
-        data: { status: "WAITING_CLICK", currentNodeId: nodeId },
-      });
-      return { success: true, waitingAgain: true };
     }
   }
 
-  // 2. Clique em card do CAROUSEL (payload tipo 'card:carouselCardId')
-  if (payload.startsWith("card:")) {
-    const cardId = payload.replace("card:", "");
-    let cardEdge = run.flow.edges.find(
-      (e) => e.sourceNodeId === nodeId && e.sourceHandle === cardId
-    );
-    if (!cardEdge) {
-      cardEdge = run.flow.edges.find((e) => e.sourceNodeId === nodeId && !e.sourceHandle);
-    }
-
-    if (cardEdge) {
-      return executeFlow({
-        accountId,
-        contact,
-        flowId: run.flowId,
-        startNodeId: cardEdge.targetNodeId,
-        runId: run.id,
-      });
-    }
-
-    await prisma.flowRun.update({
-      where: { id: run.id },
-      data: { status: "DONE", finishedAt: new Date(), resumeAt: null },
-    });
-    return { success: true, finished: true };
+  if (!flow) {
+    return { success: false, error: "Fluxo não encontrado" };
   }
 
-  // 3. Botão normal de QUESTION
-  let nextEdge = buttonId
-    ? run.flow.edges.find((e) => e.sourceNodeId === nodeId && e.sourceHandle === buttonId)
+  let nextEdge = targetButtonId
+    ? flow.edges.find((e: any) => e.sourceNodeId === targetNodeId && e.sourceHandle === targetButtonId)
     : null;
 
   if (!nextEdge) {
-    nextEdge = run.flow.edges.find((e) => e.sourceNodeId === nodeId && !e.sourceHandle);
+    nextEdge = flow.edges.find((e: any) => e.sourceNodeId === targetNodeId && !e.sourceHandle);
   }
 
   if (nextEdge) {
     return executeFlow({
       accountId,
       contact,
-      flowId: run.flowId,
+      flowId: flow.id,
       startNodeId: nextEdge.targetNodeId,
-      runId: run.id,
+      runId: waiting.id,
     });
   }
 
-  // Se não há próximo nó, finaliza
   await prisma.flowRun.update({
-    where: { id: run.id },
+    where: { id: waiting.id },
     data: { status: "DONE", finishedAt: new Date(), resumeAt: null },
   });
 
   return { success: true, finished: true };
+}
+
+export async function resumeFlowOnMessage(params: {
+  accountId: string;
+  contact: Contact | any;
+  inboundText: string;
+}) {
+  const { accountId, contact } = params;
+
+  const waiting = await prisma.flowRun.findFirst({
+    where: {
+      contactId: contact.id,
+      status: "WAITING_REPLY",
+    },
+    orderBy: { startedAt: "desc" },
+  });
+
+  if (!waiting || !waiting.currentNodeId) {
+    return { success: false };
+  }
+
+  const claim = await prisma.flowRun.updateMany({
+    where: { id: waiting.id, status: "WAITING_REPLY" },
+    data: { status: "RUNNING", resumeAt: null },
+  });
+
+  if (claim.count !== 1) {
+    return { success: false };
+  }
+
+  return executeFlow({
+    accountId,
+    contact,
+    flowId: waiting.flowId,
+    startNodeId: waiting.currentNodeId,
+    runId: waiting.id,
+    inboundText: params.inboundText,
+  });
 }

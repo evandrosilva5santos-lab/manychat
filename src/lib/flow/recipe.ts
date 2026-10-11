@@ -3,6 +3,7 @@
 // A receita é compilada em caixinhas normais (Node/Edge/Trigger), então o motor
 // só precisa saber rodar caixinhas, e o builder avançado mostra o mesmo fluxo.
 import { z } from "zod";
+import { buttonTextSchema } from "./schema";
 import { LIMITS, triggerNodeId, type EditorEdge, type EditorNode, type FlowSnapshot } from "./types";
 
 export type RecipeButton = {
@@ -17,6 +18,8 @@ export type Recipe = {
     matchType?: "keywords" | "any"; // palavra específica ou qualquer palavra
     matchCondition?: "CONTAINS" | "EXACT";
     negativeKeywords?: string[];
+    cooldownSeconds?: number;
+    priority?: number;
     mediaId: string;
     mediaUrl?: string;
     mediaCaption?: string;
@@ -34,7 +37,7 @@ export type Recipe = {
   reminder: { enabled: boolean; delaySeconds: number; text: string; buttonTitle: string };
 };
 
-const text = z.string().max(LIMITS.text, `Máximo de ${LIMITS.text} caracteres`);
+const text = buttonTextSchema;
 const buttonTitle = z.string().trim().max(LIMITS.buttonTitle, `Máximo de ${LIMITS.buttonTitle} caracteres no botão`);
 
 export const recipeButtonSchema = z.object({
@@ -49,6 +52,8 @@ export const recipeSchema = z.object({
     matchType: z.enum(["keywords", "any"]).optional(),
     matchCondition: z.enum(["CONTAINS", "EXACT"]).optional(),
     negativeKeywords: z.array(z.string().trim().min(1).max(100)).max(15).optional(),
+    cooldownSeconds: z.number().int().min(0).max(2147483647).optional(),
+    priority: z.number().int().min(-2147483648).max(2147483647).optional(),
     mediaId: z.string().trim().max(100),
     mediaUrl: z.string().trim().max(2000).optional(),
     mediaCaption: z.string().trim().max(1000).optional(),
@@ -61,7 +66,7 @@ export const recipeSchema = z.object({
         .array(text)
         .max(LIMITS.publicReplies, `No máximo ${LIMITS.publicReplies} respostas públicas`),
     }),
-  }),
+  }).refine((trigger) => trigger.scope !== "specific" || Boolean(trigger.mediaId), { path: ["mediaId"], message: "Informe o ID da publicação específica" }),
   welcome: z.object({
     enabled: z.boolean().optional().default(true),
     text,
@@ -76,7 +81,7 @@ export const recipeSchema = z.object({
   }),
   reminder: z.object({
     enabled: z.boolean(),
-    delaySeconds: z.number().int().min(60).max(60 * 60 * 24 * 7),
+    delaySeconds: z.number().int().min(60).max(60 * 60 * 23),
     text,
     buttonTitle,
   }),
@@ -175,6 +180,9 @@ export function recipeIds(flowId: string) {
  *   LINK → ESPERA → ABRIU O LINK? ─não→ LEMBRETE [mesmo link]
  */
 export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
+  if (recipe.trigger.scope === "specific" && !recipe.trigger.mediaId.trim()) {
+    throw new Error("Informe o ID da publicação específica");
+  }
   const id = recipeIds(flowId);
   const nodes: EditorNode[] = [];
   const edges: EditorEdge[] = [];
@@ -192,7 +200,10 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
       config: {
         type: "COMMENT_KEYWORD",
         keywords: recipe.trigger.keywords,
-        match: recipe.trigger.matchCondition || "CONTAINS",
+        match: recipe.trigger.matchType === "any" ? "ANY" : recipe.trigger.matchCondition || "CONTAINS",
+        negativeKeywords: recipe.trigger.negativeKeywords ?? [],
+        cooldownSeconds: recipe.trigger.cooldownSeconds ?? 0,
+        priority: recipe.trigger.priority ?? 0,
         mediaId: recipe.trigger.scope === "specific" ? recipe.trigger.mediaId : undefined,
         publicReplies: recipe.trigger.publicReplies.enabled
           ? recipe.trigger.publicReplies.variations.filter((reply) => reply.trim())
@@ -326,7 +337,7 @@ export function lintRecipe(recipe: Recipe): RecipeProblem[] {
   const problems: RecipeProblem[] = [];
   const add = (section: RecipeSection, message: string) => problems.push({ section, message });
 
-  if (recipe.trigger.keywords.length === 0) add("trigger", "Adicione pelo menos 1 palavra-chave");
+  if (recipe.trigger.matchType !== "any" && recipe.trigger.keywords.length === 0) add("trigger", "Adicione pelo menos 1 palavra-chave");
   if (recipe.trigger.scope === "specific" && !recipe.trigger.mediaId.trim()) {
     add("trigger", "Informe o ID da publicação (ou escolha qualquer publicação)");
   }

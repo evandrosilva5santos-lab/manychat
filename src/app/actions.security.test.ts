@@ -13,6 +13,7 @@ vi.mock("@/lib/account", () => ({
     igUserId: "178",
     status: "CONNECTED",
   })),
+  listAllAccounts: vi.fn(async () => []),
 }));
 // Qualquer acesso ao banco nestes testes é um erro: as actions devem parar antes.
 vi.mock("@/lib/prisma", () => ({

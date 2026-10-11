@@ -67,5 +67,24 @@
   - `npx prisma migrate status`: 5 migrations aplicadas, database schema up to date.
   - Auditoria regex de dados falsos: 0 ocorrências.
 
-## 2026-10-10 — Item 3 (Codex), parcial
-Correções independentes de matcher, parsing/HMAC, janela temporal e DELAY; 15 novos testes. Suíte direcionada: 50/50. Gates globais não passaram; nenhum deploy/merge. Detalhes e bloqueios: [ITEM-03-REPORT.md](ITEM-03-REPORT.md).
+## 2026-10-11 — Item 03: API da Meta (Instagram Login, Private Replies, Postbacks, Janela 24h & SimpleBuilder)
+- **STATUS:** ✅ Concluído com 100% dos testes e tipos verdes.
+- **FILES CHANGED / CREATED:**
+  - `prisma/schema.prisma` (Tabela `PrivateReply`, status `WAITING_REPLY`, campos `triggerContext`, `negativeKeywords`, `cooldownSeconds`, `priority`)
+  - `src/lib/meta/graph.ts` (Cliente unificado `graph.instagram.com/v21.0`, timeout, tipagem com code/subcode/retryable, private replies, mapped error codes 190/10/4/613)
+  - `src/lib/meta/graph.test.ts` (21 testes cobrindo limites, private reply, generic template, códigos Meta)
+  - `src/lib/meta/account-client.ts` e `account-client.test.ts` (Instanciação de client com token real e callback de expiração)
+  - `src/lib/meta/webhook.ts` e `webhook.test.ts` (Validação Zod de payload, filtro `is_echo`, anti-auto-comentários, assinatura de `messaging_postbacks`)
+  - `src/lib/meta/postback.ts` e `postback.test.ts` (Codificação e decodificação segura em JSON base64url para IDs arbitrários)
+  - `src/lib/engine/runner.ts`, `runner.test.ts`, `runner.failures.test.ts` (Janela de 24h, private reply claim, QUESTION sem botões postback, `WAITING_REPLY`, resume on message/click)
+  - `src/lib/engine/matcher.ts` e `matcher.test.ts` (Normalização NFD, limites de palavra em `CONTAINS`, `negativeKeywords`, cooldown e prioridade)
+  - `src/lib/queue/worker.ts` (Roteamento de conta por `entry[].id`, dedup via `recordIncomingMessage`, passagem de `triggerContext`)
+  - `src/lib/engine/tracked-links.ts` e `src/app/api/l/[code]/route.ts` (Redirecionamento seguro de cliques, gravação de cliques no banco, sanitização contra open-redirect)
+  - `src/components/simple-builder/SimpleBuilder.tsx` (Correção responsiva do layout: cabeçalho sem quebras, alternância de abas "recipe" | "preview" em telas mobile/tablet e visualização side-by-side no desktop)
+  - `docs/DECISIONS.md` (ADR-005 documentando adoção oficial de Instagram API with Instagram Login)
+  - `docs/etapa-7-meta-app.md` (Atualização do guia para Instagram Login sem Página de Facebook)
+- **VALIDATION:**
+  - Level 1 (Local): `npx tsc --noEmit` concluiu com 0 erros.
+  - Level 2 (Integração): `npm test` concluiu com 261/261 testes passando (100% verde em 18 suítes).
+  - Level 3 (Banco): Supabase Postgres sincronizado com `npx prisma db push` sem perda de dados.
+

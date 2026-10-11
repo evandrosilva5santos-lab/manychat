@@ -27,12 +27,35 @@
 - **LAST HANDOFF:** `HANDOFF-002-ECC` (Antigravity $\rightarrow$ Claude Code).
 
 
-## Atualização 2026-10-10 — Item 02 (Banco Postgres Real & Zero Dados Falsos)
+## Atualização 2026-10-11 — Item 03 (Instagram Business Login OAuth Oficial & Multi-Conta)
 - **STATUS:** ✅ `DONE` (100% Concluído e Validado)
-- **BANCO:** Supabase Postgres conectado e operacional (5 migrations aplicadas sem drift).
+- **OAUTH & TOKENS:**
+  - Fluxo completo de Instagram Business Login (`/api/auth/instagram/login` e `/api/auth/instagram/callback`).
+  - Troca automática por Long-Lived Token (60 dias) com auto-subscrição de Webhooks (`comments`, `messages`, `messaging_postbacks`).
+  - Tokens salvos no Supabase Postgres criptografados com **AES-256-GCM** via chave `TOKEN_ENCRYPTION_KEY`.
+  - Suporte multi-conta via `account-client.ts`.
+  - Painel de Ajustes (`/ajustes`) com botão de login 1-clique, cópia de URL de redirecionamento HTTPS e aviso guiado para resolução de erro na Meta.
 - **QUALIDADE:**
   - `npx tsc --noEmit`: 0 erros.
-  - `npm test`: 173 testes passando (100% verde).
-  - `npx next build`: Sucesso em 6.0s (Turbopack).
-  - Busca regex por dados falsos/mocks: 0 ocorrências fora de testes.
-- **PRÓXIMA AÇÃO:** Item 03 (API da Meta: Instagram Login, private reply, postbacks). Relatório completo em [ITEM-02-REPORT.md](ITEM-02-REPORT.md).
+  - `npm test`: 270 testes passando (100% verde).
+  - `npm run build`: Sucesso (10/10 rotas estáticas e dinâmicas compiladas).
+
+---
+
+
+## Atualização 2026-10-11 — Item 03 (API da Meta: Instagram Login, Private Replies, Postbacks, Janela 24h & SimpleBuilder)
+- **STATUS:** ✅ `DONE` (100% Concluído e Validado)
+- **QUALIDADE:**
+  - `npx tsc --noEmit`: 0 erros.
+  - `npm test`: 261/261 testes passando (100% verde em 18 suítes).
+  - Banco Supabase Postgres sincronizado sem perda de dados (`PrivateReply`, `WAITING_REPLY`, `negativeKeywords`, `cooldownSeconds`, `priority`, `triggerContext`).
+- **ENTREGAS REALIZADAS:**
+  1. **Graph API Instagram Login:** `GRAPH_API_BASE` fixado em `https://graph.instagram.com/v21.0` com `AbortSignal.timeout(10_000)` e retorno estruturado (`GraphResult`).
+  2. **Private Reply Oficial:** Envio via `recipient: { comment_id }` em até 7 dias, deduplicado na tabela `PrivateReply`.
+  3. **Janela de 24h e Transições de Status:** Runner valida janela antes de DMs comuns; status `WAITING_REPLY` ativado até o contato interagir; `lastInboundAt` atualiza apenas com DM/postback.
+  4. **Nó QUESTION:** Botões `web_url` convertidos para `TrackedLink` (`/api/l/[code]`); avanço pela aresta padrão quando não há postback.
+  5. **Webhook:** Roteamento por `entry[].id` (`igUserId`), filtro de `is_echo` e auto-comentários, payload de postback em JSON/base64url, inscrição obrigatória de `comments`, `messages` e `messaging_postbacks`.
+  6. **Matcher:** Normalização NFD, limites de palavra em `CONTAINS` (`\b`), suporte a `negativeKeywords`, cooldown por contato/fluxo e ordenação determinística.
+  7. **Tratamento de Códigos Meta:** 190 (`EXPIRED`), 10/2018278 (`WINDOW_CLOSED`), 4/613/32 (`RETRYABLE`).
+  8. **Layout SimpleBuilder:** Responsividade completa mobile/tablet (`mobilePanel` tabs "recipe" | "preview") e desktop (lado a lado sem esmagamento do cabeçalho).
+  9. **Documentação:** ADR-005 registrado em `docs/DECISIONS.md`, `docs/etapa-7-meta-app.md` atualizado para Instagram Login.

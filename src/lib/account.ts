@@ -48,3 +48,17 @@ export async function getCurrentAccount(): Promise<InstagramAccount> {
     },
   });
 }
+
+/**
+ * Lista todas as contas de Instagram cadastradas no banco de dados.
+ */
+export async function listAllAccounts(): Promise<InstagramAccount[]> {
+  try {
+    return await prisma.instagramAccount.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+  } catch {
+    return [];
+  }
+}
+

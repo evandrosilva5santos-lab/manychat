@@ -7,6 +7,8 @@ import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
 import { check24hWindow } from "@/lib/meta/window";
 
+const CONTACTS_LIMIT = 200;
+
 export type ContactListItem = {
   id: string;
   igsid: string;
@@ -30,6 +32,8 @@ export async function listContacts(params: {
   search?: string;
   tagId?: string;
   followFilter?: "all" | "following" | "not_following";
+  /** ISO da última lastInteractionAt vista — paginação keyset. */
+  cursor?: string;
 }): Promise<ContactListItem[]> {
   await requireAuth();
   try {
@@ -56,12 +60,16 @@ export async function listContacts(params: {
     }
 
     const contacts = await prisma.contact.findMany({
-      where,
+      where: {
+        ...where,
+        ...(params.cursor ? { lastInteractionAt: { lt: new Date(params.cursor) } } : {}),
+      },
       include: {
         tags: { include: { tag: true } },
         sourceFlow: { select: { name: true } },
       },
       orderBy: { lastInteractionAt: "desc" },
+      take: CONTACTS_LIMIT,
     });
 
     return contacts.map((c) => {

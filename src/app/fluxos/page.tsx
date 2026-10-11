@@ -22,7 +22,7 @@ export default async function FlowsPage() {
     const account = await getCurrentAccount();
     if (account) {
       flows = await prisma.flow.findMany({
-        where: { accountId: account.id },
+        where: { accountId: account.id, archivedAt: null },
         orderBy: { updatedAt: "desc" },
         include: { triggers: { take: 1, orderBy: { createdAt: "asc" } } },
       });

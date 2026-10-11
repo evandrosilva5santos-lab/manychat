@@ -35,6 +35,9 @@ export type DbTrigger = {
   type: TriggerType;
   keywords: string[];
   match: KeywordMatch;
+  negativeKeywords?: string[];
+  cooldownSeconds?: number;
+  priority?: number;
   mediaId: string | null;
   payload: string | null;
   publicReplies: string[];
@@ -79,6 +82,9 @@ export function fromDb(flow: DbFlow): FlowSnapshot {
           type: trigger.type,
           keywords: trigger.keywords,
           match: trigger.match,
+          negativeKeywords: trigger.negativeKeywords ?? [],
+          cooldownSeconds: trigger.cooldownSeconds ?? 0,
+          priority: trigger.priority ?? 0,
           mediaId: undef(trigger.mediaId),
           payload: undef(trigger.payload),
           publicReplies: trigger.publicReplies,
@@ -182,6 +188,9 @@ export function toSavePlan(snapshot: FlowSnapshot, catalog: CatalogLookup): Save
         type: data.config.type,
         keywords: data.config.keywords,
         match: data.config.match,
+        negativeKeywords: data.config.negativeKeywords ?? [],
+        cooldownSeconds: data.config.cooldownSeconds ?? 0,
+        priority: data.config.priority ?? 0,
         mediaId: orNull(data.config.mediaId),
         payload: orNull(data.config.payload),
         publicReplies: data.config.publicReplies.map((reply) => reply.trim()).filter(Boolean),

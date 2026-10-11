@@ -2,7 +2,7 @@
 
 import { requireAuth } from "@/lib/auth/requireAuth";
 import { revalidatePath } from "next/cache";
-import { getCurrentAccount } from "@/lib/account";
+import { getCurrentAccount, listAllAccounts } from "@/lib/account";
 import { defaultGraphClient } from "@/lib/meta/graph";
 
 export type MetaSettingsData = {
@@ -12,14 +12,25 @@ export type MetaSettingsData = {
     name: string | null;
     igUserId: string;
     status: string;
+    tokenExpiresAt?: string | null;
   };
   hasAccessToken: boolean;
   hasAppSecret: boolean;
   webhookCallbackUrl: string;
+  oauthRedirectUrl: string;
+  oauthLoginUrl: string;
   /** O token em si nunca vai para o navegador; só se está configurado e uma dica. */
   webhookVerifyTokenConfigured: boolean;
   webhookVerifyTokenHint: string | null;
   isMockMode: boolean;
+  allAccounts: Array<{
+    id: string;
+    username: string;
+    name: string | null;
+    igUserId: string;
+    status: string;
+    tokenExpiresAt: string | null;
+  }>;
 };
 
 const TOKEN_HINT_VISIBLE_CHARS = 3;
@@ -36,7 +47,9 @@ function maskSecret(value: string | undefined): string | null {
 export async function getMetaSettings(): Promise<MetaSettingsData> {
   await requireAuth();
   const account = await getCurrentAccount();
-  const hasAccessToken = Boolean(process.env.IG_ACCESS_TOKEN);
+  const allDbAccounts = await listAllAccounts();
+
+  const hasAccessToken = Boolean(account.accessTokenEnc || process.env.IG_ACCESS_TOKEN);
   const hasAppSecret = Boolean(process.env.META_APP_SECRET || process.env.IG_APP_SECRET);
   const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
 
@@ -47,13 +60,24 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
       name: account.name,
       igUserId: account.igUserId,
       status: account.status,
+      tokenExpiresAt: account.tokenExpiresAt ? account.tokenExpiresAt.toISOString() : null,
     },
     hasAccessToken,
     hasAppSecret,
     webhookCallbackUrl: "/api/webhook/instagram",
+    oauthRedirectUrl: "/api/auth/instagram/callback",
+    oauthLoginUrl: "/api/auth/instagram/login",
     webhookVerifyTokenConfigured: Boolean(verifyToken),
     webhookVerifyTokenHint: maskSecret(verifyToken),
     isMockMode: !hasAccessToken,
+    allAccounts: allDbAccounts.map((a) => ({
+      id: a.id,
+      username: a.username,
+      name: a.name,
+      igUserId: a.igUserId,
+      status: a.status,
+      tokenExpiresAt: a.tokenExpiresAt ? a.tokenExpiresAt.toISOString() : null,
+    })),
   };
 }
 

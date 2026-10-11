@@ -6,7 +6,8 @@ export const LIMITS = {
   buttons: 3, // botões por mensagem (button template)
   cards: 10, // cards por carrossel (generic template)
   buttonTitle: 20, // rótulo do botão
-  text: 1000, // texto de uma DM
+  text: 1000, // bytes UTF-8 de uma DM
+  buttonText: 640, // texto do template de botões
   keywords: 15, // palavras-chave por gatilho (mesmo limite do ManyChat)
   publicReplies: 5, // variações de resposta pública no comentário
 } as const;
@@ -36,6 +37,9 @@ export type NodeConfigMap = {
     type: TriggerType;
     keywords: string[];
     match: KeywordMatch;
+    negativeKeywords?: string[];
+    cooldownSeconds?: number;
+    priority?: number;
     mediaId?: string;
     payload?: string;
     publicReplies: string[];

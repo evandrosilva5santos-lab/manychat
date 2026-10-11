@@ -11,6 +11,7 @@ import {
   HelpCircle,
   PanelLeftClose,
   LayoutGrid,
+  TriangleAlert,
 } from "lucide-react";
 
 /** Ícone de Trevo / Automação característico do Fluxo */
@@ -96,6 +97,7 @@ const NAV_ITEMS = [
     icon: MessageSquare,
     hasNotification: true,
   },
+  { id: "falhas", label: "Envios com falha", href: "/conversas/falhas", icon: TriangleAlert },
   { id: "direct", label: "Transmissão", href: "/direct", icon: Send },
   { id: "ajustes", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];

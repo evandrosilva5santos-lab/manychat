@@ -1,20 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import type { Trigger } from "@/generated/prisma/client";
+import type { Trigger, Flow } from "@/generated/prisma/client";
 import type { NormalizedWebhookEvent } from "@/lib/meta/webhook";
 
 export type MatchedTriggerResult = {
-  flow: { id: string };
-  trigger: Trigger | any;
+  flow: Flow;
+  trigger: Trigger;
   startNodeId: string;
   publicReply?: string;
 };
-
-/** Tipo de gatilho que corresponde a cada tipo de evento. */
-const TRIGGER_TYPE_BY_KIND = {
-  comment: "COMMENT_KEYWORD",
-  message: "DM_KEYWORD",
-  postback: "BUTTON_CLICK",
-} as const;
 
 /**
  * Normaliza strings para comparação insensível a maiúsculas, acentos e espaços extras.
@@ -66,92 +59,48 @@ export function matchesKeyword(
 
 /**
  * Encontra o fluxo e gatilho ativo para o evento recebido do Instagram.
- *
- * Performance: busca APENAS os gatilhos do tipo certo (via índice
- * Trigger(type, mediaId) + fluxo LIVE da conta). Os nós só são lidos
- * para o fluxo que deu match, e apenas quando o gatilho não tem
- * startNodeId definido.
  */
 export async function findMatchingTrigger(
   accountId: string,
   event: NormalizedWebhookEvent
 ): Promise<MatchedTriggerResult | null> {
-  const triggerType = TRIGGER_TYPE_BY_KIND[event.kind];
-
-  let triggers: any[] = [];
-  try {
-    triggers = await prisma.trigger.findMany({
-      where: {
-        type: triggerType,
-        flow: { accountId, status: "LIVE" },
-      },
-      include: { flow: { select: { id: true } } },
-    });
-  } catch (error) {
-    console.error("[matcher] Erro ao buscar gatilhos no Prisma:", error);
-    return null;
-  }
-
-  const startNodeCache = new Map<string, string | null>();
-
-  async function resolveStartNodeId(flowId: string, fallback: string | null): Promise<string | null> {
-    if (fallback) return fallback;
-    if (startNodeCache.has(flowId)) return startNodeCache.get(flowId) ?? null;
-    const firstNode = await prisma.node.findFirst({
-      where: { flowId },
-      select: { id: true },
-      orderBy: { createdAt: "asc" },
-    });
-    startNodeCache.set(flowId, firstNode?.id ?? null);
-    return firstNode?.id ?? null;
-  }
+  const triggers = await prisma.trigger.findMany({
+    where: { flow: { accountId, status: "LIVE" } },
+    include: { flow: { include: { nodes: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] } } } },
+    orderBy: [{ priority: "desc" }, { createdAt: "asc" }, { id: "asc" }],
+  });
 
   for (const trigger of triggers) {
-    const flowId = trigger.flowId;
-
-    // 1. Gatilho de Comentário
+    const flow = trigger.flow;
+    let matches = false;
     if (event.kind === "comment" && trigger.type === "COMMENT_KEYWORD") {
-      // Se o gatilho foi amarrado a um post específico, valida o ID da mídia
-      if (trigger.mediaId && trigger.mediaId !== event.mediaId) {
-        continue;
-      }
-
-      if (matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords)) {
-        const startNodeId = await resolveStartNodeId(flowId, trigger.startNodeId);
-        if (!startNodeId) continue;
-
-        // Sorteia uma resposta pública caso haja variações cadastradas
-        let publicReply: string | undefined;
-        if (trigger.publicReplies && trigger.publicReplies.length > 0) {
-          const valid = trigger.publicReplies.filter((r: string) => r.trim().length > 0);
-          if (valid.length > 0) {
-            const randomIndex = Math.floor(Math.random() * valid.length);
-            publicReply = valid[randomIndex];
-          }
-        }
-
-        return { flow: { id: flowId }, trigger, startNodeId, publicReply };
-      }
+      if (trigger.mediaId && trigger.mediaId !== event.mediaId) continue;
+      matches = matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords);
+    } else if (event.kind === "message" &&
+      (trigger.type === "DM_KEYWORD" || (trigger.type === "STORY_REPLY" && event.isStoryReply))) {
+      matches = matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords);
+    } else if (event.kind === "postback" && trigger.type === "BUTTON_CLICK") {
+      matches = Boolean(trigger.payload) && trigger.payload === event.payload;
     }
-
-    // 2. Gatilho de Palavra-chave no Direct (DM)
-    if (event.kind === "message" && trigger.type === "DM_KEYWORD") {
-      if (matchesKeyword(event.text, trigger.keywords, trigger.match, trigger.negativeKeywords)) {
-        const startNodeId = await resolveStartNodeId(flowId, trigger.startNodeId);
-        if (!startNodeId) continue;
-        return { flow: { id: flowId }, trigger, startNodeId };
-      }
+    if (!matches) continue;
+    const startNodeId = trigger.startNodeId ?? flow.nodes?.[0]?.id;
+    if (!startNodeId) continue;
+    if (Array.isArray(flow.nodes) && flow.nodes.length > 0 && !flow.nodes.some((node) => node.id === startNodeId)) continue;
+    if (trigger.cooldownSeconds > 0) {
+      const recent = await prisma.flowRun.findFirst({
+        where: {
+          flowId: flow.id,
+          flow: { accountId },
+          contact: { accountId, igsid: event.userIgsid },
+          startedAt: { gt: new Date(Date.now() - trigger.cooldownSeconds * 1000) },
+        },
+        select: { id: true },
+      });
+      if (recent) continue;
     }
-
-    // 3. Gatilho de Clique em Botão (Button Click / Postback)
-    if (event.kind === "postback" && trigger.type === "BUTTON_CLICK") {
-      if (trigger.payload && trigger.payload === event.payload) {
-        const startNodeId = await resolveStartNodeId(flowId, trigger.startNodeId);
-        if (!startNodeId) continue;
-        return { flow: { id: flowId }, trigger, startNodeId };
-      }
-    }
+    const replies = event.kind === "comment" ? trigger.publicReplies.filter((reply) => reply.trim()) : [];
+    const publicReply = replies.length ? replies[Math.floor(Math.random() * replies.length)] : undefined;
+    return { flow, trigger, startNodeId, publicReply };
   }
-
   return null;
 }

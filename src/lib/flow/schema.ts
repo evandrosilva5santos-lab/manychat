@@ -10,7 +10,9 @@ const id = z
   .max(80)
   .regex(/^[A-Za-z0-9:_-]+$/, "id inválido");
 
-const text = z.string().max(LIMITS.text, `Máximo de ${LIMITS.text} caracteres`);
+export const messageTextSchema = z.string().refine((value) => new TextEncoder().encode(value).length <= LIMITS.text, `Máximo de ${LIMITS.text} bytes UTF-8`);
+export const buttonTextSchema = z.string().max(LIMITS.buttonText, `Máximo de ${LIMITS.buttonText} caracteres no template`);
+const text = messageTextSchema;
 
 // Regras "duras": formato e limites máximos. Coisas incompletas (texto vazio,
 // link faltando) não bloqueiam o salvamento — aparecem como aviso (ver lint.ts).
@@ -29,7 +31,7 @@ export const dmButtonSchema = z.object({
 export const configSchemas = {
   MESSAGE: z.object({ text }),
   QUESTION: z.object({
-    text,
+    text: buttonTextSchema,
     buttons: z
       .array(dmButtonSchema)
       .max(LIMITS.buttons, `O Instagram aceita no máximo ${LIMITS.buttons} botões por mensagem`),
@@ -52,9 +54,9 @@ export const configSchemas = {
       ),
   }),
   FOLLOW_GATE: z.object({
-    text,
+    text: buttonTextSchema,
     buttonTitle,
-    notFollowingText: text,
+    notFollowingText: buttonTextSchema,
   }),
   NOTE: z.object({ text: z.string().max(2000) }),
   TRIGGER: z.object({
@@ -63,7 +65,10 @@ export const configSchemas = {
       .array(z.string().trim().min(1).max(100))
       .max(LIMITS.keywords, `No máximo ${LIMITS.keywords} palavras-chave`),
     match: z.enum(Object.values(KeywordMatch) as [KeywordMatch, ...KeywordMatch[]]),
-    mediaId: z.string().max(100).optional(),
+    negativeKeywords: z.array(z.string().trim().min(1).max(100)).max(LIMITS.keywords).optional(),
+    cooldownSeconds: z.number().int().min(0).max(2147483647).optional(),
+    priority: z.number().int().min(-2147483648).max(2147483647).optional(),
+    mediaId: z.string().trim().min(1).max(100).optional(),
     payload: z.string().max(1000).optional(),
     publicReplies: z
       .array(z.string().max(LIMITS.text))

@@ -176,6 +176,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
   const [name, setName] = useState(flow.name);
   const [status, setStatus] = useState<FlowStatus>(flow.status);
   const [tab, setTab] = useState<"insights" | "preview">("preview");
+  const [mobilePanel, setMobilePanel] = useState<"recipe" | "preview">("recipe");
   const [phoneTab, setPhoneTab] = useState<"post" | "comments" | "dm">("post");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [keywordInput, setKeywordInput] = useState(initial.trigger.keywords.join(", "));
@@ -310,8 +311,8 @@ export function SimpleBuilder({ flow, initial }: Props) {
   return (
     <div className="fx flex h-dvh flex-col bg-surface-100 text-ink">
       {/* ── Top Bar (Estilo Manychat Pro) ────────────────────── */}
-      <header className="flex h-16 flex-none items-center justify-between border-b border-border bg-surface-200 px-6 z-20 shadow-xs gap-4">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      <header className="flex h-16 flex-none items-center justify-between border-b border-border bg-surface-200 px-3 sm:px-6 z-20 shadow-xs gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Link
             href="/fluxos"
             className="flex h-8 w-8 flex-none items-center justify-center rounded-lg hover:bg-surface-300 text-ink-muted hover:text-ink transition-colors cursor-pointer"
@@ -323,7 +324,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
 
           <div className="flex items-center gap-2 min-w-0">
             <input
-              className="max-w-[280px] rounded-md bg-transparent px-2 py-1 text-[17px] font-bold text-ink hover:bg-surface-300/50 focus:bg-surface-300/80 outline-none transition-all truncate"
+              className="w-36 sm:w-auto max-w-[170px] sm:max-w-[280px] rounded-md bg-transparent px-2 py-1 text-[15px] sm:text-[17px] font-bold text-ink hover:bg-surface-300/50 focus:bg-surface-300/80 outline-none transition-all truncate"
               value={name}
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
@@ -334,16 +335,16 @@ export function SimpleBuilder({ flow, initial }: Props) {
 
             {/* Status Pill (Manychat AO VIVO / PARADO / RASCUNHO) */}
             {status === "LIVE" ? (
-              <span className="flex-none flex items-center gap-1.5 rounded-full bg-rose-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-xs">
-                <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+              <span className="flex-none flex items-center gap-1 sm:gap-1.5 rounded-full bg-rose-600 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white shadow-xs">
+                <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-white animate-pulse" />
                 AO VIVO
               </span>
             ) : status === "STOPPED" ? (
-              <span className="flex-none flex items-center gap-1.5 rounded-full bg-surface-300 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+              <span className="flex-none flex items-center gap-1 sm:gap-1.5 rounded-full bg-surface-300 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                 PARADO
               </span>
             ) : (
-              <span className="flex-none flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-500 border border-amber-500/30">
+              <span className="flex-none flex items-center gap-1 sm:gap-1.5 rounded-full bg-amber-500/20 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-500 border border-amber-500/30">
                 RASCUNHO
               </span>
             )}
@@ -351,30 +352,33 @@ export function SimpleBuilder({ flow, initial }: Props) {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2.5 flex-none">
-          <SaveStatus state={save} />
+        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-none">
+          <div className="hidden md:flex">
+            <SaveStatus state={save} />
+          </div>
 
           {problems.length > 0 && (
             <button
               type="button"
               onClick={() => {
+                setMobilePanel("recipe");
                 const target = problems[0]?.section;
                 if (target) {
                   document.getElementById(`section-${target}`)?.scrollIntoView({ behavior: "smooth" });
                 }
               }}
-              className="flex items-center gap-1 rounded-full bg-warning-soft hover:bg-warning-soft/80 px-2.5 py-1 text-xs font-semibold text-warning transition-colors cursor-pointer"
+              className="flex items-center gap-1 rounded-full bg-warning-soft hover:bg-warning-soft/80 px-2 sm:px-2.5 py-1 text-xs font-semibold text-warning transition-colors cursor-pointer"
               title={problems.map((problem) => problem.message).join("\n")}
               aria-label={`${problems.length} avisos. Clique para navegar até a seção.`}
             >
               <AlertTriangle size={13} />
-              <span>{problems.length} {problems.length === 1 ? "aviso" : "avisos"}</span>
+              <span>{problems.length} <span className="hidden sm:inline">{problems.length === 1 ? "aviso" : "avisos"}</span></span>
             </button>
           )}
 
           <button
             type="button"
-            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-border bg-surface-100 hover:bg-surface-300 px-3 py-1.5 text-xs font-semibold text-ink transition-all cursor-pointer"
+            className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border bg-surface-100 hover:bg-surface-300 px-3 py-1.5 text-xs font-semibold text-ink transition-all cursor-pointer"
             onClick={openAdvanced}
             title="Abrir no editor visual de caixinhas"
           >
@@ -386,7 +390,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
           <button
             type="button"
             onClick={handleToggleStatus}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer ${
+            className={`flex items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 sm:px-4 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer ${
               status === "LIVE"
                 ? "border border-rose-500/30 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20"
                 : "bg-primary text-white hover:bg-primary-hover"
@@ -400,7 +404,8 @@ export function SimpleBuilder({ flow, initial }: Props) {
             ) : (
               <>
                 <Play size={14} />
-                <span>Ativar Automação</span>
+                <span className="hidden sm:inline">Ativar Automação</span>
+                <span className="sm:hidden">Ativar</span>
               </>
             )}
           </button>
@@ -471,10 +476,40 @@ export function SimpleBuilder({ flow, initial }: Props) {
 
 
 
+      {/* ── Mobile View Toggle (< lg) ────────────────────────── */}
+      <div className="flex lg:hidden items-center justify-around border-b border-border bg-surface-200 px-3 py-1.5 flex-none gap-2 z-10">
+        <button
+          type="button"
+          onClick={() => setMobilePanel("recipe")}
+          className={`flex-1 py-1 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+            mobilePanel === "recipe"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-surface-100 text-ink-muted hover:text-ink"
+          }`}
+        >
+          Editar Receita
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobilePanel("preview")}
+          className={`flex-1 py-1 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+            mobilePanel === "preview"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-surface-100 text-ink-muted hover:text-ink"
+          }`}
+        >
+          Ver Visualização / Insights
+        </button>
+      </div>
+
       {/* ── Main Layout: Receita à Esquerda, Insights/Visualização à Direita ── */}
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* LADO ESQUERDO: A RECEITA (Easy Builder) */}
-        <div className="flex w-[500px] flex-none flex-col gap-6 overflow-y-auto border-r border-border bg-surface-100 p-6">
+        <div
+          className={`${
+            mobilePanel === "recipe" ? "flex" : "hidden"
+          } lg:flex w-full lg:w-[480px] xl:w-[500px] flex-none flex-col gap-6 overflow-y-auto border-r border-border bg-surface-100 p-4 sm:p-6`}
+        >
           {/* Seção 1: Gatilho de Comentário */}
           <Section title="Quando alguém faz um comentário">
             <div className="flex flex-col gap-2.5">
@@ -1090,7 +1125,11 @@ export function SimpleBuilder({ flow, initial }: Props) {
         </div>
 
         {/* LADO DIREITO: INSIGHTS & VISUALIZAÇÃO (Canvas Manychat) */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto p-8 bg-surface-100">
+        <div
+          className={`${
+            mobilePanel === "preview" ? "flex" : "hidden"
+          } lg:flex min-w-0 flex-1 flex-col overflow-y-auto p-4 sm:p-8 bg-surface-100`}
+        >
           {/* Header de Tabs do Canvas sem sobreposição */}
           <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-6 relative z-10 flex-wrap">
             <div className="flex items-center gap-6">

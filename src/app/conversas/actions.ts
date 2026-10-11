@@ -51,14 +51,21 @@ export type ThreadResult = { ok: true; messages: MessageItem[] } | { ok: false; 
 /**
  * Lista as conversas reais da conta conectada para a coluna lateral do Live Inbox.
  * Lança erro se o banco estiver indisponível (a página mostra o aviso).
+ *
+ * `cursor` (ISO da última lastInteractionAt vista) habilita paginação
+ * keyset — sem OFFSET que degrada com volume.
  */
 export async function listConversations(
-  filter?: "all" | "active24h" | "unread"
+  filter?: "all" | "active24h" | "unread",
+  cursor?: string
 ): Promise<ConversationSummary[]> {
   await requireAuth();
   const account = await getCurrentAccount();
   const contacts = await prisma.contact.findMany({
-    where: { accountId: account.id },
+    where: {
+      accountId: account.id,
+      ...(cursor ? { lastInteractionAt: { lt: new Date(cursor) } } : {}),
+    },
     include: {
       tags: { include: { tag: true } },
       sourceFlow: { select: { name: true } },

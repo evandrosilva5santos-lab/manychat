@@ -20,16 +20,15 @@ const commentSchema = z.object({
     from: z.object({ id: identifier, username: z.string().optional() }),
     media: z.object({ id: identifier }).optional(),
     created_time: z.number().finite().nonnegative().optional(),
+    parent_id: identifier.optional(),
   }),
 });
 const messagingSchema = z.object({
   sender: z.object({ id: identifier }),
   recipient: z.object({ id: identifier }).optional(),
   timestamp: z.number().finite().nonnegative().optional(),
-  postback: z
-    .object({ title: z.string().default(""), payload: identifier, mid: z.string().optional() })
-    .optional(),
-  message: z.object({ mid: identifier, text: z.string().optional(), is_echo: z.boolean().optional() }).optional(),
+  postback: z.object({ mid: identifier.optional(), title: z.string().default(""), payload: identifier }).optional(),
+  message: z.object({ mid: identifier, text: z.string().optional(), is_echo: z.boolean().optional(), reply_to: z.object({ story: z.object({ id: identifier.optional() }).passthrough().optional() }).passthrough().optional() }).optional(),
 });
 
 export type NormalizedWebhookEvent =
@@ -45,6 +44,7 @@ export type NormalizedWebhookEvent =
     }
   | {
       kind: "message";
+      isStoryReply?: boolean;
       igUserId: string;
       messageId: string;
       userIgsid: string;
@@ -53,16 +53,14 @@ export type NormalizedWebhookEvent =
     }
   | {
       kind: "postback";
+      messageId?: string;
+      postbackMid?: string;
       igUserId: string;
       userIgsid: string;
       title: string;
       payload: string;
-      /// mid do postback na Meta — chave de idempotência quando presente.
-      postbackMid?: string;
       timestamp: number;
     };
-
-import { safeEqual } from "@/lib/auth/basic";
 
 /**
  * Validação do handshake inicial da Meta (GET /api/webhook/instagram).
@@ -75,30 +73,10 @@ export function verifyWebhookChallenge(
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (expectedVerifyToken && mode === "subscribe" && token && safeEqual(token, expectedVerifyToken) && challenge) {
+  if (expectedVerifyToken && mode === "subscribe" && token === expectedVerifyToken && challenge) {
     return challenge;
   }
   return null;
-}
-
-type EnvLike = Record<string, string | undefined>;
-
-/**
- * Segredos aceitos na assinatura do webhook. No Instagram Login a Meta assina com
- * o segredo do app Instagram (IG_APP_SECRET); META_APP_SECRET fica como alternativa.
- */
-export function readWebhookSecrets(env: EnvLike = process.env): string[] {
-  const secrets = [env.IG_APP_SECRET, env.META_APP_SECRET].filter((s): s is string => Boolean(s));
-  return [...new Set(secrets)];
-}
-
-/** Webhook sem assinatura só com flag explícita e nunca em produção. */
-export function allowUnsignedWebhooks(env: EnvLike = process.env): boolean {
-  return env.ALLOW_UNSIGNED_WEBHOOKS === "1" && env.NODE_ENV !== "production";
-}
-
-export function verifyWebhookSignature(rawBody: string, signatureHeader: string | null, secrets: string[]): boolean {
-  return secrets.some((secret) => verifyMetaHmacSignature(rawBody, signatureHeader, secret));
 }
 
 /**
@@ -148,7 +126,8 @@ export function parseInstagramWebhookPayload(body: unknown): NormalizedWebhookEv
     if (!parsedEntry.success) continue;
     const entry = parsedEntry.data;
     const igUserId = entry.id;
-    const time = entry.time || Date.now();
+    // Meta entry.time / comment.created_time are seconds; messaging.timestamp is milliseconds.
+    const time = (entry.time ?? 0) * 1000;
 
     // 1. Comentários (changes -> field: "comments")
     if (Array.isArray(entry.changes)) {
@@ -157,7 +136,7 @@ export function parseInstagramWebhookPayload(body: unknown): NormalizedWebhookEv
         if (parsedChange.success) {
           const val = parsedChange.data.value;
           // Ignora comentários feitos pelo próprio dono da conta (evita loops e disparos para si mesmo)
-          if (val.from?.id === igUserId) continue;
+          if (val.from.id === igUserId || val.parent_id) continue;
 
           events.push({
             kind: "comment",
@@ -167,7 +146,7 @@ export function parseInstagramWebhookPayload(body: unknown): NormalizedWebhookEv
             userIgsid: val.from?.id,
             username: val.from?.username,
             text: val.text || "",
-            timestamp: val.created_time || time,
+            timestamp: val.created_time === undefined ? time : val.created_time * 1000,
           });
         }
       }
@@ -187,23 +166,24 @@ export function parseInstagramWebhookPayload(body: unknown): NormalizedWebhookEv
         if (msg.postback) {
           events.push({
             kind: "postback",
+            messageId: msg.postback.mid,
+            postbackMid: msg.postback.mid,
             igUserId,
             userIgsid,
             title: msg.postback.title || "",
             payload: msg.postback.payload || "",
-            postbackMid: msg.postback.mid,
-            timestamp: msg.timestamp || time,
+            timestamp: msg.timestamp ?? time,
           });
         }
         // Mensagem de texto normal recebida
         else if (msg.message && msg.message.text) {
           events.push({
             kind: "message",
-            igUserId,
+            ...(msg.message.reply_to?.story ? { isStoryReply: true } : {}),            igUserId,
             messageId: msg.message.mid,
             userIgsid,
             text: msg.message.text,
-            timestamp: msg.timestamp || time,
+            timestamp: msg.timestamp ?? time,
           });
         }
       }
@@ -211,4 +191,18 @@ export function parseInstagramWebhookPayload(body: unknown): NormalizedWebhookEv
   }
 
   return events;
+}
+
+/** Both names are supported while installations migrate to Instagram Login. */
+export function readWebhookSecrets(env: Record<string, string | undefined> = process.env): string[] {
+  return [...new Set([env.IG_APP_SECRET, env.META_APP_SECRET].filter((value): value is string => Boolean(value?.trim())))];
+}
+
+export function verifyWebhookSignature(rawBody: string, signature: string | null, secrets: string[]): boolean {
+  return secrets.some((secret) => verifyMetaHmacSignature(rawBody, signature, secret));
+}
+
+/** Explicit local fixture support; production always requires a valid signature. */
+export function allowUnsignedWebhooks(env: Record<string, string | undefined> = process.env): boolean {
+  return env.NODE_ENV === "development" && env.ALLOW_UNSIGNED_WEBHOOKS === "1";
 }
