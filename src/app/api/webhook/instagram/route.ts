@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAccount } from "@/lib/account";
-import { defaultGraphClient } from "@/lib/meta/graph";
+import { after } from "next/server";
 import {
   allowUnsignedWebhooks,
   parseInstagramWebhookPayload,
@@ -8,9 +7,9 @@ import {
   verifyWebhookChallenge,
   verifyWebhookSignature,
 } from "@/lib/meta/webhook";
-import { getOrCreateContact, recordIncomingMessage, recordOutgoingMessage } from "@/lib/engine/contacts";
-import { findMatchingTrigger } from "@/lib/engine/matcher";
-import { executeFlow, resumeFlowOnClick } from "@/lib/engine/runner";
+import { idempotencyKeyFor } from "@/lib/queue/idempotency";
+import { enqueueEvent } from "@/lib/queue/store";
+import { processDueEvents } from "@/lib/queue/worker";
 
 /**
  * GET /api/webhook/instagram
@@ -36,7 +35,16 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/webhook/instagram
- * Receptor de eventos oficiais do Instagram (comentários, DMs, cliques).
+ *
+ * Contrato de confiabilidade (Item 4):
+ * 1. Valida assinatura HMAC (fail-closed; 401 se forjada) e JSON (400).
+ * 2. Grava cada evento em `WebhookEvent` ANTES de qualquer processamento
+ *    (chave de idempotência única). Entrega duplicada → P2002 → 200 e
+ *    nada é reprocessado.
+ * 3. Se a gravação falhar → 500: a Meta reentrega (até 36h) e a fila
+ *    garante o exatamente-uma-vez.
+ * 4. Responde 200 imediatamente; o processamento roda no worker
+ *    (via `after()` agora e cron /tick como rede de segurança).
  */
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
@@ -61,137 +69,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  // 2. Extração dos eventos padronizados
+  // 2. Extração dos eventos padronizados (Zod)
   const events = parseInstagramWebhookPayload(body);
-  const account = await getCurrentAccount();
 
-  // 3. Processamento assíncrono dos eventos
-  for (const event of events) {
-    try {
-      // Busca ou cria o contato que disparou o evento
-      const contact = await getOrCreateContact({
-        accountId: account.id,
-        igsid: event.userIgsid,
-        username: "username" in event ? event.username : undefined,
+  // 3. Enfileiramento idempotente
+  let duplicates = 0;
+  try {
+    for (const event of events) {
+      const result = await enqueueEvent({
+        idempotencyKey: idempotencyKeyFor(event),
+        type: event.kind,
+        payload: event,
       });
-
-      // CASO A: Comentário em post ou Reel
-      if (event.kind === "comment") {
-        await recordIncomingMessage({
-          accountId: account.id,
-          contactId: contact.id,
-          text: event.text,
-          kind: "COMMENT",
-          mediaId: event.mediaId,
-          igMessageId: event.commentId,
-        });
-
-        const match = await findMatchingTrigger(account.id, event);
-        if (match) {
-          // Se tiver resposta pública configurada, envia no comentário
-          if (match.publicReply) {
-            const replyRes = await defaultGraphClient.replyToComment(
-              event.commentId,
-              match.publicReply
-            );
-            await recordOutgoingMessage({
-              accountId: account.id,
-              contactId: contact.id,
-              text: match.publicReply,
-              kind: "COMMENT_REPLY",
-              flowId: match.flow.id,
-              error: replyRes.error,
-            });
-          }
-
-          // Dispara a DM e inicia a execução do fluxo
-          await executeFlow({
-            accountId: account.id,
-            contact,
-            flowId: match.flow.id,
-            startNodeId: match.startNodeId,
-            triggerId: match.trigger.id,
-            inboundText: event.text,
-          });
-        }
-      }
-
-      // CASO B: Mensagem de texto no Direct (DM)
-      else if (event.kind === "message") {
-        await recordIncomingMessage({
-          accountId: account.id,
-          contactId: contact.id,
-          text: event.text,
-          kind: "TEXT",
-          igMessageId: event.messageId,
-        });
-
-        const match = await findMatchingTrigger(account.id, event);
-        if (match) {
-          await executeFlow({
-            accountId: account.id,
-            contact,
-            flowId: match.flow.id,
-            startNodeId: match.startNodeId,
-            triggerId: match.trigger.id,
-            inboundText: event.text,
-          });
-        }
-      }
-
-      // CASO C: Clique em Botão Fixo (Postback)
-      else if (event.kind === "postback") {
-        await recordIncomingMessage({
-          accountId: account.id,
-          contactId: contact.id,
-          text: event.title,
-          kind: "POSTBACK",
-          payload: { payload: event.payload },
-        });
-
-        // 1. Botão do Follow Gate (gate:nodeId)
-        if (event.payload.startsWith("gate:")) {
-          const nodeId = event.payload.replace("gate:", "");
-          await resumeFlowOnClick({
-            accountId: account.id,
-            contact,
-            nodeId,
-            payload: event.payload,
-          });
-        }
-        // 2. Botão de Pergunta (node:nodeId_btn_btnId)
-        else if (event.payload.startsWith("node:")) {
-          const match = event.payload.match(/^node:([^_]+)(?:_btn_(.+))?$/);
-          if (match) {
-            const [, nodeId, buttonId] = match;
-            await resumeFlowOnClick({
-              accountId: account.id,
-              contact,
-              nodeId,
-              buttonId,
-              payload: event.payload,
-            });
-          }
-        }
-        // 3. Gatilho independente de clique
-        else {
-          const match = await findMatchingTrigger(account.id, event);
-          if (match) {
-            await executeFlow({
-              accountId: account.id,
-              contact,
-              flowId: match.flow.id,
-              startNodeId: match.startNodeId,
-              triggerId: match.trigger.id,
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao processar evento do Instagram:", err);
+      if ("duplicate" in result) duplicates++;
     }
+  } catch (error) {
+    // Banco fora do ar no recebimento: 500 para a Meta reentregar.
+    console.error("[webhook] Falha ao gravar evento na fila:", error);
+    return NextResponse.json({ error: "Falha ao enfileirar evento" }, { status: 500 });
+  }
+
+  // 4. Processamento assíncrono (best-effort; o cron /tick cobre o resto)
+  if (events.length > duplicates) {
+    after(async () => {
+      try {
+        await processDueEvents(10);
+      } catch (error) {
+        console.error("[webhook] Worker pós-resposta falhou:", error);
+      }
+    });
   }
 
   // A Meta exige resposta 200 OK imediata
-  return NextResponse.json({ status: "ok", processed: events.length });
+  return NextResponse.json({ status: "ok", received: events.length, duplicates });
 }
