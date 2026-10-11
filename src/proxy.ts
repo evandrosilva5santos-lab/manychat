@@ -2,7 +2,7 @@
 // mais Content-Security-Policy com nonce em todas as respostas.
 //   SITE_PASSWORD = obrigatória em produção (sem ela o site fica fechado)
 //   SITE_USER     = opcional, padrão "fluxo"
-// Rotas públicas (webhook da Meta, links rastreados, páginas legais) não pedem senha.
+// Rotas públicas (webhook da Meta, links rastreados, páginas legais, /conectar) não pedem senha.
 import { NextResponse, type NextRequest } from "next/server";
 import { BASIC_AUTH_REALM, evaluateBasicAuth, isPublicPath, readBasicAuthConfig } from "@/lib/auth/basic";
 import { buildContentSecurityPolicy, generateNonce } from "@/lib/security/csp";
