@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const headerStore = vi.hoisted(() => new Map<string, string>());
 vi.mock("next/headers", () => ({
   headers: async () => ({ get: (name: string) => headerStore.get(name.toLowerCase()) ?? null }),
+  cookies: async () => ({ get: () => undefined }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/account", () => ({

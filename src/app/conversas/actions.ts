@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth/requireAuth";
 import { invalidIdMessage } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
-import { defaultGraphClient } from "@/lib/meta/graph";
+import { graphClientForAccount } from "@/lib/meta/account-client";
 import { prisma } from "@/lib/prisma";
 import { type ContactListItem } from "@/app/contatos/actions";
 import { check24hWindow } from "@/lib/meta/window";
@@ -61,6 +61,7 @@ export async function listConversations(
 ): Promise<ConversationSummary[]> {
   await requireAuth();
   const account = await getCurrentAccount();
+  if (!account) return [];
   const contacts = await prisma.contact.findMany({
     where: {
       accountId: account.id,
@@ -118,6 +119,7 @@ export async function getConversationThread(contactId: string): Promise<ThreadRe
   if (invalidInput) return { ok: false, error: invalidInput };
   try {
     const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta do Instagram está selecionada." };
     const messages = await prisma.message.findMany({
       where: { contactId, accountId: account.id },
       include: { flow: { select: { name: true } } },
@@ -164,6 +166,7 @@ export async function sendManualDirectMessage(
 
   try {
     const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta do Instagram está selecionada." };
     const contact = await prisma.contact.findFirst({
       where: { id: contactId, accountId: account.id },
     });
@@ -180,7 +183,7 @@ export async function sendManualDirectMessage(
       };
     }
 
-    const res = await defaultGraphClient.sendTextMessage(contact.igsid, clean);
+    const res = await (await graphClientForAccount(account.id)).sendTextMessage(contact.igsid, clean);
     if (!res.success || res.mock) {
       return {
         ok: false,

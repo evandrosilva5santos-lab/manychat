@@ -156,12 +156,15 @@ export async function createContact(data: {
     });
 
     if (data.tagId) {
-      await prisma.contactTag.create({
-        data: {
-          contactId: created.id,
-          tagId: data.tagId,
-        },
-      }).catch(() => {});
+      const tag = await prisma.tag.findFirst({
+        where: { id: data.tagId, accountId: account.id },
+        select: { id: true },
+      });
+      if (tag) {
+        await prisma.contactTag.create({
+          data: { contactId: created.id, tagId: tag.id },
+        });
+      }
     }
 
     const fullContact = await prisma.contact.findUnique({
@@ -216,6 +219,13 @@ export async function addTagToContact(
   if (invalidInput) return { ok: false, error: invalidInput };
 
   try {
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta ativa." };
+    const [contact, tag] = await Promise.all([
+      prisma.contact.findFirst({ where: { id: contactId, accountId: account.id }, select: { id: true } }),
+      prisma.tag.findFirst({ where: { id: tagId, accountId: account.id }, select: { id: true } }),
+    ]);
+    if (!contact || !tag) return { ok: false, error: "Contato ou etiqueta não pertence à conta ativa." };
     await prisma.contactTag.upsert({
       where: {
         contactId_tagId: { contactId, tagId },
@@ -244,11 +254,12 @@ export async function removeTagFromContact(
   if (invalidInput) return { ok: false, error: invalidInput };
 
   try {
-    await prisma.contactTag.delete({
-      where: {
-        contactId_tagId: { contactId, tagId },
-      },
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta ativa." };
+    const removed = await prisma.contactTag.deleteMany({
+      where: { contactId, tagId, contact: { accountId: account.id }, tag: { accountId: account.id } },
     });
+    if (removed.count === 0) return { ok: false, error: "Etiqueta não encontrada nesta conta." };
     revalidatePath("/contatos");
     revalidatePath("/conversas");
     return { ok: true };

@@ -60,3 +60,9 @@ O agente **Claude Code** está formalmente autorizado a iniciar a execução at�
 
 ## Handoff 2026-10-10 — Item 3 parcial
 Ler [ITEM-03-REPORT.md](ITEM-03-REPORT.md) antes de retomar. Preservar alterações anteriores e concorrentes. Confirmar Instagram Login e ambiente de teste, coordenar webhook com responsável pelo Item 1, concluir dependências e implementar o restante. Não considerar o Item 3 concluído nem a integração homologada.
+
+## Handoff 2026-10-11 — Multi-tenancy concluída
+- **STATUS:** `DONE`.
+- **BANCO PUBLICADO:** migration `20261011120000_multi_tenancy` aplicada com sucesso; `npx prisma migrate status` confirma que o schema está atualizado. Ela preservou as contas históricas no `Legacy Workspace` antes de tornar `workspaceId` obrigatório.
+- **CONFIGURAÇÃO:** definir `SUPERADMIN_EMAIL` e `SUPERADMIN_NAME`; o Basic Auth existente continua como bootstrap temporário do operador.
+- **VALIDAÇÃO FINAL:** TypeScript sem erros, 289 testes Vitest verdes e build de produção aprovado.

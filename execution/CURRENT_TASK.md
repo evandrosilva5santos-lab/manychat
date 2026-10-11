@@ -1,5 +1,7 @@
 # CURRENT_TASK — Autorização Operacional de Execução
 
+> **Atualização 2026-10-11:** a solicitação direta de multi-tenancy substituiu a nano task histórica abaixo e foi concluída. Consulte `state/HANDOFF.md` e `state/CHANGELOG.md` para a validação; a migration também já foi aplicada no banco publicado.
+
 > **Documento:** Autorização Formal de Execução  
 > **Status:** `READY_FOR_EXECUTION`  
 > **Framework:** Everything Claude Code (ECC)  

@@ -17,10 +17,22 @@ async function main() {
 
   const igUserId = process.env.IG_USER_ID;
   if (igUserId) {
+    const owner = await prisma.user.upsert({
+      where: { email: process.env.SUPERADMIN_EMAIL || "local-admin@fluxo.local" },
+      update: {},
+      create: {
+        email: process.env.SUPERADMIN_EMAIL || "local-admin@fluxo.local",
+        name: process.env.SUPERADMIN_NAME || "Administrador local",
+        role: "SUPERADMIN",
+      },
+    });
+    const workspace = await prisma.workspace.findFirst({ where: { ownerId: owner.id }, orderBy: { createdAt: "asc" } })
+      ?? await prisma.workspace.create({ data: { ownerId: owner.id, name: "Workspace técnico" } });
     await prisma.instagramAccount.upsert({
       where: { igUserId },
       update: {},
       create: {
+        workspaceId: workspace.id,
         igUserId,
         username: process.env.IG_USERNAME || "instagram_business",
         name: process.env.IG_NAME || "Instagram Business",

@@ -59,6 +59,19 @@ function decodeCredentials(authorization: string): { user: string; password: str
   }
 }
 
+/**
+ * Retorna o principal autenticado pela camada Basic sem expor a senha.
+ * A resolução de tenancy usa o valor apenas para bootstrap do Super Admin;
+ * clientes comuns usam a sessão opaca persistida no banco.
+ */
+export function getAuthorizedBasicUser(
+  authorization: string | null,
+  config: BasicAuthConfig,
+): string | null {
+  if (!authorization || !isAccessAllowed(evaluateBasicAuth(authorization, config))) return null;
+  return decodeCredentials(authorization)?.user ?? null;
+}
+
 export function evaluateBasicAuth(authorization: string | null, config: BasicAuthConfig): BasicAuthResult {
   if (!config.password) {
     return config.isProduction ? "misconfigured" : "open";

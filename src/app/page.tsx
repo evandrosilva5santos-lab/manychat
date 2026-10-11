@@ -174,15 +174,15 @@ export default async function DashboardPage() {
             <div className="text-sm">
               <strong className="font-bold text-ink">Nenhuma conta Instagram conectada: </strong>
               <span className="text-ink-muted">
-                Configure as credenciais da Meta em Ajustes para ativar respostas e automações.
+                Conecte seu Instagram profissional para ativar respostas e automações.
               </span>
             </div>
           </div>
           <Link
-            href="/ajustes"
+            href="/conectar"
             className="flex-none rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs"
           >
-            Conectar Instagram
+            Conectar meu Instagram
           </Link>
         </div>
       )}

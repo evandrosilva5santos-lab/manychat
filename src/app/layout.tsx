@@ -16,13 +16,17 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { AccountSwitcher } from "@/components/layout/AccountSwitcher";
+import { getTenantContext, listAccessibleAccounts } from "@/lib/tenancy";
 
 export const metadata: Metadata = {
   title: "Fluxo · Automação de conversas",
   description: "Automação de conversas para Instagram",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const tenant = await getTenantContext();
+  const accounts = tenant.actor ? await listAccessibleAccounts(tenant.actor) : [];
   return (
     <html
       lang="pt-BR"
@@ -30,8 +34,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${jakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="h-screen h-[100dvh] w-screen flex flex-row overflow-hidden bg-surface-100 text-ink">
-        <Sidebar />
+        <Sidebar isSuperAdmin={tenant.actor?.role === "SUPERADMIN"} />
         <main className="flex-1 min-w-0 h-full flex flex-col overflow-y-auto overflow-x-hidden">
+          <header className="sticky top-0 z-30 flex min-h-14 items-center justify-end border-b border-border bg-surface-100/95 px-4 backdrop-blur sm:px-8">
+            <AccountSwitcher
+              accounts={accounts.map((account) => ({ id: account.id, username: account.username, profilePicUrl: account.profilePicUrl, status: account.status }))}
+              activeAccountId={tenant.account?.id ?? null}
+            />
+          </header>
           {children}
         </main>
       </body>

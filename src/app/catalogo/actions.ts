@@ -178,8 +178,12 @@ export async function updateCatalogItem(
   };
 
   try {
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta ativa." };
+    const owned = await prisma.catalogItem.findFirst({ where: { id, accountId: account.id }, select: { id: true } });
+    if (!owned) return { ok: false, error: "Card não encontrado nesta conta." };
     const updated = await prisma.catalogItem.update({
-      where: { id },
+      where: { id: owned.id },
       data: sanitized,
       include: {
         usages: {
@@ -221,8 +225,10 @@ export async function deleteCatalogItem(id: string): Promise<{ ok: true } | { ok
   if (invalidInput) return { ok: false, error: invalidInput };
 
   try {
-    const item = await prisma.catalogItem.findUnique({
-      where: { id },
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta ativa." };
+    const item = await prisma.catalogItem.findFirst({
+      where: { id, accountId: account.id },
       include: {
         usages: {
           include: {
@@ -244,7 +250,8 @@ export async function deleteCatalogItem(id: string): Promise<{ ok: true } | { ok
       };
     }
 
-    await prisma.catalogItem.delete({ where: { id } });
+    if (!item) return { ok: false, error: "Card não encontrado nesta conta." };
+    await prisma.catalogItem.delete({ where: { id: item.id } });
     revalidatePath("/catalogo");
     return { ok: true };
   } catch (err: any) {

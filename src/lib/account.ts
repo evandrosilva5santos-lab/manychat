@@ -1,64 +1,31 @@
 import { prisma } from "@/lib/prisma";
 import type { InstagramAccount } from "@/generated/prisma/client";
+import { getCurrentActor, getTenantContext, listAccessibleAccounts, selectActiveAccount } from "@/lib/tenancy";
 
 /**
- * Conta do Instagram em uso.
- * Resolve pelo IG_USER_ID do ambiente ou pela primeira conta conectada no banco Postgres.
- * Se nenhuma conta existir ainda no banco, cria uma conta inicial com status DISCONNECTED
- * para que o sistema funcione de forma tipada e segura sem dados falsos.
+ * Conta ativa da sessão. Não cria conta de demonstração nem escolhe a primeira
+ * conta do banco: as duas opções violariam o isolamento entre clientes.
  */
-export async function getCurrentAccount(): Promise<InstagramAccount> {
-  const envIgUserId = process.env.IG_USER_ID;
-  if (envIgUserId) {
-    const existing = await prisma.instagramAccount.findUnique({
-      where: { igUserId: envIgUserId },
-    });
-    if (existing) return existing;
-
-    try {
-      return await prisma.instagramAccount.upsert({
-        where: { igUserId: envIgUserId },
-        update: {},
-        create: {
-          igUserId: envIgUserId,
-          username: process.env.IG_USERNAME || "instagram_business",
-          name: process.env.IG_NAME || "Instagram Business",
-          status: "CONNECTED",
-        },
-      });
-    } catch {
-      const retry = await prisma.instagramAccount.findUnique({
-        where: { igUserId: envIgUserId },
-      });
-      if (retry) return retry;
-    }
-  }
-
-  const existing = await prisma.instagramAccount.findFirst({
-    orderBy: { createdAt: "asc" },
-  });
-  if (existing) return existing;
-
-  return await prisma.instagramAccount.create({
-    data: {
-      igUserId: "default_account",
-      username: "instagram_business",
-      name: "Instagram Business",
-      status: "DISCONNECTED",
-    },
-  });
+export async function getCurrentAccount(): Promise<InstagramAccount | null> {
+  return (await getTenantContext()).account;
 }
 
-/**
- * Lista todas as contas de Instagram cadastradas no banco de dados.
- */
+/** Listagem limitada às contas pertencentes ao usuário atual. */
 export async function listAllAccounts(): Promise<InstagramAccount[]> {
+  const actor = await getCurrentActor();
+  return actor ? listAccessibleAccounts(actor) : [];
+}
+
+export async function getAccessibleAccount(accountId: string): Promise<InstagramAccount | null> {
+  const actor = await getCurrentActor();
+  if (!actor) return null;
   try {
-    return await prisma.instagramAccount.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    return await selectActiveAccount(actor, accountId);
   } catch {
-    return [];
+    return null;
   }
 }
 
+export async function countConnectedAccounts() {
+  return prisma.instagramAccount.count({ where: { status: "CONNECTED" } });
+}

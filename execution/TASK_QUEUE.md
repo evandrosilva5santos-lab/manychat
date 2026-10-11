@@ -8,7 +8,7 @@
 
 ## 🟢 READY (Pronta para Execução Imediata)
 
-- [ ] **`ITEM-03`**: API da Meta (Instagram Login, private reply, postbacks, roteamento por entry.id)
+*(Nenhuma tarefa pendente nesta fila.)*
 
 ---
 
@@ -34,6 +34,7 @@
 
 - [x] **`ITEM-01`**: Segurança, basic auth no proxy, requireAuth em server actions e links rastreados.
 - [x] **`ITEM-02`**: Banco Postgres real (Supabase), remoção de 100% de dados falsos/mocks/store.ts, páginas dinâmicas, zero falhas silenciosas.
+- [x] **`MULTI-TENANCY-ADMIN`**: Workspaces, isolamento por conta, painel Super Admin e seletor multi-conta.
 - [x] **`NANO-001`**: Adicionar busca de mídia no `InstagramGraphClient` (`src/lib/meta/graph.ts`) e criar rota `GET /api/instagram/media` (`src/app/api/instagram/media/route.ts`).
 - [x] **`NANO-002`**: Criar suíte de testes unitários para a rota `/api/instagram/media` e método `getUserMedia` no Vitest (`src/lib/meta/graph.test.ts`).
 - [x] **`NANO-003`**: Conectar `PostPicker.tsx` com `fetch('/api/instagram/media')` exibindo loading, empty e abas de filtro reais.

@@ -52,14 +52,12 @@ export async function getReconnectWhatsAppLink(
   if (!configuredUrl) {
     return { ok: false, error: "A URL de reconexão por WhatsApp não está configurada." };
   }
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!appUrl) {
-    return { ok: false, error: "A URL pública do Fluxo não está configurada." };
-  }
-
   try {
     const url = new URL(configuredUrl);
     if (url.protocol !== "https:") throw new Error("insecure url");
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!appUrl) return { ok: false, error: "A URL pública do Fluxo não está configurada." };
 
     const appOrigin = new URL(appUrl);
     if (appOrigin.protocol !== "https:") throw new Error("insecure app url");

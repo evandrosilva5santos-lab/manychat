@@ -5,11 +5,15 @@ import {
   getInstagramOAuthUrl,
   getInstagramRedirectUri,
 } from "@/lib/meta/oauth";
+import { requireActor } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    // A conta conectada será vinculada ao ator da sessão no callback.
+    // Nunca se inicia OAuth anônimo para evitar anexar um perfil a outro cliente.
+    await requireActor();
     const origin = request.nextUrl.origin;
     const from = request.nextUrl.searchParams.get("from");
     const returnPath = from === "conectar" ? "/conectar" : "/ajustes";

@@ -59,3 +59,8 @@
   7. **Tratamento de Códigos Meta:** 190 (`EXPIRED`), 10/2018278 (`WINDOW_CLOSED`), 4/613/32 (`RETRYABLE`).
   8. **Layout SimpleBuilder:** Responsividade completa mobile/tablet (`mobilePanel` tabs "recipe" | "preview") e desktop (lado a lado sem esmagamento do cabeçalho).
   9. **Documentação:** ADR-005 registrado em `docs/DECISIONS.md`, `docs/etapa-7-meta-app.md` atualizado para Instagram Login.
+
+## Atualização 2026-10-11 — Multi-tenancy e Painel Super Admin
+- **STATUS:** ✅ `DONE`
+- **ENTREGAS:** `User`, `Workspace` e sessões opacas; migration com backfill sem apagar contas existentes; `InstagramAccount.workspaceId` obrigatório; resolução de conta ativa por sessão e cookie HTTP-only; proteção contra IDOR em contatos, fluxos e catálogo; OAuth vinculado ao workspace do ator autenticado; painel `/admin` protegido, métricas e impersonação controlada; seletor de conta no cabeçalho e estado vazio de conexão.
+- **VALIDAÇÃO:** `npx tsc --noEmit` aprovado; `npm test -- --run` com **289/289** testes; `npm run build` aprovado.

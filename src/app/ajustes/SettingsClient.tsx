@@ -56,6 +56,18 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
   const [subscribeResult, setSubscribeResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  if (!settings.account) {
+    return (
+      <main className="fx flex min-h-full items-center justify-center bg-surface-100 p-6 text-ink">
+        <section className="max-w-lg rounded-2xl border border-border bg-surface-200 p-8 text-center shadow-card">
+          <h1 className="text-2xl font-bold">Conecte seu Instagram</h1>
+          <p className="mt-3 text-sm text-ink-muted">Escolha uma conta profissional para ativar contatos, conversas e automações.</p>
+          <Link href="/conectar" className="fx-btn fx-btn-primary mt-6">Conectar meu Instagram</Link>
+        </section>
+      </main>
+    );
+  }
+
   const oauthBase = origin.startsWith("https://")
     ? origin
     : "https://manychat-evandrosilva5santos-7492s-projects.vercel.app";

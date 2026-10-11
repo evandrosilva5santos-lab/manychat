@@ -3,7 +3,7 @@
 import { requireAuth } from "@/lib/auth/requireAuth";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount, listAllAccounts } from "@/lib/account";
-import { defaultGraphClient } from "@/lib/meta/graph";
+import { graphClientForAccount } from "@/lib/meta/account-client";
 
 export type MetaSettingsData = {
   account: {
@@ -13,7 +13,7 @@ export type MetaSettingsData = {
     igUserId: string;
     status: string;
     tokenExpiresAt?: string | null;
-  };
+  } | null;
   hasAccessToken: boolean;
   hasAppSecret: boolean;
   webhookCallbackUrl: string;
@@ -49,19 +49,19 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
   const account = await getCurrentAccount();
   const allDbAccounts = await listAllAccounts();
 
-  const hasAccessToken = Boolean(account.accessTokenEnc || process.env.IG_ACCESS_TOKEN);
+  const hasAccessToken = Boolean(account?.accessTokenEnc || process.env.IG_ACCESS_TOKEN);
   const hasAppSecret = Boolean(process.env.META_APP_SECRET || process.env.IG_APP_SECRET);
   const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
 
   return {
-    account: {
+    account: account ? {
       id: account.id,
       username: account.username,
       name: account.name,
       igUserId: account.igUserId,
       status: account.status,
       tokenExpiresAt: account.tokenExpiresAt ? account.tokenExpiresAt.toISOString() : null,
-    },
+    } : null,
     hasAccessToken,
     hasAppSecret,
     webhookCallbackUrl: "/api/webhook/instagram",
@@ -94,7 +94,9 @@ export async function testMetaConnection(): Promise<{
 }> {
   await requireAuth();
   try {
-    const res = await defaultGraphClient.validateConnection();
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta do Instagram está selecionada." };
+    const res = await (await graphClientForAccount(account.id)).validateConnection();
     if (res.valid) {
       return {
         ok: true,
@@ -121,7 +123,9 @@ export async function renewMetaToken(): Promise<{
 }> {
   await requireAuth();
   try {
-    const res = await defaultGraphClient.refreshLongLivedToken();
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta do Instagram está selecionada." };
+    const res = await (await graphClientForAccount(account.id)).refreshLongLivedToken();
     if (res.success) {
       const days = res.expiresIn ? Math.round(res.expiresIn / 86400) : 60;
       revalidatePath("/ajustes");
@@ -144,7 +148,8 @@ export async function subscribeMetaWebhooks(): Promise<{
   await requireAuth();
   try {
     const account = await getCurrentAccount();
-    const res = await defaultGraphClient.subscribeWebhooks(account.igUserId);
+    if (!account) return { ok: false, error: "Nenhuma conta do Instagram está selecionada." };
+    const res = await (await graphClientForAccount(account.id)).subscribeWebhooks(account.igUserId);
     if (res.success) {
       revalidatePath("/ajustes");
       return { ok: true };

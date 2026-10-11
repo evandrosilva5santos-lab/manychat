@@ -86,3 +86,7 @@ npm run dev                     # abra http://localhost:3000/fluxos
 ```
 
 Testes e checagens: `npm test` · `npm run lint` · `npm run build`
+
+### Multi-tenancy
+
+Configure `SUPERADMIN_EMAIL` e `SUPERADMIN_NAME` para identificar o operador do painel `/admin`. A migration do Prisma cria um workspace legado e associa todas as contas já existentes a ele antes de tornar `workspaceId` obrigatório; execute `npx prisma migrate deploy` no ambiente publicado. Clientes autenticados usam sessões opacas (`fluxo_session`) e só podem selecionar contas de workspaces que possuem.

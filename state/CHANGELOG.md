@@ -88,3 +88,9 @@
   - Level 2 (Integração): `npm test` concluiu com 261/261 testes passando (100% verde em 18 suítes).
   - Level 3 (Banco): Supabase Postgres sincronizado com `npx prisma db push` sem perda de dados.
 
+## 2026-10-11 — Multi-tenancy: Super Admin e isolamento por conta
+- Adicionados `User`, `Workspace`, `UserSession` e a relação obrigatória `InstagramAccount.workspaceId`.
+- Criada migration `20261011120000_multi_tenancy`: cria workspace legado e associa todas as contas históricas antes de exigir a chave estrangeira.
+- Adicionados painel `/admin`, troca de conta ativa em cookie HTTP-only e impersonação limitada a `SUPERADMIN`.
+- Todas as operações sensíveis de contatos, catálogo e fluxos agora verificam `accountId` da conta ativa; OAuth só vincula perfis ao workspace do ator autenticado.
+- Validação: `npx tsc --noEmit`, 289 testes Vitest e `npm run build` aprovados.

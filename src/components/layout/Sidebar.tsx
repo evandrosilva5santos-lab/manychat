@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   LayoutGrid,
   TriangleAlert,
+  Shield,
 } from "lucide-react";
 
 /** Ícone de Trevo / Automação característico do Fluxo */
@@ -102,7 +103,7 @@ const NAV_ITEMS = [
   { id: "ajustes", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const pathname = usePathname();
 
   // A tela de conexão do cliente (/conectar) é 100% isolada e sem menu interno do app
@@ -136,7 +137,7 @@ export function Sidebar() {
 
         {/* Itens de Navegação com ícones exatos */}
         <nav className="flex flex-col items-center gap-2 mt-2 w-full px-2">
-          {NAV_ITEMS.map((item) => {
+          {(isSuperAdmin ? [...NAV_ITEMS, { id: "admin", label: "Admin", href: "/admin", icon: Shield }] : NAV_ITEMS).map((item) => {
             const isActive =
               item.href === "/"
                 ? pathname === "/"

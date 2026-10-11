@@ -11,6 +11,7 @@ import {
   verifyOAuthState,
 } from "@/lib/meta/oauth";
 import { encryptToken } from "@/lib/security/token";
+import { getOrCreateWorkspaceForActor, requireActor } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const actor = await requireActor();
+    const workspace = await getOrCreateWorkspaceForActor(actor);
     const redirectUri = getInstagramRedirectUri(request);
     let connectedUsername = "instagram_account";
 
@@ -76,9 +79,26 @@ export async function GET(request: NextRequest) {
       if (accounts.length > 0) {
         for (const acc of accounts) {
           const encrypted = encryptToken(acc.pageAccessToken);
-          await prisma.instagramAccount.upsert({
+          const existing = await prisma.instagramAccount.findUnique({
             where: { igUserId: acc.igUserId },
-            create: {
+            select: { id: true, workspaceId: true },
+          });
+          if (existing && existing.workspaceId !== workspace.id) {
+            throw new Error("Esta conta do Instagram já está vinculada a outro cliente.");
+          }
+          await (existing ? prisma.instagramAccount.update({
+            where: { id: existing.id },
+            data: {
+              username: acc.username,
+              name: acc.name || acc.pageName || null,
+              profilePicUrl: acc.profilePicUrl || null,
+              accessTokenEnc: encrypted,
+              tokenExpiresAt: null,
+              status: "CONNECTED",
+            },
+          }) : prisma.instagramAccount.create({
+            data: {
+              workspaceId: workspace.id,
               igUserId: acc.igUserId,
               username: acc.username,
               name: acc.name || acc.pageName || null,
@@ -87,16 +107,7 @@ export async function GET(request: NextRequest) {
               tokenExpiresAt: null, // Page tokens do Facebook não expiram
               status: "CONNECTED",
             },
-            update: {
-              username: acc.username,
-              name: acc.name || acc.pageName || null,
-              profilePicUrl: acc.profilePicUrl || null,
-              accessTokenEnc: encrypted,
-              tokenExpiresAt: null,
-              status: "CONNECTED",
-              updatedAt: new Date(),
-            },
-          });
+          }));
           connectedUsername = acc.username;
         }
         fbSuccess = true;
@@ -115,9 +126,26 @@ export async function GET(request: NextRequest) {
       const encryptedToken = encryptToken(longLivedToken);
       const expiresAt = new Date(Date.now() + (expiresIn || 5184000) * 1000);
 
-      const account = await prisma.instagramAccount.upsert({
+      const existing = await prisma.instagramAccount.findUnique({
         where: { igUserId: profile.igUserId },
-        create: {
+        select: { id: true, workspaceId: true },
+      });
+      if (existing && existing.workspaceId !== workspace.id) {
+        throw new Error("Esta conta do Instagram já está vinculada a outro cliente.");
+      }
+      const account = await (existing ? prisma.instagramAccount.update({
+        where: { id: existing.id },
+        data: {
+          username: profile.username,
+          name: profile.name || null,
+          profilePicUrl: profile.profilePicUrl || null,
+          accessTokenEnc: encryptedToken,
+          tokenExpiresAt: expiresAt,
+          status: "CONNECTED",
+        },
+      }) : prisma.instagramAccount.create({
+        data: {
+          workspaceId: workspace.id,
           igUserId: profile.igUserId,
           username: profile.username,
           name: profile.name || null,
@@ -126,16 +154,7 @@ export async function GET(request: NextRequest) {
           tokenExpiresAt: expiresAt,
           status: "CONNECTED",
         },
-        update: {
-          username: profile.username,
-          name: profile.name || null,
-          profilePicUrl: profile.profilePicUrl || null,
-          accessTokenEnc: encryptedToken,
-          tokenExpiresAt: expiresAt,
-          status: "CONNECTED",
-          updatedAt: new Date(),
-        },
-      });
+      }));
       connectedUsername = account.username;
     }
 
