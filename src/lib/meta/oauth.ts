@@ -213,6 +213,41 @@ export async function exchangeForLongLivedToken(
 }
 
 /**
+ * Renova um token de longa duração do Instagram (ig_refresh_token), gerando
+ * outro de 60 dias. A Meta só aceita token com +24h de vida. Usado pelo cron
+ * de auto-renovação (src/lib/meta/token-renewal.ts) para o token nunca vencer.
+ */
+export async function refreshInstagramLongLivedToken(
+  longLivedToken: string
+): Promise<{ accessToken: string; expiresIn: number }> {
+  const url = new URL("https://graph.instagram.com/refresh_access_token");
+  url.searchParams.set("grant_type", "ig_refresh_token");
+  url.searchParams.set("access_token", longLivedToken);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  const raw = await res.json().catch(() => null);
+  if (!res.ok || !raw) {
+    const errorMsg = raw?.error?.message || `Falha ao renovar token (HTTP ${res.status})`;
+    const code = raw?.error?.code ? ` [code ${raw.error.code}]` : "";
+    throw new Error(`Meta Token Refresh Error: ${errorMsg}${code}`);
+  }
+
+  const parsed = longLivedTokenResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error("Resposta de renovação de token inválida.");
+  }
+
+  return {
+    accessToken: parsed.data.access_token,
+    expiresIn: parsed.data.expires_in,
+  };
+}
+
+/**
  * Obtém os dados de perfil (user_id, username, nome, foto) da conta autenticada.
  */
 export async function fetchInstagramProfile(accessToken: string): Promise<{
@@ -312,6 +347,37 @@ export async function exchangeFacebookCodeForToken(
     accessToken: raw.access_token,
     expiresIn: raw.expires_in,
   };
+}
+
+/**
+ * Troca o token de usuário do Facebook (curto) por um de longa duração (~60d).
+ * Essencial para o token "nunca expirar": o token de PÁGINA obtido a partir de
+ * um token de usuário de longa duração NÃO expira. Sem este passo, o token de
+ * Página também seria curto e morreria em ~1h.
+ */
+export async function exchangeForLongLivedFacebookUserToken(
+  shortLivedUserToken: string
+): Promise<{ accessToken: string; expiresIn?: number }> {
+  const clientId = process.env.IG_APP_ID || process.env.META_APP_ID;
+  const clientSecret = process.env.IG_APP_SECRET || process.env.META_APP_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error("Credenciais do app Meta (ID/Secret) não configuradas.");
+  }
+
+  const url = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+  url.searchParams.set("grant_type", "fb_exchange_token");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("client_secret", clientSecret);
+  url.searchParams.set("fb_exchange_token", shortLivedUserToken);
+
+  const res = await fetch(url.toString(), { method: "GET", signal: AbortSignal.timeout(15_000) });
+  const raw = await res.json().catch(() => null);
+  if (!res.ok || !raw || !raw.access_token) {
+    const errorMsg = raw?.error?.message || "Falha ao gerar token de longa duração do Facebook";
+    throw new Error(`Meta Facebook Token Exchange Error: ${errorMsg}`);
+  }
+
+  return { accessToken: raw.access_token, expiresIn: raw.expires_in };
 }
 
 export type FacebookConnectedAccount = {

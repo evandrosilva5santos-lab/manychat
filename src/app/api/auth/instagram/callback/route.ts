@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   exchangeCodeForShortLivedToken,
   exchangeFacebookCodeForToken,
+  exchangeForLongLivedFacebookUserToken,
   exchangeForLongLivedToken,
   fetchFacebookPagesAndInstagram,
   fetchInstagramProfile,
@@ -74,7 +75,10 @@ export async function GET(request: NextRequest) {
     let fbSuccess = false;
     try {
       const fbToken = await exchangeFacebookCodeForToken(code, redirectUri);
-      const accounts = await fetchFacebookPagesAndInstagram(fbToken.accessToken);
+      // Troca por token de usuário de longa duração → o token de Página daí
+      // derivado NÃO expira (é o que torna o token "permanente").
+      const longLivedUser = await exchangeForLongLivedFacebookUserToken(fbToken.accessToken);
+      const accounts = await fetchFacebookPagesAndInstagram(longLivedUser.accessToken);
 
       if (accounts.length > 0) {
         for (const acc of accounts) {
