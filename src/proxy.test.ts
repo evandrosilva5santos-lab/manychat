@@ -37,6 +37,13 @@ describe("proxy", () => {
     expect(csp).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'/);
   });
 
+  it("allows a client session candidate through to server-side session validation", () => {
+    const clientRequest = new NextRequest("http://localhost:3007/conversas", {
+      headers: { cookie: "fluxo_session=opaque-client-session" },
+    });
+    expect(proxy(clientRequest).status).toBe(200);
+  });
+
   it("closes the site in production when SITE_PASSWORD is missing", () => {
     vi.stubEnv("SITE_PASSWORD", "");
     const res = proxy(request("/", AUTH));

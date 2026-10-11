@@ -7,13 +7,18 @@ import { NextResponse, type NextRequest } from "next/server";
 import { BASIC_AUTH_REALM, evaluateBasicAuth, isPublicPath, readBasicAuthConfig } from "@/lib/auth/basic";
 import { buildContentSecurityPolicy, generateNonce } from "@/lib/security/csp";
 
+// O proxy roda em Edge e não consulta o banco. A validade da sessão opaca é
+// confirmada nas páginas e Server Actions por `requireAuth`/`getCurrentActor`.
+const SESSION_COOKIE = "fluxo_session";
+
 export function proxy(request: NextRequest) {
   if (!isPublicPath(request.nextUrl.pathname)) {
     const result = evaluateBasicAuth(request.headers.get("authorization"), readBasicAuthConfig());
-    if (result === "misconfigured") {
+    const hasSessionCandidate = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+    if (result === "misconfigured" && !hasSessionCandidate) {
       return new NextResponse("Site fechado: configure SITE_PASSWORD.", { status: 503 });
     }
-    if (result === "unauthorized") {
+    if (result === "unauthorized" && !hasSessionCandidate) {
       return new NextResponse("Autenticação necessária.", {
         status: 401,
         headers: { "WWW-Authenticate": `Basic realm="${BASIC_AUTH_REALM}", charset="UTF-8"` },
