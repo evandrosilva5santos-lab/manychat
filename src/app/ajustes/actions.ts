@@ -4,6 +4,15 @@ import { requireAuth } from "@/lib/auth/requireAuth";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount, listAllAccounts } from "@/lib/account";
 import { graphClientForAccount } from "@/lib/meta/account-client";
+import { createConnectInvite } from "@/lib/meta/connect-invite";
+import {
+  getAppBaseUrl,
+  getFacebookAppCredentials,
+  getInstagramAppCredentials,
+  getInstagramRedirectUri,
+  getOAuthSigningSecret,
+} from "@/lib/meta/oauth";
+import { getOrCreateWorkspaceForActor, getTenantContext } from "@/lib/tenancy";
 
 export type MetaSettingsData = {
   account: {
@@ -19,6 +28,12 @@ export type MetaSettingsData = {
   webhookCallbackUrl: string;
   oauthRedirectUrl: string;
   oauthLoginUrl: string;
+  /** Redirect URI absoluta que precisa estar cadastrada nos DOIS logins do painel da Meta. */
+  oauthRedirectUri: string;
+  /** Link do cliente com convite assinado (7 dias) para o workspace em uso; null se não der para gerar. */
+  clientConnectUrl: string | null;
+  /** Diagnóstico da configuração de cada login (nunca expõe segredos). */
+  oauthConfig: { facebookIssue: string | null; instagramIssue: string | null; stateIssue: string | null };
   /** O token em si nunca vai para o navegador; só se está configurado e uma dica. */
   webhookVerifyTokenConfigured: boolean;
   webhookVerifyTokenHint: string | null;
@@ -34,6 +49,31 @@ export type MetaSettingsData = {
 };
 
 const TOKEN_HINT_VISIBLE_CHARS = 3;
+
+/** Mensagem do erro de configuração, ou null quando está tudo certo. */
+function configIssue(check: () => unknown): string | null {
+  try {
+    check();
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Configuração inválida.";
+  }
+}
+
+/** Convite para o workspace em uso (o do cliente que o superadmin está vendo, ou o próprio). */
+async function buildClientConnectUrl(): Promise<string | null> {
+  try {
+    const { actor, impersonatedWorkspaceId } = await getTenantContext();
+    if (!actor) return null;
+    const workspaceId = impersonatedWorkspaceId ?? (await getOrCreateWorkspaceForActor(actor)).id;
+    const url = new URL("/conectar", getAppBaseUrl());
+    url.searchParams.set("convite", createConnectInvite(workspaceId));
+    return url.toString();
+  } catch (error) {
+    console.error("[ajustes] Não foi possível gerar o link do cliente", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
 const META_UNAVAILABLE = "Não foi possível falar com a Meta agora. Tente novamente em instantes.";
 
 function maskSecret(value: string | undefined): string | null {
@@ -67,6 +107,13 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
     webhookCallbackUrl: "/api/webhook/instagram",
     oauthRedirectUrl: "/api/auth/instagram/callback",
     oauthLoginUrl: "/api/auth/instagram/login",
+    oauthRedirectUri: getInstagramRedirectUri(),
+    clientConnectUrl: await buildClientConnectUrl(),
+    oauthConfig: {
+      facebookIssue: configIssue(getFacebookAppCredentials),
+      instagramIssue: configIssue(getInstagramAppCredentials),
+      stateIssue: configIssue(getOAuthSigningSecret),
+    },
     webhookVerifyTokenConfigured: Boolean(verifyToken),
     webhookVerifyTokenHint: maskSecret(verifyToken),
     isMockMode: !hasAccessToken,

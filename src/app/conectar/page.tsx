@@ -10,7 +10,7 @@ export const metadata = {
 export default async function ConectarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; username?: string; error?: string }>;
+  searchParams: Promise<{ connected?: string; username?: string; error?: string; convite?: string }>;
 }) {
   const params = await searchParams;
   return (
@@ -18,6 +18,7 @@ export default async function ConectarPage({
       connected={params.connected === "true"}
       username={params.username || null}
       error={params.error || null}
+      invite={params.convite || null}
     />
   );
 }

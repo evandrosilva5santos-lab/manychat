@@ -68,16 +68,11 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
     );
   }
 
-  const oauthBase = origin.startsWith("https://")
-    ? origin
-    : "https://manychat-evandrosilva5santos-7492s-projects.vercel.app";
-  const fullOauthUrl = `${oauthBase}${settings.oauthRedirectUrl}`;
+  const fullOauthUrl = settings.oauthRedirectUri;
   const fullWebhookUrl = `${origin || "https://seu-dominio.vercel.app"}${settings.webhookCallbackUrl}`;
 
-  const clientBase = origin.startsWith("https://")
-    ? origin
-    : "https://manychat-evandrosilva5santos-7492s-projects.vercel.app";
-  const fullClientUrl = `${clientBase}/conectar`;
+  // Link com convite assinado: amarra a conexão do cliente ao workspace certo.
+  const fullClientUrl = settings.clientConnectUrl ?? "";
   const whatsappShareText = `Olá! Para ativarmos as automações e respostas automáticas no seu Instagram, acesse o link seguro oficial abaixo e autorize em 1 clique:\n\n👉 ${fullClientUrl}\n\nÉ 100% oficial pela Meta e leva menos de 1 minuto!`;
 
   const copyToClipboard = (text: string, fieldId: string) => {
@@ -253,9 +248,9 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
 
             <div className="flex items-center gap-2">
               <a
-                href="/conectar"
+                href={fullClientUrl || "/conectar"}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3.5 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
               >
                 <span>Visualizar Tela do Cliente</span>
@@ -279,6 +274,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
                 <button
                   type="button"
                   onClick={() => copyToClipboard(fullClientUrl, "client_url")}
+                  disabled={!fullClientUrl}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-surface-300 border border-border px-4 py-2.5 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
                 >
                   {copiedField === "client_url" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
@@ -287,6 +283,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
                 <button
                   type="button"
                   onClick={() => copyToClipboard(whatsappShareText, "whatsapp_msg")}
+                  disabled={!fullClientUrl}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 text-xs font-bold transition active:scale-95 shadow-xs"
                 >
                   {copiedField === "whatsapp_msg" ? <Check size={14} /> : <Send size={14} />}
@@ -337,11 +334,17 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
 
             <div className="flex flex-wrap items-center gap-2">
               <a
-                href={settings.oauthLoginUrl}
+                href={`${settings.oauthLoginUrl}?mode=instagram`}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
               >
                 <ShieldCheck size={14} />
-                <span>Conectar com Instagram (OAuth)</span>
+                <span>Entrar com Instagram</span>
+              </a>
+              <a
+                href={`${settings.oauthLoginUrl}?mode=facebook`}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1877F2] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
+              >
+                <span>Entrar com Facebook</span>
               </a>
               <button
                 type="button"
@@ -455,18 +458,20 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-95 transition active:scale-95"
               >
                 <ShieldCheck size={16} />
-                <span>Conectar com Instagram</span>
+                <span>Entrar com Instagram</span>
               </a>
               <a
                 href={`${settings.oauthLoginUrl}?mode=facebook`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-300 px-4 py-2.5 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
               >
-                <span>Facebook (contas via Página)</span>
+                <span>Entrar com Facebook</span>
               </a>
             </div>
           </div>
 
           <div className="space-y-5 mt-6">
+            <LoginConfigStatus config={settings.oauthConfig} />
+
             {/* Aviso sobre o erro 'O domínio dessa URL não está incluído nos domínios do app' */}
             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-xs space-y-3">
               <div className="flex items-start gap-3">
@@ -735,6 +740,37 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
           </ol>
         </section>
       </main>
+    </div>
+  );
+}
+
+type LoginConfigStatusProps = { config: MetaSettingsData["oauthConfig"] };
+
+/** Diagnóstico de cada login, para o problema aparecer aqui e não na tela da Meta. */
+function LoginConfigStatus({ config }: LoginConfigStatusProps) {
+  const rows = [
+    { label: "Entrar com Instagram", hint: "IG_APP_ID / IG_APP_SECRET (ID do app do Instagram)", issue: config.instagramIssue ?? config.stateIssue },
+    { label: "Entrar com Facebook", hint: "META_APP_ID / META_APP_SECRET (ID do App da Meta)", issue: config.facebookIssue ?? config.stateIssue },
+  ];
+  return (
+    <div className="rounded-2xl border border-border bg-surface-100 p-4 text-xs" aria-label="Configuração do login">
+      <strong className="block text-sm font-bold text-ink mb-2">Configuração do login</strong>
+      <ul className="space-y-2">
+        {rows.map((row) => (
+          <li key={row.label} className="flex items-start gap-2.5">
+            {row.issue ? (
+              <AlertTriangle size={16} className="shrink-0 text-amber-400 mt-0.5" aria-hidden />
+            ) : (
+              <CheckCircle2 size={16} className="shrink-0 text-emerald-500 mt-0.5" aria-hidden />
+            )}
+            <div>
+              <span className="font-bold text-ink">{row.label}: </span>
+              <span className={row.issue ? "text-amber-300" : "text-emerald-500"}>{row.issue ? "precisa de ajuste" : "pronto"}</span>
+              <span className="block text-ink-subtle">{row.issue ?? row.hint}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

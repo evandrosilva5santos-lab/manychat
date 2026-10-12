@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
-  ArrowRight,
   Zap,
   Lock,
   MessageCircle,
@@ -38,14 +37,21 @@ interface ConectarClientProps {
   connected: boolean;
   username: string | null;
   error: string | null;
+  /** Convite assinado do link enviado pelo gestor; sem ele não há como saber a qual cliente a conta pertence. */
+  invite: string | null;
 }
 
-export function ConectarClient({ connected, username, error }: ConectarClientProps) {
-  const [isRedirecting, setIsRedirecting] = useState(false);
+export function ConectarClient({ connected, username, error, invite }: ConectarClientProps) {
+  const [redirectingTo, setRedirectingTo] = useState<"instagram" | "facebook" | null>(null);
+  const canConnect = Boolean(invite) && !redirectingTo;
 
-  const handleStartOAuth = (mode: "instagram" | "facebook" = "instagram") => {
-    setIsRedirecting(true);
-    window.location.href = `/api/auth/instagram/login?from=conectar&mode=${mode}`;
+  const handleStartOAuth = (mode: "instagram" | "facebook") => {
+    if (!invite) return;
+    setRedirectingTo(mode);
+    const params = new URLSearchParams({ from: "conectar", mode, convite: invite });
+    // Navegação de página inteira: a rota responde com redirect 302 para a Meta.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = `/api/auth/instagram/login?${params.toString()}`;
   };
 
   return (
@@ -104,7 +110,7 @@ export function ConectarClient({ connected, username, error }: ConectarClientPro
               </div>
               <div className="flex items-center gap-2 text-ink font-medium">
                 <CheckCircle2 size={14} className="text-success" />
-                <span>Token seguro de longa duração (60 dias) ativo</span>
+                <span>Acesso renovado automaticamente, sem você precisar repetir</span>
               </div>
               <div className="flex items-center gap-2 text-ink font-medium">
                 <CheckCircle2 size={14} className="text-success" />
@@ -112,21 +118,9 @@ export function ConectarClient({ connected, username, error }: ConectarClientPro
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <Link
-                href="/fluxos"
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-on-primary hover:bg-primary-hover shadow-xs transition"
-              >
-                <span>Criar Meu Primeiro Fluxo</span>
-                <ArrowRight size={16} />
-              </Link>
-              <Link
-                href="/ajustes"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-surface-300 border border-border px-4 py-3 text-sm font-semibold text-ink hover:bg-surface-300/80 transition"
-              >
-                <span>Painel de Ajustes</span>
-              </Link>
-            </div>
+            <p className="text-sm text-ink-muted pt-2">
+              Pronto! Pode fechar esta página. Quem cuida da sua conta já vê a conexão no painel.
+            </p>
           </div>
         ) : (
           /* Caso: Não conectado ou Erro */
@@ -135,12 +129,9 @@ export function ConectarClient({ connected, username, error }: ConectarClientPro
             {error && (
               <div className="rounded-xl bg-danger-soft border border-danger/30 p-4 flex items-start gap-3 text-xs text-danger animate-in fade-in">
                 <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-semibold">Falha ao autenticar com a Meta</p>
-                  <p className="opacity-90 leading-relaxed">
-                    Código do erro: <code className="font-mono bg-danger/10 px-1 py-0.5 rounded">{error}</code>.
-                    Certifique-se de que sua conta é Comercial ou Criador e que concedeu todas as permissões solicitadas.
-                  </p>
+                <div className="space-y-1" role="alert">
+                  <p className="font-semibold">Não foi possível conectar</p>
+                  <p className="opacity-90 leading-relaxed">{error}</p>
                 </div>
               </div>
             )}
@@ -158,23 +149,33 @@ export function ConectarClient({ connected, username, error }: ConectarClientPro
               </p>
             </div>
 
-            {/* Ações de Conexão */}
+            {!invite && (
+              <div className="rounded-xl bg-surface-100 border border-border p-4 flex items-start gap-3 text-xs text-ink-muted" role="status">
+                <Lock size={16} className="shrink-0 mt-0.5 text-ink-subtle" />
+                <span>
+                  Este endereço precisa do <strong className="text-ink">link de conexão</strong> enviado por quem cuida da sua conta.
+                  Peça ao seu gestor o link e abra-o novamente.
+                </span>
+              </div>
+            )}
+
+            {/* Ações de Conexão: dois caminhos oficiais da Meta */}
             <div className="space-y-3 pt-2">
               <button
                 type="button"
                 onClick={() => handleStartOAuth("instagram")}
-                disabled={isRedirecting}
+                disabled={!canConnect}
                 className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
               >
-                {isRedirecting ? (
+                {redirectingTo === "instagram" ? (
                   <>
                     <RefreshCw size={18} className="animate-spin" />
-                    <span>Redirecionando para o Instagram...</span>
+                    <span>Abrindo o Instagram...</span>
                   </>
                 ) : (
                   <>
                     <InstagramIcon size={18} />
-                    <span>Conectar com Instagram</span>
+                    <span>Entrar com Instagram</span>
                   </>
                 )}
               </button>
@@ -182,12 +183,24 @@ export function ConectarClient({ connected, username, error }: ConectarClientPro
               <button
                 type="button"
                 onClick={() => handleStartOAuth("facebook")}
-                disabled={isRedirecting}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-300 px-4 py-2.5 text-xs font-semibold text-ink hover:bg-surface-300/80 transition cursor-pointer"
+                disabled={!canConnect}
+                className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#1877F2] px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
               >
-                <ShieldCheck size={14} />
-                <span>Conectar via Facebook (contas vinculadas a uma Página)</span>
+                {redirectingTo === "facebook" ? (
+                  <>
+                    <RefreshCw size={18} className="animate-spin" />
+                    <span>Abrindo o Facebook...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={18} />
+                    <span>Entrar com Facebook</span>
+                  </>
+                )}
               </button>
+              <p className="text-center text-[11px] text-ink-subtle">
+                Use o Facebook se a sua conta do Instagram é administrada por uma Página do Facebook.
+              </p>
             </div>
 
             {/* Checklist de Recursos */}
