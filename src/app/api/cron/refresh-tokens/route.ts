@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renewExpiringTokens } from "@/lib/meta/token-renewal";
+import { safeEqual } from "@/lib/auth/basic";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /**
  * GET/POST /api/cron/refresh-tokens
@@ -14,8 +18,11 @@ async function handle(request: NextRequest) {
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json({ error: "CRON_SECRET não configurado" }, { status: 503 });
     }
-  } else if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  } else {
+    const auth = request.headers.get("authorization") ?? "";
+    if (!safeEqual(auth, `Bearer ${secret}`)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
   }
 
   const summary = await renewExpiringTokens();

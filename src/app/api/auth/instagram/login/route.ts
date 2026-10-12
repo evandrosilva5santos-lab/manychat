@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     // Instagram Login é o padrão (logar com qualquer conta); Facebook só quando
     // explicitamente pedido (?mode=facebook), para contas vinculadas a Página.
     const authUrl =
-      mode === "facebook"
+      mode === "facebook" || mode === "fbe"
         ? getFacebookBusinessLoginUrl(redirectUri, state, useFbe)
         : getInstagramOAuthUrl(redirectUri, state);
 

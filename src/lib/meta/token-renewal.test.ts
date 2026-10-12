@@ -6,7 +6,21 @@ const db = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { instagramAccount: db } }));
 
-const oauth = vi.hoisted(() => ({ refreshInstagramLongLivedToken: vi.fn() }));
+const oauth = vi.hoisted(() => {
+  class MetaTokenError extends Error {
+    httpStatus: number;
+    code?: number;
+    constructor(message: string, httpStatus: number, code?: number) {
+      super(message);
+      this.httpStatus = httpStatus;
+      this.code = code;
+    }
+    get isPermanent() {
+      return this.code === 190 || this.httpStatus === 400 || this.httpStatus === 401;
+    }
+  }
+  return { refreshInstagramLongLivedToken: vi.fn(), MetaTokenError };
+});
 vi.mock("./oauth", () => oauth);
 
 // Criptografia real-ish: ida e volta previsível para o teste.
@@ -74,9 +88,9 @@ describe("renewExpiringTokens", () => {
     expect(s.tooYoung).toBe(1);
   });
 
-  it("falha de renovação (190/expirado) marca a conta EXPIRED e alerta", async () => {
+  it("falha permanente (code 190) marca a conta EXPIRED e alerta", async () => {
     db.findMany.mockResolvedValue([account({ accessTokenEnc: "enc(velho)", tokenExpiresAt: inDays(2) })]);
-    oauth.refreshInstagramLongLivedToken.mockRejectedValue(new Error("code 190"));
+    oauth.refreshInstagramLongLivedToken.mockRejectedValue(new oauth.MetaTokenError("code 190", 400, 190));
     const s = await renewExpiringTokens(NOW);
     expect(s.failed).toBe(1);
     expect(s.renewed).toBe(0);
@@ -85,7 +99,16 @@ describe("renewExpiringTokens", () => {
     expect(data.tokenStatus).toBe("EXPIRED");
   });
 
-  it("token ilegível (chave trocada) marca EXPIRED sem derrubar as demais contas", async () => {
+  it("erro passageiro (rede/timeout/5xx) NÃO expira a conta — tenta no próximo ciclo", async () => {
+    db.findMany.mockResolvedValue([account({ accessTokenEnc: "enc(velho)", tokenExpiresAt: inDays(2) })]);
+    oauth.refreshInstagramLongLivedToken.mockRejectedValue(new oauth.MetaTokenError("timeout", 0));
+    const s = await renewExpiringTokens(NOW);
+    expect(s.transient).toBe(1);
+    expect(s.failed).toBe(0);
+    expect(db.update).not.toHaveBeenCalled(); // conta segue CONNECTED
+  });
+
+  it("token ilegível (chave trocada) é pulado SEM expirar, e não derruba as demais", async () => {
     db.findMany.mockResolvedValue([
       account({ id: "a1", igUserId: "1", accessTokenEnc: "ilegivel", tokenExpiresAt: inDays(1) }),
       account({ id: "a2", igUserId: "2", accessTokenEnc: "enc(ok)", tokenExpiresAt: inDays(3) }),
@@ -93,7 +116,11 @@ describe("renewExpiringTokens", () => {
     oauth.refreshInstagramLongLivedToken.mockResolvedValue({ accessToken: "n", expiresIn: (60 * DAY) / 1000 });
     const s = await renewExpiringTokens(NOW);
     expect(s.checked).toBe(2);
-    expect(s.failed).toBe(1);
+    expect(s.decryptSkipped).toBe(1);
     expect(s.renewed).toBe(1);
+    expect(s.failed).toBe(0);
+    // Nenhuma conta foi marcada EXPIRED por causa do token ilegível.
+    const expiredCalls = db.update.mock.calls.filter((c) => c[0].data.status === "EXPIRED");
+    expect(expiredCalls).toHaveLength(0);
   });
 });

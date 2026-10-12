@@ -213,6 +213,26 @@ export async function exchangeForLongLivedToken(
 }
 
 /**
+ * Erro da renovação de token com contexto para decidir se é PERMANENTE
+ * (token revogado/expirado → reconectar) ou PASSAGEIRO (rede/limite → tentar
+ * de novo no próximo ciclo, sem desconectar a conta).
+ */
+export class MetaTokenError extends Error {
+  readonly httpStatus: number;
+  readonly code?: number;
+  constructor(message: string, httpStatus: number, code?: number) {
+    super(message);
+    this.name = "MetaTokenError";
+    this.httpStatus = httpStatus;
+    this.code = code;
+  }
+  /** Token morto de vez: só 190 (OAuthException) ou 400/401. O resto é passageiro. */
+  get isPermanent(): boolean {
+    return this.code === 190 || this.httpStatus === 400 || this.httpStatus === 401;
+  }
+}
+
+/**
  * Renova um token de longa duração do Instagram (ig_refresh_token), gerando
  * outro de 60 dias. A Meta só aceita token com +24h de vida. Usado pelo cron
  * de auto-renovação (src/lib/meta/token-renewal.ts) para o token nunca vencer.
@@ -224,21 +244,23 @@ export async function refreshInstagramLongLivedToken(
   url.searchParams.set("grant_type", "ig_refresh_token");
   url.searchParams.set("access_token", longLivedToken);
 
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    signal: AbortSignal.timeout(15_000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), { method: "GET", signal: AbortSignal.timeout(15_000) });
+  } catch (err) {
+    // Timeout / rede → passageiro (httpStatus 0).
+    throw new MetaTokenError(`Falha de rede ao renovar token: ${(err as Error).message}`, 0);
+  }
 
   const raw = await res.json().catch(() => null);
   if (!res.ok || !raw) {
     const errorMsg = raw?.error?.message || `Falha ao renovar token (HTTP ${res.status})`;
-    const code = raw?.error?.code ? ` [code ${raw.error.code}]` : "";
-    throw new Error(`Meta Token Refresh Error: ${errorMsg}${code}`);
+    throw new MetaTokenError(errorMsg, res.status, raw?.error?.code);
   }
 
   const parsed = longLivedTokenResponseSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new Error("Resposta de renovação de token inválida.");
+    throw new MetaTokenError("Resposta de renovação de token inválida.", res.status);
   }
 
   return {

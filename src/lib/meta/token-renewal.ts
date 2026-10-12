@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { decryptToken, encryptToken } from "@/lib/security/token";
-import { refreshInstagramLongLivedToken } from "./oauth";
+import { MetaTokenError, refreshInstagramLongLivedToken } from "./oauth";
 
 // Modelo de auto-renovação de token (para os tokens "nunca expirarem").
 //
@@ -20,7 +20,7 @@ const RENEW_WHEN_DAYS_LEFT = 10; // renova se faltar 10 dias ou menos
 const MIN_TOKEN_AGE_MS = 24 * 60 * 60 * 1000; // a Meta só renova token com +24h de vida
 const LONG_LIVED_FALLBACK_SECONDS = (60 * DAY_MS) / 1000;
 
-type Outcome = "skippedNonExpiring" | "stillValid" | "tooYoung" | "renewed" | "failed";
+type Outcome = "skippedNonExpiring" | "stillValid" | "tooYoung" | "renewed" | "transient" | "decryptSkipped" | "failed";
 
 export type TokenRenewalSummary = {
   checked: number;
@@ -28,6 +28,11 @@ export type TokenRenewalSummary = {
   stillValid: number;
   tooYoung: number;
   renewed: number;
+  /** Erro passageiro (rede/limite): conta segue CONNECTED, tenta no próximo ciclo. */
+  transient: number;
+  /** Token ilegível (chave trocada): pulado, SEM expirar a conta. */
+  decryptSkipped: number;
+  /** Falha permanente (token revogado): conta marcada EXPIRED + alerta. */
   failed: number;
   details: { accountId: string; outcome: Outcome }[];
 };
@@ -72,9 +77,10 @@ async function renewOne(acc: AccountRow, now: Date): Promise<Outcome> {
   try {
     plain = decryptToken(acc.accessTokenEnc);
   } catch (err) {
-    alert(acc.id, "Token ilegível (chave de criptografia trocada?)", (err as Error).message);
-    await markExpired(acc.id);
-    return "failed";
+    // NUNCA expira a conta por falha de leitura: uma chave errada no ambiente
+    // do cron derrubaria TODAS as contas de uma vez. Só alerta e pula.
+    alert(acc.id, "Token ilegível (TOKEN_ENCRYPTION_KEY trocada/ausente?)", (err as Error).message);
+    return "decryptSkipped";
   }
 
   try {
@@ -89,8 +95,13 @@ async function renewOne(acc: AccountRow, now: Date): Promise<Outcome> {
     });
     return "renewed";
   } catch (err) {
-    // Token morto/revogado → o dono precisa reconectar.
-    alert(acc.id, "Falha ao renovar token", (err as Error).message);
+    // Passageiro (timeout, rede, limite, 5xx): mantém CONNECTED e tenta amanhã.
+    if (err instanceof MetaTokenError && !err.isPermanent) {
+      alert(acc.id, "Renovação adiada (erro passageiro)", err.message);
+      return "transient";
+    }
+    // Permanente (token revogado/expirado, code 190): o dono precisa reconectar.
+    alert(acc.id, "Token revogado/expirado — reconectar", (err as Error).message);
     await markExpired(acc.id);
     return "failed";
   }
@@ -112,6 +123,8 @@ export async function renewExpiringTokens(now: Date = new Date()): Promise<Token
     stillValid: 0,
     tooYoung: 0,
     renewed: 0,
+    transient: 0,
+    decryptSkipped: 0,
     failed: 0,
     details: [],
   };
