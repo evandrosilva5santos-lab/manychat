@@ -1,50 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readConnectInvite } from "@/lib/meta/connect-invite";
 import {
-  generateOAuthState,
+  createOAuthState,
   getFacebookBusinessLoginUrl,
   getInstagramOAuthUrl,
   getInstagramRedirectUri,
+  OAuthConfigError,
+  type OAuthMode,
 } from "@/lib/meta/oauth";
-import { requireActor } from "@/lib/tenancy";
+import { getCurrentActor, getOrCreateWorkspaceForActor, IMPERSONATION_COOKIE } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 
+// Início do login. Dois caminhos independentes:
+//   ?mode=instagram (padrão) → Instagram Login (qualquer conta profissional, sem Página)
+//   ?mode=facebook           → Facebook Login (contas do Instagram ligadas a Páginas)
+// O workspace que recebe a conta é decidido AQUI (sessão do painel ou convite do
+// /conectar) e viaja assinado no `state`. Nunca há OAuth anônimo.
+
+/** Convite tem prioridade (link do cliente); sem convite, usa a sessão do painel. */
+async function resolveWorkspaceId(request: NextRequest, invite: string | null): Promise<string | null> {
+  if (invite) return readConnectInvite(invite)?.workspaceId ?? null;
+  const actor = await getCurrentActor();
+  if (!actor) return null;
+  const viewing = actor.role === "SUPERADMIN" ? request.cookies.get(IMPERSONATION_COOKIE)?.value : undefined;
+  if (viewing) return viewing;
+  return (await getOrCreateWorkspaceForActor(actor)).id;
+}
+
 export async function GET(request: NextRequest) {
+  const { origin, searchParams } = request.nextUrl;
+  const fromConectar = searchParams.get("from") === "conectar";
+  const invite = searchParams.get("convite");
+  const mode: OAuthMode = searchParams.get("mode") === "facebook" ? "facebook" : "instagram";
+
+  const returnUrl = new URL(fromConectar ? "/conectar" : "/ajustes", origin);
+  if (fromConectar && invite) returnUrl.searchParams.set("convite", invite);
+  const fail = (message: string) => {
+    const url = new URL(returnUrl);
+    url.searchParams.set("error", message);
+    return NextResponse.redirect(url, 302);
+  };
+
   try {
-    // A conta conectada será vinculada ao ator da sessão no callback.
-    // Nunca se inicia OAuth anônimo para evitar anexar um perfil a outro cliente.
-    await requireActor();
-    const origin = request.nextUrl.origin;
-    const from = request.nextUrl.searchParams.get("from");
-    const returnPath = from === "conectar" ? "/conectar" : "/ajustes";
-    const returnUrl = `${origin}${returnPath}`;
-    const state = generateOAuthState(returnUrl);
+    const workspaceId = await resolveWorkspaceId(request, invite);
+    if (!workspaceId) {
+      return fail(
+        fromConectar
+          ? "Link de conexão inválido ou expirado. Peça um novo link a quem cuida da sua conta."
+          : "Sessão expirada. Entre no painel novamente."
+      );
+    }
     const redirectUri = getInstagramRedirectUri(request);
-    const mode = request.nextUrl.searchParams.get("mode");
-    const useFbe = mode === "fbe" || request.nextUrl.searchParams.get("fbe") === "1";
-
-    // Instagram Login é o padrão (logar com qualquer conta); Facebook só quando
-    // explicitamente pedido (?mode=facebook), para contas vinculadas a Página.
+    const state = createOAuthState({ mode, workspaceId, returnTo: returnUrl.toString() });
     const authUrl =
-      mode === "facebook" || mode === "fbe"
-        ? getFacebookBusinessLoginUrl(redirectUri, state, useFbe)
-        : getInstagramOAuthUrl(redirectUri, state);
-
-    const response = NextResponse.redirect(authUrl, 302);
-
-    // Salva o state em cookie httpOnly para proteção anti-CSRF
-    response.cookies.set("ig_oauth_state", state, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production" || redirectUri.startsWith("https://"),
-      sameSite: "lax",
-      maxAge: 60 * 15, // 15 minutos
-      path: "/",
-    });
-
-    return response;
-  } catch (error: any) {
-    console.error("[oauth/login] Erro ao iniciar login do Instagram:", error);
-    const origin = request.nextUrl.origin;
-    return NextResponse.redirect(`${origin}/ajustes?error=${encodeURIComponent(error?.message || "falha_ao_iniciar_oauth")}`);
+      mode === "facebook" ? getFacebookBusinessLoginUrl(redirectUri, state) : getInstagramOAuthUrl(redirectUri, state);
+    return NextResponse.redirect(authUrl, 302);
+  } catch (error) {
+    // Configuração errada (ex.: IG_APP_ID = ID do App da Meta) aparece na tela, sem ir à Meta.
+    if (error instanceof OAuthConfigError) return fail(error.message);
+    console.error("[oauth/login] Falha ao iniciar o login", { mode, error: error instanceof Error ? error.message : String(error) });
+    return fail("Não foi possível iniciar a conexão. Tente novamente.");
   }
 }
