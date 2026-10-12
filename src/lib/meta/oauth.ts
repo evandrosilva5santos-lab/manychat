@@ -1,5 +1,55 @@
 import crypto from "crypto";
 import { z } from "zod";
+import { GRAPH_API_VERSION } from "./graph";
+
+/**
+ * Erro de configuração do OAuth (variáveis de ambiente ausentes ou trocadas).
+ * Sempre falha fechado: sem credencial correta, nenhum fluxo é iniciado.
+ */
+export class OAuthConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OAuthConfigError";
+  }
+}
+
+export type AppCredentials = { appId: string; appSecret: string };
+
+/**
+ * Credenciais do App da Meta (Facebook Login → tokens de Página).
+ * Painel da Meta › Configurações do app › Básico (ID do App / Chave Secreta).
+ */
+export function getFacebookAppCredentials(): AppCredentials {
+  const appId = process.env.META_APP_ID?.trim();
+  const appSecret = process.env.META_APP_SECRET?.trim();
+  if (!appId || !appSecret) {
+    throw new OAuthConfigError(
+      "Configure META_APP_ID e META_APP_SECRET (ID do App da Meta e a chave secreta, em Configurações do app › Básico)."
+    );
+  }
+  return { appId, appSecret };
+}
+
+const INSTAGRAM_APP_HINT =
+  "Use o 'ID do app do Instagram' (Painel da Meta › Instagram › Configuração da API com login do Instagram › Configurações do login comercial) e o respectivo secret.";
+
+/**
+ * Credenciais do Instagram Login (instagram.com/oauth). O "ID do app do
+ * Instagram" é DIFERENTE do ID do App da Meta; usar o da Meta gera o erro
+ * "Invalid platform app" na tela de autorização.
+ */
+export function getInstagramAppCredentials(): AppCredentials {
+  const appId = process.env.IG_APP_ID?.trim();
+  const appSecret = process.env.IG_APP_SECRET?.trim();
+  if (!appId || !appSecret) {
+    throw new OAuthConfigError(`Configure IG_APP_ID e IG_APP_SECRET. ${INSTAGRAM_APP_HINT}`);
+  }
+  const metaAppId = process.env.META_APP_ID?.trim();
+  if (metaAppId && appId === metaAppId) {
+    throw new OAuthConfigError(`IG_APP_ID está igual ao ID do App da Meta. ${INSTAGRAM_APP_HINT}`);
+  }
+  return { appId, appSecret };
+}
 
 const oauthTokenResponseSchema = z.object({
   access_token: z.string().min(1),
@@ -40,55 +90,213 @@ export function getInstagramRedirectUri(req?: Request): string {
   return `${base}/api/auth/instagram/callback`;
 }
 
+// ---------------------------------------------------------------------------
+// Assinatura HMAC (state OAuth e convite de cliente)
+// ---------------------------------------------------------------------------
+
 /**
- * Gera um state assinado com HMAC para proteção anti-CSRF,
- * permitindo preservar a URL de retorno (ex: localhost) com segurança.
+ * Segredo das assinaturas HMAC (state OAuth e convite). Sem fallback fixo:
+ * se nada estiver configurado, falha fechado.
  */
-export function generateOAuthState(returnTo?: string): string {
-  const secret = process.env.IG_APP_SECRET || process.env.META_APP_SECRET || "meta-secret-state";
-  const timestamp = Date.now().toString();
-  const random = crypto.randomBytes(16).toString("hex");
-  const payload = JSON.stringify({ r: random, t: timestamp, ret: returnTo || null });
-  const basePayload = Buffer.from(payload).toString("base64url");
-  const hmac = crypto.createHmac("sha256", secret).update(basePayload).digest("hex");
-  return `${basePayload}.${hmac}`;
+export function getOAuthSigningSecret(): string {
+  const secret = process.env.OAUTH_STATE_SECRET?.trim() || process.env.TOKEN_ENCRYPTION_KEY?.trim();
+  if (!secret) {
+    throw new OAuthConfigError(
+      "Configure OAUTH_STATE_SECRET ou TOKEN_ENCRYPTION_KEY para assinar o state do OAuth com segurança."
+    );
+  }
+  return secret;
 }
 
 /**
- * Valida o state HMAC recebido no callback.
+ * Assina `domain:body` com HMAC-SHA256 (hex). O domínio separa os tipos de
+ * token ("state", "invite"), então um nunca é aceito no lugar do outro.
  */
+export function signWithDomain(domain: string, body: string): string {
+  return crypto.createHmac("sha256", getOAuthSigningSecret()).update(`${domain}:${body}`).digest("hex");
+}
+
+/** Compara a assinatura em tempo constante (protege contra timing attacks). */
+export function hasValidDomainSignature(domain: string, body: string, signature: string): boolean {
+  const expected = Buffer.from(signWithDomain(domain, body), "utf8");
+  const received = Buffer.from(signature, "utf8");
+  if (expected.length !== received.length) return false;
+  return crypto.timingSafeEqual(expected, received);
+}
+
+/** Separa `body.signature`; retorna null se o formato não bater. */
+export function splitSignedToken(token: string): { body: string; signature: string } | null {
+  const parts = token.split(".");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  return { body: parts[0], signature: parts[1] };
+}
+
+/** Decodifica JSON em base64url; retorna null se não for JSON válido. */
+export function decodeBase64UrlJson(body: string): unknown {
+  try {
+    return JSON.parse(Buffer.from(body, "base64url").toString("utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// State OAuth assinado (anti-CSRF + workspace de destino)
+// ---------------------------------------------------------------------------
+
+export type OAuthMode = "instagram" | "facebook";
+export type OAuthStatePayload = {
+  mode: OAuthMode;
+  workspaceId: string;
+  returnTo: string;
+  nonce: string;
+  iat: number;
+};
+
+const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
+const OAUTH_STATE_CLOCK_SKEW_MS = 60 * 1000;
+const STATE_DOMAIN = "state";
+
+/**
+ * Retorno seguro: URL absoluta http(s) ou caminho interno ("/ajustes").
+ * Bloqueia "//evil.com" e "/\evil.com", que o navegador trata como outro domínio.
+ */
+function isSafeReturnTo(value: string): boolean {
+  if (value.startsWith("/")) {
+    return !/^\/[/\\]/.test(value);
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+const oauthStatePayloadSchema = z.object({
+  mode: z.enum(["instagram", "facebook"]),
+  workspaceId: z.string().min(1),
+  returnTo: z.string().min(1).refine(isSafeReturnTo),
+  nonce: z.string().regex(/^[0-9a-f]{32}$/),
+  iat: z.number().int().nonnegative(),
+});
+
+/**
+ * Gera o state do OAuth: base64url(JSON) + "." + HMAC("state:" + base64url).
+ * Carrega o modo, o workspace de destino e a URL de retorno; vale 15 minutos.
+ */
+export function createOAuthState(
+  input: { mode: OAuthMode; workspaceId: string; returnTo: string },
+  now = Date.now()
+): string {
+  const payload: OAuthStatePayload = oauthStatePayloadSchema.parse({
+    mode: input.mode,
+    workspaceId: input.workspaceId,
+    returnTo: input.returnTo,
+    nonce: crypto.randomBytes(16).toString("hex"),
+    iat: now,
+  });
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${body}.${signWithDomain(STATE_DOMAIN, body)}`;
+}
+
+/**
+ * Valida o state recebido no callback. Retorna null (nunca lança) para state
+ * ausente, adulterado, expirado ou malformado. Sem segredo configurado lança
+ * OAuthConfigError (falha fechado).
+ */
+export function readOAuthState(state: string | null | undefined, now = Date.now()): OAuthStatePayload | null {
+  if (!state) return null;
+  const parts = splitSignedToken(state);
+  if (!parts) return null;
+  if (!hasValidDomainSignature(STATE_DOMAIN, parts.body, parts.signature)) return null;
+
+  const parsed = oauthStatePayloadSchema.safeParse(decodeBase64UrlJson(parts.body));
+  if (!parsed.success) return null;
+
+  const { iat } = parsed.data;
+  if (now - iat > OAUTH_STATE_TTL_MS) return null;
+  if (iat - now > OAUTH_STATE_CLOCK_SKEW_MS) return null;
+  return parsed.data;
+}
+
+const LEGACY_STATE_DOMAIN = "legacy-state";
+const LEGACY_STATE_TTL_MS = 30 * 60 * 1000;
+
+/** @deprecated use createOAuthState/readOAuthState */
+export function generateOAuthState(returnTo?: string): string {
+  const payload = JSON.stringify({
+    r: crypto.randomBytes(16).toString("hex"),
+    t: Date.now().toString(),
+    ret: returnTo || null,
+  });
+  const body = Buffer.from(payload).toString("base64url");
+  return `${body}.${signWithDomain(LEGACY_STATE_DOMAIN, body)}`;
+}
+
+/** @deprecated use createOAuthState/readOAuthState */
 export function verifyOAuthState(stateStr: string): { valid: boolean; returnTo?: string | null } {
   try {
-    const secret = process.env.IG_APP_SECRET || process.env.META_APP_SECRET || "meta-secret-state";
-    const parts = stateStr.split(".");
-    if (parts.length !== 2) return { valid: false };
-    const [basePayload, signature] = parts;
-    const expectedHmac = crypto.createHmac("sha256", secret).update(basePayload).digest("hex");
-    if (signature !== expectedHmac) {
+    const parts = splitSignedToken(stateStr);
+    if (!parts || !hasValidDomainSignature(LEGACY_STATE_DOMAIN, parts.body, parts.signature)) {
       return { valid: false };
     }
-    const data = JSON.parse(Buffer.from(basePayload, "base64url").toString("utf-8"));
-    // Expira em 30 minutos
-    if (Date.now() - Number(data.t) > 30 * 60 * 1000) {
+    const data = decodeBase64UrlJson(parts.body) as { t?: string; ret?: string | null } | null;
+    if (!data || Date.now() - Number(data.t) > LEGACY_STATE_TTL_MS) {
       return { valid: false };
     }
-    return { valid: true, returnTo: data.ret };
+    return { valid: true, returnTo: data.ret ?? null };
   } catch {
     return { valid: false };
   }
 }
 
+// ---------------------------------------------------------------------------
+// Mensagens de erro amigáveis
+// ---------------------------------------------------------------------------
+
+const MAX_RAW_ERROR_LENGTH = 300;
+
+/** Traduz erros crus da Meta em mensagens que o usuário entende e consegue resolver. */
+export function describeOAuthError(raw: string, redirectUri?: string): string {
+  if (/invalid platform app/i.test(raw)) {
+    return "O ID do app do Instagram está errado. Use o 'ID do app do Instagram' (Painel da Meta › Instagram › Configuração da API com login do Instagram), não o ID do App da Meta.";
+  }
+  if (/redirect_uri|url bloqueada|url blocked/i.test(raw)) {
+    return `A URL de retorno não está cadastrada no painel da Meta${redirectUri ? `: ${redirectUri}` : ""}.`;
+  }
+  if (/access_denied|user denied|permissions error/i.test(raw)) {
+    return "Autorização cancelada no Instagram/Facebook.";
+  }
+  if (/code has been used|authorization code.*expired|código.*(usado|expirad)/i.test(raw)) {
+    return "Este link de autorização expirou. Clique em conectar novamente.";
+  }
+  return raw.trim().slice(0, MAX_RAW_ERROR_LENGTH);
+}
+
+// ---------------------------------------------------------------------------
+// URLs de autorização
+// ---------------------------------------------------------------------------
+
+const FACEBOOK_LOGIN_SCOPES = [
+  "instagram_basic",
+  "instagram_manage_comments",
+  "instagram_manage_messages",
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_metadata",
+  "business_management",
+].join(",");
+
 /**
  * Constrói a URL do Business Login for Instagram oficial da Meta (via Facebook Login com IG_API_ONBOARDING).
+ * Usa SEMPRE o App da Meta (META_APP_ID), nunca o ID do app do Instagram.
  * Referência: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-facebook-login/business-login-for-instagram
  */
 export function getFacebookBusinessLoginUrl(redirectUri: string, state: string, useFbe = false): string {
-  const clientId = process.env.IG_APP_ID || process.env.META_APP_ID;
-  if (!clientId) {
-    throw new Error("IG_APP_ID ou META_APP_ID não configurado no ambiente.");
-  }
+  const { appId: clientId } = getFacebookAppCredentials();
 
-  const url = new URL("https://www.facebook.com/v21.0/dialog/oauth");
+  const url = new URL(`https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth`);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("display", "page");
   if (useFbe) {
@@ -96,10 +304,7 @@ export function getFacebookBusinessLoginUrl(redirectUri: string, state: string, 
   }
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set(
-    "scope",
-    "instagram_basic,instagram_manage_comments,instagram_manage_messages,pages_show_list,pages_read_engagement,pages_manage_metadata"
-  );
+  url.searchParams.set("scope", FACEBOOK_LOGIN_SCOPES);
   url.searchParams.set("state", state);
 
   return url.toString();
@@ -107,12 +312,10 @@ export function getFacebookBusinessLoginUrl(redirectUri: string, state: string, 
 
 /**
  * Constrói a URL de autorização oficial do Instagram Business Login direto (OAuth sem Facebook).
+ * Usa o "ID do app do Instagram" (IG_APP_ID), nunca o ID do App da Meta.
  */
 export function getInstagramOAuthUrl(redirectUri: string, state: string): string {
-  const clientId = process.env.IG_APP_ID || process.env.META_APP_ID;
-  if (!clientId) {
-    throw new Error("IG_APP_ID ou META_APP_ID não configurado no ambiente.");
-  }
+  const { appId: clientId } = getInstagramAppCredentials();
 
   const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("enable_fb_login", "0");
@@ -136,12 +339,7 @@ export async function exchangeCodeForShortLivedToken(
   code: string,
   redirectUri: string
 ): Promise<{ accessToken: string; igUserId: string }> {
-  const clientId = process.env.IG_APP_ID || process.env.META_APP_ID;
-  const clientSecret = process.env.IG_APP_SECRET || process.env.META_APP_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error("Credenciais do app Meta (ID/Secret) não configuradas.");
-  }
+  const { appId: clientId, appSecret: clientSecret } = getInstagramAppCredentials();
 
   const body = new URLSearchParams();
   body.set("client_id", clientId);
@@ -180,10 +378,7 @@ export async function exchangeCodeForShortLivedToken(
 export async function exchangeForLongLivedToken(
   shortLivedToken: string
 ): Promise<{ accessToken: string; expiresIn: number }> {
-  const clientSecret = process.env.IG_APP_SECRET || process.env.META_APP_SECRET;
-  if (!clientSecret) {
-    throw new Error("META_APP_SECRET não configurado.");
-  }
+  const { appSecret: clientSecret } = getInstagramAppCredentials();
 
   const url = new URL("https://graph.instagram.com/access_token");
   url.searchParams.set("grant_type", "ig_exchange_token");
@@ -278,7 +473,7 @@ export async function fetchInstagramProfile(accessToken: string): Promise<{
   name?: string;
   profilePicUrl?: string;
 }> {
-  const url = new URL("https://graph.instagram.com/v21.0/me");
+  const url = new URL(`https://graph.instagram.com/${GRAPH_API_VERSION}/me`);
   url.searchParams.set("fields", "user_id,username,name,profile_picture_url");
   url.searchParams.set("access_token", accessToken);
 
@@ -315,7 +510,7 @@ export async function fetchInstagramProfile(accessToken: string): Promise<{
  */
 export async function subscribeAccountWebhooks(accessToken: string): Promise<boolean> {
   try {
-    const res = await fetch("https://graph.instagram.com/v21.0/me/subscribed_apps", {
+    const res = await fetch(`https://graph.instagram.com/${GRAPH_API_VERSION}/me/subscribed_apps`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -341,14 +536,9 @@ export async function exchangeFacebookCodeForToken(
   code: string,
   redirectUri: string
 ): Promise<{ accessToken: string; expiresIn?: number }> {
-  const clientId = process.env.IG_APP_ID || process.env.META_APP_ID;
-  const clientSecret = process.env.IG_APP_SECRET || process.env.META_APP_SECRET;
+  const { appId: clientId, appSecret: clientSecret } = getFacebookAppCredentials();
 
-  if (!clientId || !clientSecret) {
-    throw new Error("Credenciais do app Meta (ID/Secret) não configuradas.");
-  }
-
-  const url = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/oauth/access_token`);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("client_secret", clientSecret);
   url.searchParams.set("redirect_uri", redirectUri);
@@ -380,13 +570,9 @@ export async function exchangeFacebookCodeForToken(
 export async function exchangeForLongLivedFacebookUserToken(
   shortLivedUserToken: string
 ): Promise<{ accessToken: string; expiresIn?: number }> {
-  const clientId = process.env.IG_APP_ID || process.env.META_APP_ID;
-  const clientSecret = process.env.IG_APP_SECRET || process.env.META_APP_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error("Credenciais do app Meta (ID/Secret) não configuradas.");
-  }
+  const { appId: clientId, appSecret: clientSecret } = getFacebookAppCredentials();
 
-  const url = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/oauth/access_token`);
   url.searchParams.set("grant_type", "fb_exchange_token");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("client_secret", clientSecret);
@@ -420,7 +606,7 @@ export type FacebookConnectedAccount = {
 export async function fetchFacebookPagesAndInstagram(
   userAccessToken: string
 ): Promise<FacebookConnectedAccount[]> {
-  const url = new URL("https://graph.facebook.com/v21.0/me/accounts");
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/me/accounts`);
   url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
   url.searchParams.set("access_token", userAccessToken);
 
@@ -445,7 +631,7 @@ export async function fetchFacebookPagesAndInstagram(
 
       try {
         const igProfileRes = await fetch(
-          `https://graph.facebook.com/v21.0/${igId}?fields=username,name,profile_picture_url&access_token=${page.access_token}`,
+          `https://graph.facebook.com/${GRAPH_API_VERSION}/${igId}?fields=username,name,profile_picture_url&access_token=${page.access_token}`,
           { signal: AbortSignal.timeout(10_000) }
         );
         const igData = await igProfileRes.json().catch(() => null);
@@ -458,9 +644,10 @@ export async function fetchFacebookPagesAndInstagram(
         // Fallback
       }
 
-      // Inscreve a Página nos webhooks oficiais
+      // Inscreve a Página nos webhooks oficiais (falha não bloqueia a conexão,
+      // mas precisa aparecer no log — nunca logar tokens).
       try {
-        await fetch(`https://graph.facebook.com/v21.0/${page.id}/subscribed_apps`, {
+        const subRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${page.id}/subscribed_apps`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${page.access_token}`,
@@ -471,8 +658,12 @@ export async function fetchFacebookPagesAndInstagram(
           }),
           signal: AbortSignal.timeout(10_000),
         });
+        const subData = await subRes.json().catch(() => null);
+        if (!subRes.ok || !subData?.success) {
+          console.warn("[oauth] Falha ao inscrever webhooks da Página", page.id);
+        }
       } catch {
-        // Fallback
+        console.warn("[oauth] Falha ao inscrever webhooks da Página", page.id);
       }
 
       results.push({
