@@ -79,6 +79,33 @@
      - `4`, `613`, `32`: Rate limit ou falha transitória (`retryable: true`), permitindo retentativa com backoff exponencial na fila.
 - **RATIONALE:** Alinha o sistema com a arquitetura moderna recomendada pela Meta para contas Creator/Business, reduzindo atrito de onboarding e eliminando falhas de entrega.
 - **IMPACT:** Atualiza `PRD.md` (REQ-001), `PRD_TRACEABILITY.md`, `ARCHITECTURE.md` e `docs/etapa-7-meta-app.md`.
-- **STATUS:** `ACTIVE`
+- **STATUS:** `ACTIVE` — restrito ao fluxo do Instagram Login a partir do ADR-006.
 - **SOURCE:** Item 03 do Plano de Execução e Especificação Oficial da Meta.
 
+> **Nota (2026-10-12):** o ADR-005 passa a valer **somente para o fluxo do Instagram Login** (`authProvider = INSTAGRAM_LOGIN`). O Facebook Login voltou como segundo caminho de conexão, conforme o ADR-006.
+
+---
+
+## ADR-006: Login Duplo — Instagram Login + Facebook Login
+- **ID:** `ADR-006`
+- **DATE:** 2026-10-12
+- **CATEGORY:** INTEGRATION / META API / SECURITY
+- **CONTEXT:** Com só o Instagram Login (ADR-005), a conexão falhava em produção com "Invalid platform app" porque `IG_APP_ID` estava com o ID do App da Meta (o Instagram Login exige o **ID do app do Instagram**, que é outro). O callback ainda tentava o Facebook e, ao falhar, reaproveitava o mesmo `code` no Instagram, escondendo o erro real. Além disso: clientes que gerenciam o Instagram por uma Página do Facebook não tinham caminho próprio; `/conectar` exigia sessão que o cliente não tem; o `state` OAuth tinha um segredo fixo de fallback (fail-open); e o cliente Graph só falava com `graph.instagram.com`, onde o token de Página não funciona.
+- **DECISION:** Oferecer **dois caminhos independentes** de conexão ("Entrar com Instagram" e "Entrar com Facebook"), em `/ajustes` e em `/conectar`:
+  1. **Credenciais por produto:** `IG_APP_ID` / `IG_APP_SECRET` → Instagram Login (ID do app do Instagram); `META_APP_ID` / `META_APP_SECRET` → Facebook Login. Se `IG_APP_ID` estiver vazio ou **igual** a `META_APP_ID`, o login é recusado antes de ir à Meta, com mensagem clara (`OAuthConfigError`).
+  2. **Um callback só** (`${APP_URL}/api/auth/instagram/callback`, cadastrado nos dois produtos), com o **modo** (`instagram` | `facebook`) dentro do `state` assinado.
+  3. **Sem fallback cruzado:** o callback despacha só para o fluxo do modo do `state`; se o Facebook falhar, o Instagram não é tentado (e vice-versa). O erro real chega à tela, traduzido para pt-BR.
+  4. **Workspace no `state`:** o `state` carrega `mode`, `workspaceId`, `returnTo`, `nonce` e `iat`; é assinado com HMAC-SHA256 (`OAUTH_STATE_SECRET`, ou `TOKEN_ENCRYPTION_KEY` como alternativa), comparado em tempo constante e expira em 15 min. Sem segredo configurado, o login é recusado (fail-closed). O workspace é decidido no início (sessão ou convite) e não muda no callback, o que permite iniciar no `localhost` e receber em produção.
+  5. **Convite HMAC para o `/conectar`:** `/conectar?convite=<token>`, com `{ workspaceId, exp }` válido por 7 dias, gerado em `/ajustes`. Usa o mesmo segredo com prefixo de domínio (`invite:`), para que um `state` não valha como convite e vice-versa. Sem convite válido, `/conectar` mostra um aviso e não inicia OAuth anônimo.
+  6. **`authProvider` na conta:** `InstagramAccount.authProvider` (`INSTAGRAM_LOGIN` | `FACEBOOK_LOGIN`, padrão `INSTAGRAM_LOGIN`) + `fbPageId` opcional. O cliente Graph escolhe o host por ele (`graph.instagram.com` x `graph.facebook.com`); o cron de renovação pula contas `FACEBOOK_LOGIN` (token de Página não expira).
+  7. **Conectar todas as Páginas:** no Facebook Login, todas as contas do Instagram vinculadas às Páginas autorizadas são conectadas de uma vez. Zero contas → erro explicando que é preciso marcar a Página e a conta do Instagram.
+  8. **Escopos:** Instagram Login — `instagram_business_basic`, `instagram_business_manage_messages`, `instagram_business_manage_comments`. Facebook Login — `instagram_basic`, `instagram_manage_comments`, `instagram_manage_messages`, `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `business_management`.
+- **RATIONALE:** Os nomes de variável já existiam em todos os ambientes; bastava separar os valores e transformar "Invalid platform app" numa mensagem acionável. Um callback único reduz o cadastro no painel a uma URI. Tirar o fallback cruzado faz o erro verdadeiro aparecer. O convite é o menor passo que torna o link do cliente funcional sem criar contas/sessões de cliente. Gravar o provedor na conta é explícito e testável (em vez de adivinhar pelo formato do token).
+- **IMPACT:**
+  - A redirect URI precisa estar em **Facebook Login › Configurações › URIs de redirecionamento do OAuth válidos** e em **Instagram › Configurações do login comercial › URLs de redirecionamento do OAuth**.
+  - `IG_APP_ID` / `IG_APP_SECRET` precisam ser trocados pelo ID e secret do app do Instagram em `.env` e na Vercel; `APP_URL` e `OAUTH_STATE_SECRET` (ou `TOKEN_ENCRYPTION_KEY`) passam a ser obrigatórios para o login funcionar.
+  - Nova coluna/enum no Prisma (`authProvider`, `fbPageId`) com migração.
+  - Webhooks: os dois produtos usam `${APP_URL}/api/webhook/instagram` com `WEBHOOK_VERIFY_TOKEN`; a assinatura aceita `IG_APP_SECRET` ou `META_APP_SECRET` (sem mudança).
+  - Atualiza `docs/etapa-7-meta-app.md` (seção "Login duplo") e `.env.example`.
+- **STATUS:** `ACTIVE` (restringe o ADR-005 ao fluxo do Instagram Login)
+- **SOURCE:** `docs/plans/2026-10-12-login-duplo-facebook-instagram.md` (seções 1 a 4, decisões D1–D6).
