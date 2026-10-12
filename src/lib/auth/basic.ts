@@ -19,7 +19,7 @@ export type BasicAuthResult = "authorized" | "open" | "unauthorized" | "misconfi
 type EnvLike = Record<string, string | undefined>;
 
 // Rotas que a Meta e os seguidores acessam sem login.
-const PUBLIC_PREFIXES = ["/api/webhook/", "/api/l/", "/api/meta/", "/api/auth/"];
+const PUBLIC_PREFIXES = ["/api/webhook/", "/api/l/", "/api/meta/", "/api/auth/", "/api/cron/"];
 const PUBLIC_PAGES = ["/privacidade", "/termos", "/exclusao-de-dados", "/conectar"];
 
 export function readBasicAuthConfig(env: EnvLike = process.env): BasicAuthConfig {
