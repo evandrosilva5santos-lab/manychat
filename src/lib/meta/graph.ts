@@ -2,7 +2,10 @@ import { z } from "zod";
 
 // Pinned supported version; upgrade only after confirming the Meta changelog.
 export const GRAPH_API_VERSION = "v21.0";
-export const GRAPH_API_BASE = `https://graph.instagram.com/${GRAPH_API_VERSION}`;
+// Instagram Login fala com graph.instagram.com; token de Página (Facebook Login) só com graph.facebook.com.
+export type GraphProvider = "instagram" | "facebook";
+export const graphBaseFor = (provider: GraphProvider = "instagram") => `https://graph.${provider}.com/${GRAPH_API_VERSION}`;
+export const GRAPH_API_BASE = graphBaseFor("instagram");
 export type GraphResult = { success: boolean; id?: string; code?: number; subcode?: number; retryable: boolean; error?: string; mock?: boolean };
 export type SendMessageResult = GraphResult & { messageId?: string; recipientId?: string };
 export type SendContext = { commentId?: string };
@@ -26,20 +29,22 @@ export class InstagramGraphClient {
   private readonly accessToken: string | null;
   private readonly onExpired?: () => Promise<void>;
   private readonly isMock: boolean;
+  private readonly provider: GraphProvider;
   constructor(
     accessToken?: string | null,
-    optionsOrExpired?: (() => Promise<void>) | { onExpired?: () => Promise<void>; mock?: boolean },
+    optionsOrExpired?: (() => Promise<void>) | { onExpired?: () => Promise<void>; mock?: boolean; provider?: GraphProvider },
     mock?: boolean
   ) {
     this.accessToken = accessToken === undefined ? process.env.IG_ACCESS_TOKEN ?? null : accessToken;
     const isMockFromOpts = typeof optionsOrExpired === "object" ? optionsOrExpired?.mock : mock;
     this.isMock = Boolean(isMockFromOpts || accessToken === "mock");
     this.onExpired = typeof optionsOrExpired === "function" ? optionsOrExpired : optionsOrExpired?.onExpired;
+    this.provider = (typeof optionsOrExpired === "object" ? optionsOrExpired?.provider : undefined) ?? "instagram";
   }
   private async request<T>(path: string, schema: z.ZodType<T>, body?: unknown, query?: Record<string, string>, refresh = false): Promise<GraphResult & { value?: T }> {
     if (!this.accessToken) return failure("Token do Instagram não configurado para esta conta.");
     try {
-      const url = new URL(refresh ? "https://graph.instagram.com/refresh_access_token" : `${GRAPH_API_BASE}/${path}`);
+      const url = new URL(refresh ? "https://graph.instagram.com/refresh_access_token" : `${graphBaseFor(this.provider)}/${path}`);
       for (const [key, value] of Object.entries(query ?? {})) url.searchParams.set(key, value);
       // Token refresh is the sole unversioned endpoint and requires its token parameter.
       if (refresh) url.searchParams.set("access_token", this.accessToken);
@@ -133,14 +138,22 @@ export class InstagramGraphClient {
     return { username: result.value.username, name: result.value.name, profilePicUrl: result.value.profile_pic };
   }
   async validateConnection() {
+    if (this.provider === "facebook") {
+      // Token de Página: `me` é a Página; a identidade vem da conta do Instagram vinculada.
+      const { value, ...result } = await this.request("me", z.object({ instagram_business_account: z.object({ id: z.string().min(1), username: z.string().min(1), name: z.string().optional() }) }), undefined, { fields: "instagram_business_account{id,username,name}" });
+      const ig = value?.instagram_business_account;
+      return { ...result, valid: result.success, igUserId: ig?.id, username: ig?.username, name: ig?.name };
+    }
     const { value, ...result } = await this.request("me", z.object({ user_id: z.string().min(1), username: z.string().min(1), name: z.string().optional() }), undefined, { fields: "user_id,username,name" });
     return { ...result, valid: result.success, igUserId: value?.user_id, username: value?.username, name: value?.name };
   }
   async subscribeWebhooks(_igUserId?: string): Promise<GraphResult> {
-    const result = await this.request("me/subscribed_apps", z.object({ success: z.literal(true) }), { subscribed_fields: ["comments", "messages", "messaging_postbacks"] });
+    const subscribed_fields = this.provider === "facebook" ? ["messages", "messaging_postbacks", "feed"] : ["comments", "messages", "messaging_postbacks"];
+    const result = await this.request("me/subscribed_apps", z.object({ success: z.literal(true) }), { subscribed_fields });
     return { success: result.success, retryable: result.retryable, code: result.code, subcode: result.subcode, error: result.error };
   }
   async refreshLongLivedToken() {
+    if (this.provider === "facebook") return { ...failure("Token de Página do Facebook não precisa de renovação."), accessToken: undefined, expiresIn: undefined };
     const { value, ...result } = await this.request("", z.object({ access_token: z.string().min(1), expires_in: z.number().positive() }), undefined, { grant_type: "ig_refresh_token" }, true);
     return { ...result, accessToken: value?.access_token, expiresIn: value?.expires_in };
   }

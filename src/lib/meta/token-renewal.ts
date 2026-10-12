@@ -43,6 +43,7 @@ type AccountRow = {
   accessTokenEnc: string | null;
   tokenExpiresAt: Date | null;
   updatedAt: Date;
+  authProvider?: "INSTAGRAM_LOGIN" | "FACEBOOK_LOGIN";
 };
 
 function alert(accountId: string, message: string, detail?: string) {
@@ -58,8 +59,8 @@ async function markExpired(accountId: string) {
 }
 
 async function renewOne(acc: AccountRow, now: Date): Promise<Outcome> {
-  // Token de Página (sem validade) nunca expira — nada a fazer.
-  if (!acc.tokenExpiresAt) return "skippedNonExpiring";
+  // Token de Página (Facebook Login ou sem validade) nunca expira — nada a fazer.
+  if (acc.authProvider === "FACEBOOK_LOGIN" || !acc.tokenExpiresAt) return "skippedNonExpiring";
 
   const msLeft = acc.tokenExpiresAt.getTime() - now.getTime();
   if (msLeft > RENEW_WHEN_DAYS_LEFT * DAY_MS) return "stillValid";
@@ -114,7 +115,7 @@ async function renewOne(acc: AccountRow, now: Date): Promise<Outcome> {
 export async function renewExpiringTokens(now: Date = new Date()): Promise<TokenRenewalSummary> {
   const accounts = (await prisma.instagramAccount.findMany({
     where: { status: "CONNECTED" },
-    select: { id: true, igUserId: true, accessTokenEnc: true, tokenExpiresAt: true, updatedAt: true },
+    select: { id: true, igUserId: true, accessTokenEnc: true, tokenExpiresAt: true, updatedAt: true, authProvider: true },
   })) as AccountRow[];
 
   const summary: TokenRenewalSummary = {

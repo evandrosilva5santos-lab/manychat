@@ -6,7 +6,7 @@ import { decryptToken } from "@/lib/security/token";
 export async function graphClientForAccount(accountId: string): Promise<InstagramGraphClient> {
   const account = await prisma.instagramAccount.findUnique({
     where: { id: accountId },
-    select: { igUserId: true, status: true, accessTokenEnc: true },
+    select: { igUserId: true, status: true, accessTokenEnc: true, authProvider: true },
   });
   if (!account || account.status !== "CONNECTED") throw new Error("Conta do Instagram indisponível ou desconectada.");
 
@@ -27,7 +27,10 @@ export async function graphClientForAccount(accountId: string): Promise<Instagra
   }
   if (!token && process.env.IG_USER_ID === account.igUserId) token = process.env.IG_ACCESS_TOKEN;
   if (!token) throw new Error("Token não configurado para esta conta do Instagram.");
-  return new InstagramGraphClient(token, async () => {
-    await prisma.instagramAccount.update({ where: { id: accountId }, data: { status: "EXPIRED" } });
+  return new InstagramGraphClient(token, {
+    onExpired: async () => {
+      await prisma.instagramAccount.update({ where: { id: accountId }, data: { status: "EXPIRED" } });
+    },
+    provider: account.authProvider === "FACEBOOK_LOGIN" ? "facebook" : "instagram",
   });
 }

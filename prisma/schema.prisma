@@ -21,6 +21,12 @@ enum ConnectionStatus {
   DISCONNECTED
 }
 
+/// Por qual login a conta entrou — define o host da Graph API e se o token renova.
+enum AuthProvider {
+  INSTAGRAM_LOGIN // token do Instagram Login → graph.instagram.com, renova a cada 60 dias
+  FACEBOOK_LOGIN // token de Página do Facebook → graph.facebook.com, não expira
+}
+
 enum TokenStatus {
   ACTIVE
   EXPIRING
@@ -93,6 +99,8 @@ model InstagramAccount {
   /// fica no .env (IG_ACCESS_TOKEN) e este campo fica vazio.
   accessTokenEnc String?
   tokenExpiresAt DateTime?
+  authProvider   AuthProvider     @default(INSTAGRAM_LOGIN)
+  fbPageId       String? // Página do Facebook (só FACEBOOK_LOGIN)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
