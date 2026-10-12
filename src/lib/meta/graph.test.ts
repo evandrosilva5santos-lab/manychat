@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GRAPH_API_BASE, InstagramGraphClient } from "./graph";
+import { GRAPH_API_BASE, GRAPH_API_VERSION, InstagramGraphClient, graphBaseFor } from "./graph";
 const fetchMock = vi.fn();
 const client = new InstagramGraphClient("test-token");
 const respond = (body: unknown, status = 200) => fetchMock.mockResolvedValue(new Response(JSON.stringify(body), { status }));
@@ -32,4 +32,14 @@ describe("Instagram Login Graph client", () => {
   it("sanitizes network/timeout failures", async () => { fetchMock.mockRejectedValue(new Error("test-token")); expect(await client.sendTextMessage("u","oi")).toMatchObject({success:false,retryable:true}); });
   it("normalizes media and never falls back to demo records", async () => { respond({data:[{id:"m",media_type:"VIDEO",thumbnail_url:"https://example.com/a",like_count:4}]}); expect(await client.getUserMedia("u",10)).toMatchObject({success:true,data:[{id:"m",mediaType:"VIDEO",likeCount:4}]}); expect(fetchMock.mock.calls[0][0]).not.toContain("test-token"); respond({data:[{id:"m",media_type:"WRONG"}]}); expect(await client.getUserMedia()).toMatchObject({success:false,data:[]}); });
   it("does not treat a failed follow check as false", async () => { respond({error:{code:190}},400); await expect(client.checkUserFollows("u")).rejects.toThrow("Token expirado"); });
+});
+describe("Graph client por provedor de login", () => {
+  const fb = new InstagramGraphClient("page-token", { provider: "facebook" });
+  it("escolhe o host pelo provedor (Instagram por padrão)", () => { expect(graphBaseFor()).toBe(`https://graph.instagram.com/${GRAPH_API_VERSION}`); expect(graphBaseFor("facebook")).toBe(`https://graph.facebook.com/${GRAPH_API_VERSION}`); expect(GRAPH_API_BASE).toBe(graphBaseFor("instagram")); });
+  it("conta do Facebook envia DM e resposta pública pelo graph.facebook.com", async () => { respond({message_id:"m"}); await fb.sendTextMessage("u","oi"); expect(fetchMock.mock.calls[0][0]).toBe(`${graphBaseFor("facebook")}/me/messages`); respond({id:"r"}); await fb.replyToComment("c","oi"); expect(fetchMock.mock.calls[1][0]).toBe(`${graphBaseFor("facebook")}/c/replies`); });
+  it("mantém onExpired com provedor definido", async () => { const onExpired = vi.fn(); respond({error:{code:190}},400); await new InstagramGraphClient("t",{onExpired,provider:"facebook"}).sendTextMessage("u","oi"); expect(onExpired).toHaveBeenCalledTimes(1); });
+  it("inscreve a Página nos campos do Messenger para Instagram", async () => { respond({success:true}); expect((await fb.subscribeWebhooks()).success).toBe(true); expect(fetchMock.mock.calls[0][0]).toBe(`${graphBaseFor("facebook")}/me/subscribed_apps`); expect(JSON.parse(fetchMock.mock.calls[0][1].body).subscribed_fields).toEqual(["messages","messaging_postbacks","feed"]); });
+  it("valida a conexão do Facebook pela conta do Instagram vinculada à Página", async () => { respond({instagram_business_account:{id:"ig1",username:"loja",name:"Loja"}}); expect(await fb.validateConnection()).toMatchObject({valid:true,igUserId:"ig1",username:"loja"}); expect(fetchMock.mock.calls[0][0]).toContain("instagram_business_account"); });
+  it("token de Página não é renovado e não chama a Meta", async () => { expect(await fb.refreshLongLivedToken()).toMatchObject({success:false,retryable:false}); expect(fetchMock).not.toHaveBeenCalled(); });
+  it("token do Instagram continua renovando no endpoint sem versão", async () => { respond({access_token:"n",expires_in:5}); await client.refreshLongLivedToken(); expect(fetchMock.mock.calls[0][0]).toContain("https://graph.instagram.com/refresh_access_token"); });
 });

@@ -62,6 +62,14 @@ describe("renewExpiringTokens", () => {
     expect(db.update).not.toHaveBeenCalled();
   });
 
+  it("nunca renova conta conectada pelo Facebook, mesmo com validade preenchida", async () => {
+    db.findMany.mockResolvedValue([account({ authProvider: "FACEBOOK_LOGIN", tokenExpiresAt: inDays(1) })]);
+    const s = await renewExpiringTokens(NOW);
+    expect(s.skippedNonExpiring).toBe(1);
+    expect(oauth.refreshInstagramLongLivedToken).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
   it("não renova token ainda longe de vencer (> janela)", async () => {
     db.findMany.mockResolvedValue([account({ tokenExpiresAt: inDays(40) })]);
     const s = await renewExpiringTokens(NOW);
