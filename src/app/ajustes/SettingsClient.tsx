@@ -451,17 +451,17 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
 
             <div className="flex flex-wrap items-center gap-2">
               <a
-                href={`${settings.oauthLoginUrl}?mode=facebook`}
+                href={`${settings.oauthLoginUrl}?mode=instagram`}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-95 transition active:scale-95"
               >
                 <ShieldCheck size={16} />
-                <span>Business Login Oficial (Doc Meta)</span>
+                <span>Conectar com Instagram</span>
               </a>
               <a
-                href={`${settings.oauthLoginUrl}?mode=instagram`}
+                href={`${settings.oauthLoginUrl}?mode=facebook`}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-300 px-4 py-2.5 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
               >
-                <span>Login Direto Instagram</span>
+                <span>Facebook (contas via Página)</span>
               </a>
             </div>
           </div>

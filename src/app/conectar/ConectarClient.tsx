@@ -43,7 +43,7 @@ interface ConectarClientProps {
 export function ConectarClient({ connected, username, error }: ConectarClientProps) {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const handleStartOAuth = (mode: "instagram" | "facebook" = "facebook") => {
+  const handleStartOAuth = (mode: "instagram" | "facebook" = "instagram") => {
     setIsRedirecting(true);
     window.location.href = `/api/auth/instagram/login?from=conectar&mode=${mode}`;
   };
@@ -162,30 +162,31 @@ export function ConectarClient({ connected, username, error }: ConectarClientPro
             <div className="space-y-3 pt-2">
               <button
                 type="button"
-                onClick={() => handleStartOAuth("facebook")}
+                onClick={() => handleStartOAuth("instagram")}
                 disabled={isRedirecting}
                 className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
               >
                 {isRedirecting ? (
                   <>
                     <RefreshCw size={18} className="animate-spin" />
-                    <span>Redirecionando para a Meta...</span>
+                    <span>Redirecionando para o Instagram...</span>
                   </>
                 ) : (
                   <>
-                    <ShieldCheck size={18} />
-                    <span>Conectar com Facebook Business Login</span>
+                    <InstagramIcon size={18} />
+                    <span>Conectar com Instagram</span>
                   </>
                 )}
               </button>
 
               <button
                 type="button"
-                onClick={() => handleStartOAuth("instagram")}
+                onClick={() => handleStartOAuth("facebook")}
                 disabled={isRedirecting}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-300 px-4 py-2.5 text-xs font-semibold text-ink hover:bg-surface-300/80 transition cursor-pointer"
               >
-                <span>Usar Instagram Login Direto (Legado)</span>
+                <ShieldCheck size={14} />
+                <span>Conectar via Facebook (contas vinculadas a uma Página)</span>
               </button>
             </div>
 

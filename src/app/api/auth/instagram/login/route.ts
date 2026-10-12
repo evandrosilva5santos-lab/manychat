@@ -23,10 +23,12 @@ export async function GET(request: NextRequest) {
     const mode = request.nextUrl.searchParams.get("mode");
     const useFbe = mode === "fbe" || request.nextUrl.searchParams.get("fbe") === "1";
 
+    // Instagram Login é o padrão (logar com qualquer conta); Facebook só quando
+    // explicitamente pedido (?mode=facebook), para contas vinculadas a Página.
     const authUrl =
-      mode === "instagram"
-        ? getInstagramOAuthUrl(redirectUri, state)
-        : getFacebookBusinessLoginUrl(redirectUri, state, useFbe);
+      mode === "facebook"
+        ? getFacebookBusinessLoginUrl(redirectUri, state, useFbe)
+        : getInstagramOAuthUrl(redirectUri, state);
 
     const response = NextResponse.redirect(authUrl, 302);
 
