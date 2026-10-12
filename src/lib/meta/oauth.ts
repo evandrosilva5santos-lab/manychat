@@ -304,7 +304,11 @@ export function getFacebookBusinessLoginUrl(redirectUri: string, state: string, 
   }
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", FACEBOOK_LOGIN_SCOPES);
+  // Login do Facebook para Empresas: com uma "configuração" criada no painel, o
+  // config_id substitui o scope (as permissões ficam definidas na configuração).
+  const configId = process.env.META_LOGIN_CONFIG_ID?.trim();
+  if (configId) url.searchParams.set("config_id", configId);
+  else url.searchParams.set("scope", FACEBOOK_LOGIN_SCOPES);
   url.searchParams.set("state", state);
 
   return url.toString();
@@ -641,7 +645,8 @@ export async function fetchFacebookPagesAndInstagram(
           profilePicUrl = igData.profile_picture_url;
         }
       } catch {
-        // Fallback
+        // Sem o perfil, a conta fica com o nome da Página; registra para não falhar em silêncio.
+        console.warn("[oauth] Falha ao ler o perfil do Instagram da Página", page.id);
       }
 
       // Inscreve a Página nos webhooks oficiais (falha não bloqueia a conexão,

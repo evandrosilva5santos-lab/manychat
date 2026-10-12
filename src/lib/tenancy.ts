@@ -88,6 +88,11 @@ export async function listAccessibleAccounts(actor: TenantActor) {
   });
 }
 
+/** Confere se o workspace ainda existe (convites e cookies podem apontar para um apagado). */
+export async function workspaceExists(workspaceId: string): Promise<boolean> {
+  return Boolean(await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { id: true } }));
+}
+
 /** Retorna o workspace operacional do usuário, criando-o apenas no primeiro acesso. */
 export async function getOrCreateWorkspaceForActor(actor: TenantActor) {
   const existing = await prisma.workspace.findFirst({

@@ -150,7 +150,7 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
             </div>
 
             {!invite && (
-              <div className="rounded-xl bg-surface-100 border border-border p-4 flex items-start gap-3 text-xs text-ink-muted" role="status">
+              <div id="conectar-sem-convite" className="rounded-xl bg-surface-100 border border-border p-4 flex items-start gap-3 text-xs text-ink-muted" role="status">
                 <Lock size={16} className="shrink-0 mt-0.5 text-ink-subtle" />
                 <span>
                   Este endereço precisa do <strong className="text-ink">link de conexão</strong> enviado por quem cuida da sua conta.
@@ -165,6 +165,8 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
                 type="button"
                 onClick={() => handleStartOAuth("instagram")}
                 disabled={!canConnect}
+                aria-describedby={invite ? undefined : "conectar-sem-convite"}
+                aria-busy={redirectingTo !== null}
                 className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
               >
                 {redirectingTo === "instagram" ? (
@@ -184,7 +186,9 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
                 type="button"
                 onClick={() => handleStartOAuth("facebook")}
                 disabled={!canConnect}
-                className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#1877F2] px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
+                aria-describedby={invite ? undefined : "conectar-sem-convite"}
+                aria-busy={redirectingTo !== null}
+                className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#0866FF] px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
               >
                 {redirectingTo === "facebook" ? (
                   <>

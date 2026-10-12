@@ -8,7 +8,7 @@ import {
   OAuthConfigError,
   type OAuthMode,
 } from "@/lib/meta/oauth";
-import { getCurrentActor, getOrCreateWorkspaceForActor, IMPERSONATION_COOKIE } from "@/lib/tenancy";
+import { getCurrentActor, getOrCreateWorkspaceForActor, IMPERSONATION_COOKIE, workspaceExists } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +20,14 @@ export const dynamic = "force-dynamic";
 
 /** Convite tem prioridade (link do cliente); sem convite, usa a sessão do painel. */
 async function resolveWorkspaceId(request: NextRequest, invite: string | null): Promise<string | null> {
-  if (invite) return readConnectInvite(invite)?.workspaceId ?? null;
+  if (invite) {
+    const workspaceId = readConnectInvite(invite)?.workspaceId;
+    return workspaceId && (await workspaceExists(workspaceId)) ? workspaceId : null;
+  }
   const actor = await getCurrentActor();
   if (!actor) return null;
   const viewing = actor.role === "SUPERADMIN" ? request.cookies.get(IMPERSONATION_COOKIE)?.value : undefined;
-  if (viewing) return viewing;
+  if (viewing && (await workspaceExists(viewing))) return viewing;
   return (await getOrCreateWorkspaceForActor(actor)).id;
 }
 

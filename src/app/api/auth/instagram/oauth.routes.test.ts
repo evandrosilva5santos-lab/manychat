@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { tenancy, connect } = vi.hoisted(() => ({
-  tenancy: { getCurrentActor: vi.fn(), getOrCreateWorkspaceForActor: vi.fn() },
+const { tenancy, connect, ConnectUserError } = vi.hoisted(() => ({
+  ConnectUserError: class ConnectUserError extends Error {},
+  tenancy: { getCurrentActor: vi.fn(), getOrCreateWorkspaceForActor: vi.fn(), workspaceExists: vi.fn() },
   connect: { connectViaInstagram: vi.fn(), connectViaFacebook: vi.fn() },
 }));
 vi.mock("@/lib/tenancy", () => ({ ...tenancy, IMPERSONATION_COOKIE: "fluxo_workspace_view" }));
-vi.mock("@/lib/meta/connect-account", () => connect);
+vi.mock("@/lib/meta/connect-account", () => ({ ...connect, ConnectUserError }));
 
 import { createConnectInvite } from "@/lib/meta/connect-invite";
 import { createOAuthState } from "@/lib/meta/oauth";
@@ -28,6 +29,7 @@ beforeEach(() => {
   vi.stubEnv("APP_URL", "https://app.test");
   tenancy.getCurrentActor.mockResolvedValue({ id: "u1", role: "CLIENT", name: "C", email: "c@x" });
   tenancy.getOrCreateWorkspaceForActor.mockResolvedValue({ id: "ws_sessao" });
+  tenancy.workspaceExists.mockResolvedValue(true);
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); vi.restoreAllMocks(); });
 
@@ -79,6 +81,14 @@ describe("GET /api/auth/instagram/login", () => {
     expect(url.searchParams.get("error")).toContain("Link de conexão inválido");
   });
 
+  it("convite de workspace que não existe mais é recusado antes de ir à Meta", async () => {
+    tenancy.getCurrentActor.mockResolvedValue(null);
+    tenancy.workspaceExists.mockResolvedValue(false);
+    const url = location(await login(`?from=conectar&convite=${createConnectInvite("ws_apagado")}`));
+    expect(url.pathname).toBe("/conectar");
+    expect(url.searchParams.get("error")).toContain("Link de conexão inválido");
+  });
+
   it("superadmin vendo um cliente conecta no workspace desse cliente", async () => {
     tenancy.getCurrentActor.mockResolvedValue({ id: "adm", role: "SUPERADMIN", name: "A", email: "a@x" });
     const state = location(await login("?mode=instagram", "fluxo_workspace_view=ws_visto")).searchParams.get("state") ?? "";
@@ -91,15 +101,16 @@ describe("GET /api/auth/instagram/callback", () => {
   const stateFor = (mode: "instagram" | "facebook") =>
     encodeURIComponent(createOAuthState({ mode, workspaceId: "ws_1", returnTo: `${ORIGIN}/ajustes` }));
 
-  it("state inválido não chama a Meta e pede para tentar de novo", async () => {
+  it("state inválido não chama a Meta e volta para uma página pública (sem prompt de senha)", async () => {
     const url = location(await callback("?code=abc&state=forjado"));
+    expect(url.pathname).toBe("/conectar");
     expect(url.searchParams.get("error")).toContain("inválida ou expirada");
     expect(connect.connectViaInstagram).not.toHaveBeenCalled();
     expect(connect.connectViaFacebook).not.toHaveBeenCalled();
   });
 
   it("modo Facebook chama só o fluxo do Facebook e, se falhar, NÃO tenta o Instagram", async () => {
-    connect.connectViaFacebook.mockRejectedValue(new Error("Nenhuma conta profissional do Instagram vinculada a uma Página"));
+    connect.connectViaFacebook.mockRejectedValue(new ConnectUserError("Nenhuma conta profissional do Instagram vinculada a uma Página"));
     const url = location(await callback(`?code=abc&state=${stateFor("facebook")}`));
     expect(connect.connectViaInstagram).not.toHaveBeenCalled();
     expect(url.origin + url.pathname).toBe(`${ORIGIN}/ajustes`);
@@ -114,9 +125,17 @@ describe("GET /api/auth/instagram/callback", () => {
   });
 
   it("erro técnico da Meta vira mensagem acionável", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
     connect.connectViaInstagram.mockRejectedValue(new Error("Meta OAuth Error: Invalid platform app"));
     const url = location(await callback(`?code=abc&state=${stateFor("instagram")}`));
     expect(url.searchParams.get("error")).toContain("ID do app do Instagram");
+  });
+
+  it("erro interno (ex.: banco) não vaza para a URL", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    connect.connectViaInstagram.mockRejectedValue(new Error("Invalid `prisma.instagramAccount.create()` invocation: accessTokenEnc=segredo"));
+    const url = location(await callback(`?code=abc&state=${stateFor("instagram")}`));
+    expect(url.searchParams.get("error")).toBe("Não foi possível salvar a conexão. Tente novamente em instantes.");
   });
 
   it("cancelamento na Meta vira mensagem amigável", async () => {

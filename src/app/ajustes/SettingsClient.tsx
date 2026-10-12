@@ -342,7 +342,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
               </a>
               <a
                 href={`${settings.oauthLoginUrl}?mode=facebook`}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1877F2] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#0866FF] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
               >
                 <span>Entrar com Facebook</span>
               </a>
@@ -462,7 +462,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
               </a>
               <a
                 href={`${settings.oauthLoginUrl}?mode=facebook`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0866FF] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
               >
                 <span>Entrar com Facebook</span>
               </a>
@@ -753,8 +753,8 @@ function LoginConfigStatus({ config }: LoginConfigStatusProps) {
     { label: "Entrar com Facebook", hint: "META_APP_ID / META_APP_SECRET (ID do App da Meta)", issue: config.facebookIssue ?? config.stateIssue },
   ];
   return (
-    <div className="rounded-2xl border border-border bg-surface-100 p-4 text-xs" aria-label="Configuração do login">
-      <strong className="block text-sm font-bold text-ink mb-2">Configuração do login</strong>
+    <section className="rounded-2xl border border-border bg-surface-100 p-4 text-xs" aria-labelledby="login-config-title">
+      <h3 id="login-config-title" className="text-sm font-bold text-ink mb-2">Configuração do login</h3>
       <ul className="space-y-2">
         {rows.map((row) => (
           <li key={row.label} className="flex items-start gap-2.5">
@@ -771,6 +771,6 @@ function LoginConfigStatus({ config }: LoginConfigStatusProps) {
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }

@@ -388,3 +388,15 @@ describe("describeOAuthError", () => {
     expect(describeOAuthError("x".repeat(500))).toHaveLength(300);
   });
 });
+
+describe("Facebook Login para Empresas com config_id", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("usa config_id no lugar de scope quando META_LOGIN_CONFIG_ID está definido", () => {
+    vi.stubEnv("META_APP_ID", "meta_1");
+    vi.stubEnv("META_APP_SECRET", "meta_s");
+    vi.stubEnv("META_LOGIN_CONFIG_ID", "cfg_42");
+    const url = new URL(getFacebookBusinessLoginUrl("https://app.test/cb", "st"));
+    expect(url.searchParams.get("config_id")).toBe("cfg_42");
+    expect(url.searchParams.get("scope")).toBeNull();
+  });
+});

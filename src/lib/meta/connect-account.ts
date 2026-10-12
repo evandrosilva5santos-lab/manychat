@@ -13,6 +13,14 @@ import {
 // Conclusão do OAuth: cada login tem seu próprio caminho, sem fallback cruzado.
 // O workspace vem do `state` assinado no início do login (sessão ou convite).
 
+/** Erro de negócio com mensagem segura para mostrar a quem está conectando. */
+export class ConnectUserError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConnectUserError";
+  }
+}
+
 const LONG_LIVED_FALLBACK_SECONDS = 60 * 86_400;
 const NO_LINKED_INSTAGRAM =
   "Nenhuma conta profissional do Instagram vinculada a uma Página do Facebook foi autorizada. " +
@@ -37,14 +45,14 @@ async function findExistingIds(workspaceId: string, accounts: ConnectedAccount[]
     )
   );
   if (existing.some((row) => row && row.workspaceId !== workspaceId)) {
-    throw new Error("Esta conta do Instagram já está vinculada a outro cliente.");
+    throw new ConnectUserError("Esta conta do Instagram já está vinculada a outro cliente.");
   }
   return existing.map((row) => row?.id ?? null);
 }
 
 async function saveConnectedAccounts(workspaceId: string, accounts: ConnectedAccount[]): Promise<string[]> {
   const existingIds = await findExistingIds(workspaceId, accounts);
-  for (const [index, acc] of accounts.entries()) {
+  const writes = accounts.map((acc, index) => {
     const data = {
       username: acc.username,
       name: acc.name,
@@ -57,10 +65,11 @@ async function saveConnectedAccounts(workspaceId: string, accounts: ConnectedAcc
       tokenStatus: "ACTIVE" as const,
     };
     const id = existingIds[index];
-    await (id
+    return id
       ? prisma.instagramAccount.update({ where: { id }, data })
-      : prisma.instagramAccount.create({ data: { ...data, workspaceId, igUserId: acc.igUserId } }));
-  }
+      : prisma.instagramAccount.create({ data: { ...data, workspaceId, igUserId: acc.igUserId } });
+  });
+  await prisma.$transaction(writes);
   return accounts.map((acc) => acc.username);
 }
 
@@ -92,7 +101,7 @@ export async function connectViaFacebook(code: string, redirectUri: string, work
   // O token de Página derivado de um token de usuário de longa duração não expira.
   const { accessToken: longLivedUser } = await exchangeForLongLivedFacebookUserToken(shortLivedUser);
   const pages = await fetchFacebookPagesAndInstagram(longLivedUser);
-  if (pages.length === 0) throw new Error(NO_LINKED_INSTAGRAM);
+  if (pages.length === 0) throw new ConnectUserError(NO_LINKED_INSTAGRAM);
   return saveConnectedAccounts(
     workspaceId,
     pages.map((page) => ({

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectViaFacebook, connectViaInstagram } from "@/lib/meta/connect-account";
+import { ConnectUserError, connectViaFacebook, connectViaInstagram } from "@/lib/meta/connect-account";
 import { describeOAuthError, getInstagramRedirectUri, OAuthConfigError, readOAuthState } from "@/lib/meta/oauth";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +9,16 @@ export const dynamic = "force-dynamic";
 // segue só o seu caminho: sem fallback cruzado, o erro real chega à tela.
 
 const INVALID_STATE = "Sessão de autorização inválida ou expirada. Tente conectar novamente.";
+const SAVE_FAILED = "Não foi possível salvar a conexão. Tente novamente em instantes.";
+
+/** Só mensagens de negócio e da Meta chegam à tela; erro interno (ex.: banco) fica no log. */
+function userMessage(error: unknown, redirectUri: string): string {
+  if (error instanceof ConnectUserError || error instanceof OAuthConfigError) return error.message;
+  const message = error instanceof Error ? error.message : "";
+  return /^(Meta |Falha ao |Resposta |Dados de perfil|Identificador da conta)/.test(message)
+    ? describeOAuthError(message, redirectUri)
+    : SAVE_FAILED;
+}
 
 function redirectWith(base: string, params: Record<string, string>) {
   const url = new URL(base);
@@ -19,7 +29,9 @@ function redirectWith(base: string, params: Record<string, string>) {
 
 export async function GET(request: NextRequest) {
   const { origin, searchParams } = request.nextUrl;
-  const fallback = `${origin}/ajustes`;
+  // Sem state válido não se sabe de onde a pessoa veio: usa a página pública
+  // (/ajustes pediria a senha do painel a um cliente do /conectar).
+  const fallback = `${origin}/conectar`;
 
   let payload: ReturnType<typeof readOAuthState>;
   try {
@@ -48,8 +60,10 @@ export async function GET(request: NextRequest) {
     console.info("[oauth/callback] Contas conectadas", { mode: payload.mode, count: usernames.length });
     return redirectWith(payload.returnTo, { connected: "true", username: usernames[0] ?? "", count: String(usernames.length) });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Falha ao conectar a conta.";
-    console.error("[oauth/callback] Falha ao concluir o login", { mode: payload.mode, error: message });
-    return redirectWith(payload.returnTo, { error: describeOAuthError(message, redirectUri) });
+    console.error("[oauth/callback] Falha ao concluir o login", {
+      mode: payload.mode,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return redirectWith(payload.returnTo, { error: userMessage(error, redirectUri) });
   }
 }

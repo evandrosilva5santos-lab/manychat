@@ -171,3 +171,23 @@ Criamos a tela [`http://localhost:3007/ajustes`](http://localhost:3007/ajustes) 
 * Copiar a URL de Webhook e o Verify Token formatados.
 * Renovar o Token de 60 dias diretamente pelo painel (`refreshLongLivedToken`) — só para contas do Instagram Login.
 * Inscrever automaticamente os webhooks através da chamada oficial `POST /{igUserId}/subscribed_apps`.
+
+---
+
+## Verificação de Empresa (obrigatória para "Entrar com Facebook")
+
+Diagnóstico feito no painel em 12/10/2026 (app 1911508559530553, tipo **Empresa**):
+
+- **Login do Facebook para Empresas › Configurações** mostra o aviso: *"O Facebook Login for Business requer acesso avançado. Seu app tem acesso padrão a public_profile."*
+- Em **Análise do app › Permissões e recursos**, `public_profile` está em *Standard access* com status **"Verificação necessária"**.
+- Enquanto isso não for resolvido, a Meta mostra **"Recurso indisponível — o Login do Facebook está indisponível para esse aplicativo"**. Não há correção possível no código.
+
+**Como resolver (dono da empresa):**
+1. Em business.facebook.com › Configurações do negócio › Central de segurança, conclua a **Verificação da empresa** (CNPJ/documentos).
+2. Volte em Análise do app › Permissões e recursos › `public_profile` › **Solicitar acesso avançado**.
+3. (Recomendado) Em Login do Facebook para Empresas › Configurações (lista de configurações), crie uma configuração com as permissões do Instagram e coloque o ID em `META_LOGIN_CONFIG_ID`.
+
+Enquanto isso, use **Entrar com Instagram**, que não depende dessa verificação. Em modo Desenvolvimento, a conta precisa estar em Funções do app › Testadores do Instagram.
+
+**Instagram App ID deste app:** `1544789910543811` (diferente do ID do App da Meta).
+

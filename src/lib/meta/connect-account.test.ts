@@ -12,11 +12,11 @@ const { db, oauth } = vi.hoisted(() => ({
     fetchFacebookPagesAndInstagram: vi.fn(),
   },
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { instagramAccount: db } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { instagramAccount: db, $transaction: (ops: Promise<unknown>[]) => Promise.all(ops) } }));
 vi.mock("@/lib/security/token", () => ({ encryptToken: (t: string) => `enc(${t})` }));
 vi.mock("./oauth", () => oauth);
 
-import { connectViaFacebook, connectViaInstagram } from "./connect-account";
+import { ConnectUserError, connectViaFacebook, connectViaInstagram } from "./connect-account";
 
 const NOW = new Date("2026-10-12T12:00:00Z");
 const REDIRECT = "https://app.test/api/auth/instagram/callback";
@@ -63,7 +63,7 @@ describe("connectViaInstagram", () => {
 
   it("recusa conta já vinculada a outro cliente sem gravar nada", async () => {
     db.findUnique.mockResolvedValue({ id: "acc_1", workspaceId: "ws_outro" });
-    await expect(connectViaInstagram("code", REDIRECT, "ws_1")).rejects.toThrow("já está vinculada a outro cliente");
+    await expect(connectViaInstagram("code", REDIRECT, "ws_1")).rejects.toThrow(ConnectUserError);
     expect(db.update).not.toHaveBeenCalled();
     expect(db.create).not.toHaveBeenCalled();
   });
