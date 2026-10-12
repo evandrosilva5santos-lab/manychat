@@ -225,10 +225,10 @@ export function ConectarClient({ connected, username, error }: ConectarClientPro
       {/* ── Footer ── */}
       <footer className="max-w-4xl w-full mx-auto text-center pt-6 border-t border-border text-xs text-ink-muted flex flex-col sm:flex-row items-center justify-between gap-2">
         <span>Fluxo · Plataforma Autônoma de Automação para Instagram</span>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link href="/privacidade" className="hover:text-ink transition">Privacidade</Link>
+          <Link href="/termos" className="hover:text-ink transition">Termos</Link>
           <Link href="/fluxos" className="hover:text-ink transition">Fluxos</Link>
-          <Link href="/conversas" className="hover:text-ink transition">Conversas</Link>
-          <Link href="/contatos" className="hover:text-ink transition">Contatos</Link>
           <Link href="/ajustes" className="hover:text-ink transition">Ajustes</Link>
         </div>
       </footer>
