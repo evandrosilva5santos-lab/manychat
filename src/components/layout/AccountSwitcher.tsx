@@ -1,18 +1,39 @@
 "use client";
 
 import { useTransition } from "react";
-import { AtSign, ChevronDown, CircleAlert, Link as LinkIcon, LoaderCircle } from "lucide-react";
+import { AtSign, CheckCircle2, ChevronDown, CircleAlert, Link as LinkIcon, LoaderCircle, PauseCircle } from "lucide-react";
 import { switchActiveInstagramAccount } from "@/app/actions/tenancy";
+import { accountStatusLabel, type AccountTone } from "./account-status";
 
 type Account = { id: string; username: string; profilePicUrl: string | null; status: string };
+
+const STATUS_TEXT_COLOR: Record<AccountTone, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-danger",
+  neutral: "text-ink-muted",
+};
+
+function StatusIcon({ tone }: { tone: AccountTone }) {
+  if (tone === "success") return <CheckCircle2 size={12} aria-hidden />;
+  if (tone === "warning") return <CircleAlert size={12} aria-hidden />;
+  return <PauseCircle size={12} aria-hidden />;
+}
+
+function optionSuffix(status: string): string {
+  if (status === "EXPIRED") return " — token expirado";
+  if (status === "DISCONNECTED") return " — descarregado";
+  return "";
+}
 
 export function AccountSwitcher({ accounts, activeAccountId }: { accounts: Account[]; activeAccountId: string | null }) {
   const [pending, startTransition] = useTransition();
   const active = accounts.find((account) => account.id === activeAccountId) ?? null;
+  const status = accountStatusLabel(active?.status);
 
   if (!active) {
     return (
-      <a href="/conectar" className="flex items-center gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-semibold text-ink hover:bg-warning/20" aria-label="Conectar meu Instagram">
+      <a href="/ajustes" className="flex items-center gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-semibold text-ink hover:bg-warning/20" aria-label="Conectar meu Instagram">
         <LinkIcon size={15} aria-hidden /> Conectar Instagram
       </a>
     );
@@ -23,7 +44,10 @@ export function AccountSwitcher({ accounts, activeAccountId }: { accounts: Accou
       {active.profilePicUrl ? <img src={active.profilePicUrl} alt="" className="h-7 w-7 rounded-full object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-primary"><AtSign size={15} /></span>}
       <span className="min-w-0 leading-tight">
         <span className="block truncate font-bold">@{active.username}</span>
-        <span className={active.status === "CONNECTED" ? "text-success" : "text-danger"}>{active.status === "CONNECTED" ? "● Automação ativa" : "● Reconexão necessária"}</span>
+        <span className={`inline-flex items-center gap-1 ${STATUS_TEXT_COLOR[status.tone]}`}>
+          <StatusIcon tone={status.tone} />
+          {active.status === "CONNECTED" ? "Automação ativa" : status.label.split(" — ")[0]}
+        </span>
       </span>
       {pending ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} aria-hidden />}
       <select
@@ -33,7 +57,7 @@ export function AccountSwitcher({ accounts, activeAccountId }: { accounts: Accou
         onChange={(event) => startTransition(async () => { await switchActiveInstagramAccount(event.target.value); })}
         className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-default"
       >
-        {accounts.map((account) => <option key={account.id} value={account.id}>@{account.username}{account.status === "CONNECTED" ? "" : " — reconectar"}</option>)}
+        {accounts.map((account) => <option key={account.id} value={account.id}>@{account.username}{optionSuffix(account.status)}</option>)}
       </select>
       <span className="sr-only">{accounts.length > 1 ? "Alternar conta" : "Conta ativa"}</span>
     </label>

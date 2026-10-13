@@ -6,14 +6,26 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentAccount, listAllAccounts } from "@/lib/account";
 import { graphClientForAccount } from "@/lib/meta/account-client";
 import { createConnectInvite } from "@/lib/meta/connect-invite";
+import { disconnectAccount, requestAccountDeletion } from "@/lib/meta/account-lifecycle";
+import { matchesConfirmation } from "@/components/ui/confirm-match";
+import { decryptToken, encryptToken } from "@/lib/security/token";
 import {
+  MetaTokenError,
+  refreshInstagramLongLivedToken,
   getAppBaseUrl,
   getFacebookAppCredentials,
   getInstagramAppCredentials,
   getInstagramRedirectUri,
   getOAuthSigningSecret,
 } from "@/lib/meta/oauth";
-import { clearActiveAccount, getOrCreateWorkspaceForActor, getTenantContext } from "@/lib/tenancy";
+import {
+  clearActiveAccount,
+  findNextConnectedAccount,
+  getOrCreateWorkspaceForActor,
+  getTenantContext,
+  requireSuperAdmin,
+  setActiveAccount,
+} from "@/lib/tenancy";
 
 export type MetaSettingsData = {
   account: {
@@ -22,7 +34,11 @@ export type MetaSettingsData = {
     name: string | null;
     igUserId: string;
     status: string;
-    tokenExpiresAt?: string | null;
+    tokenStatus: string | null;
+    tokenExpiresAt: string | null;
+    authProvider: "INSTAGRAM_LOGIN" | "FACEBOOK_LOGIN";
+    /** Há token guardado para ESTA conta (o token em si nunca vai ao navegador). */
+    hasStoredToken: boolean;
   } | null;
   hasAccessToken: boolean;
   hasAppSecret: boolean;
@@ -45,6 +61,7 @@ export type MetaSettingsData = {
     name: string | null;
     igUserId: string;
     status: string;
+    authProvider: "INSTAGRAM_LOGIN" | "FACEBOOK_LOGIN";
     tokenExpiresAt: string | null;
   }>;
 };
@@ -77,23 +94,81 @@ async function buildClientConnectUrl(): Promise<string | null> {
 }
 const META_UNAVAILABLE = "Não foi possível falar com a Meta agora. Tente novamente em instantes.";
 
-/**
- * Desconecta apenas o perfil ativo. O histórico, fluxos e contatos continuam
- * no banco; a credencial local é removida para impedir novos envios.
- */
-export async function disconnectCurrentInstagramProfile(): Promise<{ ok: boolean; error?: string }> {
-  await requireAuth();
-  const account = await getCurrentAccount();
-  if (!account) return { ok: false, error: "Nenhum perfil do Instagram está carregado." };
+const NO_PROFILE = "Nenhum perfil do Instagram está carregado.";
+const DISCONNECT_FAILED = "Não foi possível descarregar o perfil agora. Tente novamente em instantes.";
+const DELETE_FAILED = "Não foi possível excluir o perfil agora. Tente novamente em instantes.";
+const NAME_MISMATCH = "O nome digitado não confere com o perfil.";
 
-  await prisma.instagramAccount.update({
-    where: { id: account.id },
-    data: { status: "DISCONNECTED", tokenStatus: "REVOKED", accessTokenEnc: null, tokenExpiresAt: null },
-  });
-  await clearActiveAccount();
+/**
+ * Depois de descarregar/excluir: ativa outro perfil CONECTADO do MESMO workspace
+ * (nunca de outro cliente) ou limpa a seleção. Revalida o layout e Ajustes.
+ */
+async function moveToNextAccount(current: { id: string; workspaceId: string }): Promise<string | null> {
+  const next = await findNextConnectedAccount(current.workspaceId, current.id);
+  if (next) await setActiveAccount(next.id);
+  else await clearActiveAccount();
   revalidatePath("/", "layout");
   revalidatePath("/ajustes");
-  return { ok: true };
+  return next?.id ?? null;
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.name === "AccountAccessError" ? error.message : fallback;
+}
+
+/**
+ * Descarrega o perfil ativo (nunca recebe id do navegador). A Meta é avisada
+ * em best-effort; histórico, fluxos e contatos continuam guardados.
+ */
+export async function disconnectCurrentInstagramProfile(): Promise<{
+  ok: boolean;
+  error?: string;
+  nextAccountId?: string | null;
+}> {
+  await requireAuth();
+  const account = await getCurrentAccount();
+  if (!account) return { ok: false, error: NO_PROFILE };
+
+  try {
+    await disconnectAccount(account.id, { reason: "USER", notifyMeta: true });
+    return { ok: true, nextAccountId: await moveToNextAccount(account) };
+  } catch (error) {
+    console.error("[ajustes] Falha ao descarregar perfil", error instanceof Error ? error.message : error);
+    return { ok: false, error: DISCONNECT_FAILED };
+  }
+}
+
+/**
+ * Exclui o perfil ativo e seus dados. A confirmação do @ é conferida AQUI,
+ * no servidor; durante "ver como cliente" só o SUPERADMIN pode excluir.
+ */
+export async function deleteCurrentInstagramProfile(confirmation: string): Promise<{
+  ok: boolean;
+  error?: string;
+  status?: "PENDING" | "COMPLETED" | "FAILED";
+  code?: string;
+}> {
+  await requireAuth();
+  try {
+    const context = await getTenantContext();
+    if (context.impersonatedWorkspaceId) await requireSuperAdmin();
+
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: NO_PROFILE };
+    if (typeof confirmation !== "string" || !matchesConfirmation(confirmation, account.username)) {
+      return { ok: false, error: NAME_MISMATCH };
+    }
+
+    const result = await requestAccountDeletion(account.id, { actorId: context.actor?.id });
+    await moveToNextAccount(account);
+    if (result.status === "FAILED") {
+      return { ok: false, status: result.status, code: result.code, error: DELETE_FAILED };
+    }
+    return { ok: true, status: result.status, code: result.code };
+  } catch (error) {
+    console.error("[ajustes] Falha ao excluir perfil", error instanceof Error ? error.message : error);
+    return { ok: false, error: errorMessage(error, DELETE_FAILED) };
+  }
 }
 
 function maskSecret(value: string | undefined): string | null {
@@ -109,7 +184,7 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
   const account = await getCurrentAccount();
   const allDbAccounts = await listAllAccounts();
 
-  const hasAccessToken = Boolean(account?.accessTokenEnc || process.env.IG_ACCESS_TOKEN);
+  const hasAccessToken = Boolean(account?.accessTokenEnc);
   const hasAppSecret = Boolean(process.env.META_APP_SECRET || process.env.IG_APP_SECRET);
   const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
 
@@ -120,7 +195,10 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
       name: account.name,
       igUserId: account.igUserId,
       status: account.status,
+      tokenStatus: account.tokenStatus ?? null,
       tokenExpiresAt: account.tokenExpiresAt ? account.tokenExpiresAt.toISOString() : null,
+      authProvider: account.authProvider,
+      hasStoredToken: hasAccessToken,
     } : null,
     hasAccessToken,
     hasAppSecret,
@@ -136,13 +214,14 @@ export async function getMetaSettings(): Promise<MetaSettingsData> {
     },
     webhookVerifyTokenConfigured: Boolean(verifyToken),
     webhookVerifyTokenHint: maskSecret(verifyToken),
-    isMockMode: !hasAccessToken,
+    isMockMode: !(hasAccessToken || process.env.IG_ACCESS_TOKEN),
     allAccounts: allDbAccounts.map((a) => ({
       id: a.id,
       username: a.username,
       name: a.name,
       igUserId: a.igUserId,
       status: a.status,
+      authProvider: a.authProvider,
       tokenExpiresAt: a.tokenExpiresAt ? a.tokenExpiresAt.toISOString() : null,
     })),
   };
@@ -181,26 +260,42 @@ export async function testMetaConnection(): Promise<{
 }
 
 /**
- * Renova o token de acesso de 60 dias (Long-Lived Token da Meta).
+ * Renova o token de 60 dias do Instagram e SALVA o novo token (criptografado).
+ * Facebook usa token de Página, que não expira: nada a renovar.
  */
 export async function renewMetaToken(): Promise<{
   ok: boolean;
   expiresInDays?: number;
+  message?: string;
   error?: string;
 }> {
   await requireAuth();
   try {
     const account = await getCurrentAccount();
     if (!account) return { ok: false, error: "Nenhuma conta do Instagram está selecionada." };
-    const res = await (await graphClientForAccount(account.id)).refreshLongLivedToken();
-    if (res.success) {
-      const days = res.expiresIn ? Math.round(res.expiresIn / 86400) : 60;
-      revalidatePath("/ajustes");
-      return { ok: true, expiresInDays: days };
+    if (account.authProvider === "FACEBOOK_LOGIN") {
+      return { ok: true, message: "Conta do Facebook usa token de Página, que não expira." };
     }
-    return { ok: false, error: res.error };
+    if (!account.accessTokenEnc) {
+      return { ok: false, error: "Este perfil não tem token guardado. Clique em Carregar perfil de novo." };
+    }
+
+    const { accessToken, expiresIn } = await refreshInstagramLongLivedToken(decryptToken(account.accessTokenEnc));
+    const expiresAt = new Date(Date.now() + expiresIn * 1000);
+    const saved = await prisma.instagramAccount.updateMany({
+      where: { id: account.id, status: "CONNECTED" },
+      data: { accessTokenEnc: encryptToken(accessToken), tokenExpiresAt: expiresAt, tokenStatus: "ACTIVE" },
+    });
+    if (saved.count === 0) {
+      return { ok: false, error: "O perfil não está mais conectado. Clique em Carregar perfil de novo." };
+    }
+    revalidatePath("/ajustes");
+    return { ok: true, expiresInDays: Math.round(expiresIn / 86400) };
   } catch (err) {
-    console.error("[ajustes] Falha na chamada à Meta", err);
+    if (err instanceof MetaTokenError && err.isPermanent) {
+      return { ok: false, error: "A Meta recusou renovar o acesso. Clique em Carregar perfil de novo e entre com o Instagram." };
+    }
+    console.error("[ajustes] Falha ao renovar token", err instanceof Error ? err.message : err);
     return { ok: false, error: META_UNAVAILABLE };
   }
 }
@@ -237,6 +332,11 @@ export async function revealWebhookVerifyToken(): Promise<{
   error?: string;
 }> {
   await requireAuth();
+  try {
+    await requireSuperAdmin();
+  } catch {
+    return { ok: false, error: "Apenas o Super Admin pode ver o token de verificação." };
+  }
   const token = process.env.WEBHOOK_VERIFY_TOKEN;
   if (!token) {
     return { ok: false, error: "WEBHOOK_VERIFY_TOKEN não está configurado." };

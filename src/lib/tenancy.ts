@@ -115,7 +115,10 @@ export async function getTenantContext() {
   const impersonatedWorkspaceId = actor.role === "SUPERADMIN" ? store.get(IMPERSONATION_COOKIE)?.value ?? null : null;
   const accounts = await listAccessibleAccounts(actor);
   const narrowed = impersonatedWorkspaceId ? accounts.filter((account) => account.workspaceId === impersonatedWorkspaceId) : accounts;
-  const selected = requestedId ? narrowed.find((account) => account.id === requestedId) : narrowed[0];
+  const requested = requestedId ? narrowed.find((account) => account.id === requestedId) : undefined;
+  // Sem seleção válida, prefere um perfil conectado: abrir o painel num perfil
+  // descarregado esconderia perfis que funcionam.
+  const selected = requested ?? narrowed.find((account) => account.status === "CONNECTED") ?? narrowed[0];
   return { actor, account: selected ?? null, impersonatedWorkspaceId };
 }
 
@@ -129,6 +132,17 @@ export async function setActiveAccount(accountId: string) {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
+  });
+}
+
+/**
+ * Próximo perfil CONECTADO do mesmo workspace (exclui o informado). Nunca sai
+ * do workspace: um operador não pode cair no perfil de outro cliente.
+ */
+export async function findNextConnectedAccount(workspaceId: string, excludeAccountId: string) {
+  return prisma.instagramAccount.findFirst({
+    where: { workspaceId, status: "CONNECTED", id: { not: excludeAccountId } },
+    orderBy: [{ username: "asc" }, { id: "asc" }],
   });
 }
 

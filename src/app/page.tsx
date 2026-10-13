@@ -8,10 +8,12 @@ import {
   ArrowRight,
   CheckCircle2,
   Inbox,
+  PauseCircle,
 } from "lucide-react";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
 import { timeAgo } from "@/lib/format";
+import { isAccountConnected, pausedFlowLabel } from "@/components/layout/account-status";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +111,18 @@ export default async function DashboardPage() {
     }
   }
 
-  const stats = [
+  const connected = isAccountConnected(account?.status);
+  // Automação "ao vivo" num perfil que não está conectado não roda: diz isso em vez de enganar.
+  const livePaused = liveFlows > 0 ? pausedFlowLabel(account?.status) : null;
+
+  const stats: Array<{
+    label: string;
+    value: string;
+    sub: string;
+    subColor: string;
+    icon: typeof Users;
+    pausedNote?: string | null;
+  }> = [
     {
       label: "Contatos",
       value: String(contactCount),
@@ -130,6 +143,7 @@ export default async function DashboardPage() {
       sub: `${stoppedFlows} parada${stoppedFlows !== 1 ? "s" : ""} · ${draftFlows} rascunho${draftFlows !== 1 ? "s" : ""}`,
       subColor: "text-ink-muted",
       icon: Zap,
+      pausedNote: livePaused,
     },
     {
       label: "Mensagens recebidas",
@@ -145,7 +159,7 @@ export default async function DashboardPage() {
   return (
     <main className="fx mx-auto flex w-full max-w-6xl flex-col gap-6 p-8">
       {/* ── Banner de Conexão com o Instagram ─────────────────────────────── */}
-      {account ? (
+      {account && connected ? (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-ink shadow-xs">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-600">
@@ -165,7 +179,7 @@ export default async function DashboardPage() {
             Ajustes
           </Link>
         </div>
-      ) : (
+      ) : account ? null : (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-ink shadow-xs">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-amber-500/20 text-amber-600">
@@ -179,10 +193,10 @@ export default async function DashboardPage() {
             </div>
           </div>
           <Link
-            href="/conectar"
+            href="/ajustes"
             className="flex-none rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs"
           >
-            Conectar meu Instagram
+            Conectar Instagram
           </Link>
         </div>
       )}
@@ -234,6 +248,15 @@ export default async function DashboardPage() {
                 <span className={`text-[12px] mt-2 ${stat.subColor}`}>
                   {stat.sub}
                 </span>
+                {stat.pausedNote && (
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] font-semibold text-warning">
+                    <PauseCircle size={13} aria-hidden />
+                    {stat.pausedNote}
+                    <Link href="/ajustes" className="text-primary underline underline-offset-2">
+                      Ver motivo
+                    </Link>
+                  </span>
+                )}
               </div>
             </div>
           );

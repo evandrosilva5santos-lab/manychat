@@ -12,6 +12,7 @@ import {
   HelpCircle,
   RefreshCw,
 } from "lucide-react";
+import { friendlyConnectError } from "./messages";
 
 function InstagramIcon({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
@@ -44,6 +45,7 @@ interface ConectarClientProps {
 export function ConectarClient({ connected, username, error, invite }: ConectarClientProps) {
   const [redirectingTo, setRedirectingTo] = useState<"instagram" | "facebook" | null>(null);
   const canConnect = Boolean(invite) && !redirectingTo;
+  const friendlyError = friendlyConnectError(error);
 
   const handleStartOAuth = (mode: "instagram" | "facebook") => {
     if (!invite) return;
@@ -56,27 +58,13 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
 
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-between p-4 sm:p-8">
-      {/* ── Top Bar ── */}
+      {/* ── Top Bar: página pública, sem links para o painel protegido ── */}
       <header className="max-w-4xl w-full mx-auto flex items-center justify-between pb-6 border-b border-border">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold shadow-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold shadow-xs" aria-hidden>
             F
           </div>
-          <span className="font-bold text-lg tracking-tight group-hover:text-primary transition">
-            Fluxo
-          </span>
-        </Link>
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-200 text-ink-muted border border-border">
-            <ShieldCheck size={13} className="text-success" />
-            Meta Graph API v21.0
-          </span>
-          <Link
-            href="/ajustes"
-            className="text-xs text-ink-muted hover:text-ink transition underline underline-offset-4"
-          >
-            Ajustes
-          </Link>
+          <span className="font-bold text-lg tracking-tight">Fluxo</span>
         </div>
       </header>
 
@@ -86,58 +74,44 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
         {connected ? (
           <div className="rounded-2xl border border-success/30 bg-surface-200 p-6 sm:p-8 shadow-card text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 rounded-full bg-success-soft text-success flex items-center justify-center mx-auto border border-success/20">
-              <CheckCircle2 size={32} />
+              <CheckCircle2 size={32} aria-hidden />
             </div>
 
-            <div className="space-y-2">
-              <span className="inline-block text-xs uppercase tracking-wider font-semibold text-success bg-success-soft px-3 py-0.5 rounded-full">
-                Conexão Autorizada
-              </span>
+            <div role="status" className="space-y-2">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                Instagram Conectado!
+                Pronto, @{username || "sua_conta"} está conectado.
               </h1>
-              <p className="text-sm text-ink-muted">
-                Sua conta oficial{" "}
-                <strong className="text-ink">@{username || "sua_conta"}</strong> está
-                autenticada e pronta para receber automações.
+              <p className="text-base text-ink-muted">
+                Você pode fechar esta página e voltar ao WhatsApp.
               </p>
             </div>
-
-            <div className="rounded-xl bg-surface-100 p-4 border border-border text-left space-y-2 text-xs text-ink-muted">
-              <div className="flex items-center gap-2 text-ink font-medium">
-                <CheckCircle2 size={14} className="text-success" />
-                <span>Webhooks inscritos automaticamente</span>
-              </div>
-              <div className="flex items-center gap-2 text-ink font-medium">
-                <CheckCircle2 size={14} className="text-success" />
-                <span>Acesso renovado automaticamente, sem você precisar repetir</span>
-              </div>
-              <div className="flex items-center gap-2 text-ink font-medium">
-                <CheckCircle2 size={14} className="text-success" />
-                <span>Criptografia AES-256 no armazenamento de credenciais</span>
-              </div>
-            </div>
-
-            <p className="text-sm text-ink-muted pt-2">
-              Pronto! Pode fechar esta página. Quem cuida da sua conta já vê a conexão no painel.
-            </p>
           </div>
         ) : (
           /* Caso: Não conectado ou Erro */
           <div className="rounded-2xl border border-border bg-surface-200 p-6 sm:p-8 shadow-card space-y-6">
+            {!invite && (
+              <div id="conectar-sem-convite" className="rounded-xl bg-surface-100 border border-border p-4 flex items-start gap-3 text-sm text-ink-muted" role="status">
+                <Lock size={16} className="shrink-0 mt-0.5 text-ink-subtle" />
+                <span>
+                  Este endereço precisa do <strong className="text-ink">link de conexão</strong> enviado por quem cuida da sua conta.
+                  Peça ao seu gestor o link e abra-o novamente.
+                </span>
+              </div>
+            )}
+
             {/* Banner de Erro se houver */}
-            {error && (
-              <div className="rounded-xl bg-danger-soft border border-danger/30 p-4 flex items-start gap-3 text-xs text-danger animate-in fade-in">
+            {friendlyError && (
+              <div className="rounded-xl bg-danger-soft border border-danger/30 p-4 flex items-start gap-3 text-sm text-danger animate-in fade-in">
                 <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                 <div className="space-y-1" role="alert">
                   <p className="font-semibold">Não foi possível conectar</p>
-                  <p className="opacity-90 leading-relaxed">{error}</p>
+                  <p className="opacity-90 leading-relaxed">{friendlyError}</p>
                 </div>
               </div>
             )}
 
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-pink-600 to-purple-600 flex items-center justify-center mx-auto text-white shadow-pop">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto text-on-primary shadow-pop">
                 <InstagramIcon size={28} />
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
@@ -149,16 +123,6 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
               </p>
             </div>
 
-            {!invite && (
-              <div id="conectar-sem-convite" className="rounded-xl bg-surface-100 border border-border p-4 flex items-start gap-3 text-xs text-ink-muted" role="status">
-                <Lock size={16} className="shrink-0 mt-0.5 text-ink-subtle" />
-                <span>
-                  Este endereço precisa do <strong className="text-ink">link de conexão</strong> enviado por quem cuida da sua conta.
-                  Peça ao seu gestor o link e abra-o novamente.
-                </span>
-              </div>
-            )}
-
             {/* Ações de Conexão: dois caminhos oficiais da Meta */}
             <div className="space-y-3 pt-2">
               <button
@@ -167,7 +131,7 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
                 disabled={!canConnect}
                 aria-describedby={invite ? undefined : "conectar-sem-convite"}
                 aria-busy={redirectingTo !== null}
-                className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-on-primary shadow-card hover:bg-primary-hover transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer min-h-11"
               >
                 {redirectingTo === "instagram" ? (
                   <>
@@ -188,7 +152,7 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
                 disabled={!canConnect}
                 aria-describedby={invite ? undefined : "conectar-sem-convite"}
                 aria-busy={redirectingTo !== null}
-                className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#0866FF] px-5 py-3.5 text-sm font-bold text-white shadow-card hover:opacity-95 transition active:scale-[0.99] disabled:opacity-70 cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl border border-border-strong bg-surface-200 px-5 py-3.5 text-sm font-bold text-ink shadow-card hover:bg-surface-300 transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer min-h-11"
               >
                 {redirectingTo === "facebook" ? (
                   <>
@@ -202,14 +166,14 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
                   </>
                 )}
               </button>
-              <p className="text-center text-[11px] text-ink-subtle">
+              <p className="text-center text-xs text-ink-muted">
                 Use o Facebook se a sua conta do Instagram é administrada por uma Página do Facebook.
               </p>
             </div>
 
             {/* Checklist de Recursos */}
             <div className="border-t border-border pt-6 space-y-3">
-              <p className="text-xs font-semibold text-ink uppercase tracking-wider">
+              <p className="text-xs font-semibold text-ink">
                 Recursos ativados com a conexão:
               </p>
               <ul className="grid grid-cols-1 gap-2.5 text-xs text-ink-muted">
@@ -242,12 +206,10 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
 
       {/* ── Footer ── */}
       <footer className="max-w-4xl w-full mx-auto text-center pt-6 border-t border-border text-xs text-ink-muted flex flex-col sm:flex-row items-center justify-between gap-2">
-        <span>Fluxo · Plataforma Autônoma de Automação para Instagram</span>
+        <span>Fluxo · Automação de conversas para Instagram</span>
         <div className="flex flex-wrap justify-center gap-4">
           <Link href="/privacidade" className="hover:text-ink transition">Privacidade</Link>
           <Link href="/termos" className="hover:text-ink transition">Termos</Link>
-          <Link href="/fluxos" className="hover:text-ink transition">Fluxos</Link>
-          <Link href="/ajustes" className="hover:text-ink transition">Ajustes</Link>
         </div>
       </footer>
     </div>

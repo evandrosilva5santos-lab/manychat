@@ -9,6 +9,7 @@ const { graphClientForAccount, impersonateWorkspace, requireSuperAdmin } = vi.ho
 vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount }));
 vi.mock("@/lib/tenancy", () => ({ impersonateWorkspace, requireSuperAdmin }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/meta/connect-invite", () => ({ createConnectInvite: vi.fn(() => "convite.assinado") }));
 
 import { getReconnectWhatsAppLink, testAccountConnection, viewWorkspaceAsClient } from "./actions";
 
@@ -35,6 +36,16 @@ describe("ações do painel super admin", () => {
   it("não gera link de WhatsApp sem destino HTTPS configurado", async () => {
     vi.stubEnv("ADMIN_RECONNECT_WHATSAPP_URL", "http://wa.me/5511999999999");
     await expect(getReconnectWhatsAppLink("workspace_1", "account_1", "loja")).resolves.toEqual({ ok: false, error: "A URL de reconexão por WhatsApp é inválida." });
+  });
+
+  it("o link de reconexão leva o convite assinado do workspace", async () => {
+    vi.stubEnv("ADMIN_RECONNECT_WHATSAPP_URL", "https://wa.me/5511999999999");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://fluxo.example.com");
+    const res = await getReconnectWhatsAppLink("workspace_1", "account_1", "@loja");
+    expect(res.ok).toBe(true);
+    const text = new URL(res.url!).searchParams.get("text")!;
+    expect(text).toContain("https://fluxo.example.com/conectar?convite=convite.assinado");
+    expect(text).toContain("@loja");
   });
 
   it("ativa a impersonação somente para o workspace informado", async () => {

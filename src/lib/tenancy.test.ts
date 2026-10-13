@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: db }));
 import {
   AccountAccessError,
   getTenantContext,
+  findNextConnectedAccount,
   getAdminOverview,
   hashSessionToken,
   selectActiveAccount,
@@ -94,5 +95,51 @@ describe("multi-tenancy", () => {
 
   it("contexto exige sessão válida fora do bootstrap de desenvolvimento", async () => {
     await expect(getTenantContext()).resolves.toEqual({ actor: null, account: null, impersonatedWorkspaceId: null });
+  });
+
+  describe("seleção do perfil ativo", () => {
+    const session = () => {
+      db.userSession.findUnique.mockResolvedValue({ user: client, expiresAt: new Date(Date.now() + 60_000) });
+    };
+    const accounts = [
+      { id: "a", workspaceId: "w", username: "a_descarregado", status: "DISCONNECTED" },
+      { id: "b", workspaceId: "w", username: "b_conectado", status: "CONNECTED" },
+      { id: "c", workspaceId: "w", username: "c_conectado", status: "CONNECTED" },
+    ];
+
+    it("sem cookie válido, prefere o primeiro perfil CONECTADO", async () => {
+      cookieStore.get.mockImplementation((name: string) => (name === "fluxo_session" ? { value: "s" } : undefined));
+      session();
+      db.instagramAccount.findMany.mockResolvedValue(accounts);
+      const { account } = await getTenantContext();
+      expect(account?.id).toBe("b");
+    });
+
+    it("sem nenhum conectado, cai no primeiro da lista", async () => {
+      cookieStore.get.mockImplementation((name: string) => (name === "fluxo_session" ? { value: "s" } : undefined));
+      session();
+      db.instagramAccount.findMany.mockResolvedValue([accounts[0]]);
+      const { account } = await getTenantContext();
+      expect(account?.id).toBe("a");
+    });
+
+    it("respeita o cookie mesmo que o perfil escolhido esteja descarregado", async () => {
+      cookieStore.get.mockImplementation((name: string) =>
+        name === "fluxo_session" ? { value: "s" } : name === "active_ig_account_id" ? { value: "a" } : undefined,
+      );
+      session();
+      db.instagramAccount.findMany.mockResolvedValue(accounts);
+      const { account } = await getTenantContext();
+      expect(account?.id).toBe("a");
+    });
+
+    it("findNextConnectedAccount busca só no mesmo workspace, conectado e excluindo o atual", async () => {
+      db.instagramAccount.findFirst.mockResolvedValue({ id: "b" });
+      await expect(findNextConnectedAccount("w", "a")).resolves.toEqual({ id: "b" });
+      expect(db.instagramAccount.findFirst).toHaveBeenCalledWith({
+        where: { workspaceId: "w", status: "CONNECTED", id: { not: "a" } },
+        orderBy: [{ username: "asc" }, { id: "asc" }],
+      });
+    });
   });
 });

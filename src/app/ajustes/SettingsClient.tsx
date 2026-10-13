@@ -1,16 +1,13 @@
 "use client";
 
-import React, { useState, useSyncExternalStore, useTransition } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 
 const subscribeNoop = () => () => {};
-import Link from "next/link";
 import {
   Settings,
   ShieldCheck,
-  Zap,
   Copy,
   Check,
-  RefreshCw,
   ExternalLink,
   AlertTriangle,
   CheckCircle2,
@@ -18,23 +15,14 @@ import {
   Video,
   Key,
   Globe,
-  Radio,
-  HelpCircle,
-  Code2,
   Smartphone,
   Send,
   Eye,
   EyeOff,
-  LogOut,
 } from "lucide-react";
-import {
-  disconnectCurrentInstagramProfile,
-  testMetaConnection,
-  renewMetaToken,
-  subscribeMetaWebhooks,
-  revealWebhookVerifyToken,
-  type MetaSettingsData,
-} from "./actions";
+import { revealWebhookVerifyToken, type MetaSettingsData } from "./actions";
+import { ProfileCard, StatusIcon } from "./ProfileCard";
+import { accountStatusLabel, describeValidity, type AccountTone } from "@/components/layout/account-status";
 
 interface SettingsClientProps {
   initialSettings: MetaSettingsData;
@@ -43,29 +31,24 @@ interface SettingsClientProps {
 }
 
 export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: SettingsClientProps) {
-  const [settings] = useState<MetaSettingsData>(initialSettings);
+  // Lê direto das props: depois de descarregar/excluir, router.refresh() traz o estado novo.
+  const settings = initialSettings;
   // Domínio público do navegador (vazio na renderização do servidor).
   const origin = useSyncExternalStore(subscribeNoop, () => window.location.origin, () => "");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    tested: boolean;
-    ok: boolean;
-    message: string;
-  } | null>(null);
-  const [renewResult, setRenewResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [subscribeResult, setSubscribeResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [disconnectResult, setDisconnectResult] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   if (!settings.account) {
     return (
       <main className="fx flex min-h-full items-center justify-center bg-surface-100 p-6 text-ink">
-        <section className="max-w-lg rounded-2xl border border-border bg-surface-200 p-8 text-center shadow-card">
-          <h1 className="text-2xl font-bold">Conecte seu Instagram</h1>
-          <p className="mt-3 text-sm text-ink-muted">Escolha uma conta profissional para ativar contatos, conversas e automações.</p>
-          <Link href="/conectar" className="fx-btn fx-btn-primary mt-6">Conectar meu Instagram</Link>
+        <section className="max-w-lg rounded-xl border border-border bg-surface-200 p-8 text-center shadow-card">
+          <h1 className="text-2xl font-bold">Nenhum perfil carregado</h1>
+          <p className="mt-3 text-sm text-ink-muted">Carregue uma conta profissional do Instagram para ativar contatos, conversas e automações.</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <a href={`${settings.oauthLoginUrl}?mode=instagram`} className="fx-btn fx-btn-primary">Carregar perfil do Instagram</a>
+            <a href={`${settings.oauthLoginUrl}?mode=facebook`} className="fx-btn">Carregar via Facebook</a>
+          </div>
         </section>
       </main>
     );
@@ -108,77 +91,6 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
       }
     }
     setShowToken((prev) => !prev);
-  };
-
-  const handleTestConnection = () => {
-    setTestResult(null);
-    startTransition(async () => {
-      const res = await testMetaConnection();
-      if (res.ok) {
-        setTestResult({
-          tested: true,
-          ok: true,
-          message: res.mock
-            ? "Conexão validada com sucesso em Modo Simulado (Mock ativo)."
-            : `Conectado com sucesso à conta @${res.username} (${res.name || "Instagram"})!`,
-        });
-      } else {
-        setTestResult({
-          tested: true,
-          ok: false,
-          message: res.error || "Falha ao validar credenciais da Meta.",
-        });
-      }
-    });
-  };
-
-  const handleDisconnectProfile = () => {
-    if (!window.confirm("Descarregar este perfil? As automações serão pausadas e a credencial local será removida. Seus contatos e fluxos serão preservados.")) return;
-    setDisconnectResult(null);
-    startTransition(async () => {
-      const res = await disconnectCurrentInstagramProfile();
-      if (res.ok) {
-        window.location.reload();
-        return;
-      }
-      setDisconnectResult(res.error ?? "Não foi possível descarregar o perfil.");
-    });
-  };
-
-  const handleRenewToken = () => {
-    setRenewResult(null);
-    startTransition(async () => {
-      const res = await renewMetaToken();
-      if (res.ok) {
-        setRenewResult({
-          ok: true,
-          message: `Token da Meta renovado com sucesso! Válido por mais ${res.expiresInDays} dias.`,
-        });
-      } else {
-        setRenewResult({
-          ok: false,
-          message: res.error || "Erro ao renovar token da Meta.",
-        });
-      }
-    });
-  };
-
-  const handleSubscribe = () => {
-    setSubscribeResult(null);
-    startTransition(async () => {
-      const res = await subscribeMetaWebhooks();
-      if (res.ok) {
-        setSubscribeResult({
-          ok: true,
-          message: "Campos 'comments' e 'messages' inscritos com sucesso na Meta via API!",
-        });
-      } else {
-        setSubscribeResult({
-          ok: false,
-          message: res.error || "Falha ao registrar webhooks na Meta.",
-        });
-      }
-    });
   };
 
   return (
@@ -242,11 +154,13 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
           </div>
         )}
 
+        <ProfileCard settings={settings} />
+
         {/* ── CARD 0: Link de Conexão para Clientes (WhatsApp / Onboarding Limpo) ── */}
-        <section className="rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-surface-200 to-surface-200 p-6 md:p-8 shadow-xs relative overflow-hidden">
+        <section className="rounded-3xl border border-emerald-500/30 bg-surface-200 p-6 md:p-8 shadow-xs relative overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border">
             <div className="flex items-center gap-3.5">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
+              <div className="h-12 w-12 rounded-2xl bg-primary-soft flex items-center justify-center text-primary shadow-xs">
                 <Smartphone size={24} />
               </div>
               <div>
@@ -322,159 +236,11 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
           </div>
         </section>
 
-        {/* ── CARD 1: Status da Conexão Instagram ────────────────────────── */}
-        <section className="rounded-3xl border border-border bg-surface-200 p-6 md:p-8 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border">
-            <div className="flex items-center gap-3.5">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 flex items-center justify-center text-white shadow-xs">
-                <ShieldCheck size={24} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-ink">Canal Instagram Conectado</h2>
-                  {settings.isMockMode ? (
-                    <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500 border border-amber-500/20">
-                      Modo Simulado (Sem Chaves)
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500 border border-emerald-500/20">
-                      Conexão Ativa
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  Conta vinculada: <strong>@{settings.account.username}</strong> ({settings.account.name || "Instagram Profissional"})
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={`${settings.oauthLoginUrl}?mode=instagram`}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
-              >
-                <ShieldCheck size={14} />
-                <span>Carregar perfil</span>
-              </a>
-              <a
-                href={`${settings.oauthLoginUrl}?mode=facebook`}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#0866FF] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
-              >
-                <span>Carregar via Facebook</span>
-              </a>
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3.5 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95 disabled:opacity-50"
-              >
-                <Zap size={14} className="text-primary" />
-                <span>Testar Conexão</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleRenewToken}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3.5 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95 disabled:opacity-50"
-                title="Renovar token de 60 dias"
-              >
-                <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />
-                <span>Renovar Token (60d)</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleSubscribe}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary-hover transition active:scale-95 disabled:opacity-50"
-              >
-                <Radio size={14} />
-                <span>Inscrever Webhooks</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleDisconnectProfile}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2 text-xs font-bold text-danger hover:bg-danger/20 transition active:scale-95 disabled:opacity-50"
-                title="Descarregar perfil e pausar automações"
-              >
-                <LogOut size={14} />
-                <span>Descarregar perfil</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Feedbacks de Ações */}
-          {testResult && (
-            <div
-              className={`mt-4 flex items-center gap-2 rounded-2xl p-4 text-xs font-semibold ${
-                testResult.ok
-                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                  : "bg-danger/10 text-danger border border-danger/20"
-              }`}
-            >
-              {testResult.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-              <span>{testResult.message}</span>
-            </div>
-          )}
-
-          {renewResult && (
-            <div
-              className={`mt-4 flex items-center gap-2 rounded-2xl p-4 text-xs font-semibold ${
-                renewResult.ok
-                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                  : "bg-danger/10 text-danger border border-danger/20"
-              }`}
-            >
-              {renewResult.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-              <span>{renewResult.message}</span>
-            </div>
-          )}
-
-          {subscribeResult && (
-            <div
-              className={`mt-4 flex items-center gap-2 rounded-2xl p-4 text-xs font-semibold ${
-                subscribeResult.ok
-                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                  : "bg-danger/10 text-danger border border-danger/20"
-              }`}
-            >
-              {subscribeResult.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-              <span>{subscribeResult.message}</span>
-            </div>
-          )}
-
-          {disconnectResult && (
-            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-danger/20 bg-danger/10 p-4 text-xs font-semibold text-danger">
-              <AlertTriangle size={16} />
-              <span>{disconnectResult}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 text-xs">
-            <div className="rounded-2xl bg-surface-100 p-4 border border-border">
-              <span className="text-ink-subtle block mb-1">Instagram Account ID</span>
-              <span className="font-mono font-bold text-ink select-all">{settings.account.igUserId}</span>
-            </div>
-            <div className="rounded-2xl bg-surface-100 p-4 border border-border">
-              <span className="text-ink-subtle block mb-1">Status do Token</span>
-              <span className="font-bold text-ink">
-                {settings.hasAccessToken ? "🟢 Configurado no .env" : "🟡 Modo Mock (Simulado)"}
-              </span>
-            </div>
-            <div className="rounded-2xl bg-surface-100 p-4 border border-border">
-              <span className="text-ink-subtle block mb-1">App Secret da Meta</span>
-              <span className="font-bold text-ink">
-                {settings.hasAppSecret ? "🟢 Protegido com HMAC" : "🟡 Modo Mock Ativo"}
-              </span>
-            </div>
-          </div>
-        </section>
-
         {/* ── CARD 2: Login da Empresa no Instagram (OAuth - Conectar Qualquer Conta) ── */}
         <section className="rounded-3xl border border-border bg-surface-200 p-6 md:p-8 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border">
             <div className="flex items-center gap-3.5">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 flex items-center justify-center text-white shadow-xs">
+              <div className="h-12 w-12 rounded-2xl bg-primary-soft flex items-center justify-center text-primary shadow-xs">
                 <Key size={24} />
               </div>
               <div>
@@ -488,14 +254,14 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
             <div className="flex flex-wrap items-center gap-2">
               <a
                 href={`${settings.oauthLoginUrl}?mode=instagram`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-95 transition active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary shadow-xs hover:bg-primary-hover transition active:scale-95"
               >
                 <ShieldCheck size={16} />
                 <span>Entrar com Instagram</span>
               </a>
               <a
                 href={`${settings.oauthLoginUrl}?mode=facebook`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0866FF] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-200 px-4 py-2.5 text-xs font-bold text-ink shadow-xs hover:bg-surface-300 transition active:scale-95"
               >
                 <span>Entrar com Facebook</span>
               </a>
@@ -559,31 +325,28 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
               <div className="pt-4 border-t border-border">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold text-ink">
-                    Contas Conectadas no Banco de Dados ({settings.allAccounts.length})
+                    Perfis neste workspace ({settings.allAccounts.length})
                   </span>
-                  <span className="text-[11px] text-ink-subtle">
-                    Tokens criptografados com AES-256-GCM
+                  <span className="text-xs text-ink-muted">
+                    Acessos guardados com criptografia
                   </span>
                 </div>
                 <div className="space-y-2">
                   {settings.allAccounts.map((acc) => (
                     <div
                       key={acc.id}
-                      className="flex items-center justify-between p-3 rounded-xl bg-surface-100 border border-border text-xs"
+                      className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-surface-100 border border-border text-xs"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      <div className="flex flex-wrap items-center gap-2.5">
                         <span className="font-bold text-ink">@{acc.username}</span>
                         {acc.name && <span className="text-ink-muted">({acc.name})</span>}
-                        <span className="text-ink-subtle font-mono text-[11px]">ID: {acc.igUserId}</span>
+                        <span className="text-ink-muted font-mono text-xs">ID: {acc.igUserId}</span>
                       </div>
                       <div className="flex items-center gap-2.5">
-                        <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500 border border-emerald-500/20">
-                          {acc.status}
-                        </span>
+                        <AccountBadge status={acc.status} />
                         {acc.tokenExpiresAt && (
-                          <span className="text-[11px] text-ink-muted font-mono">
-                            Expira: {new Date(acc.tokenExpiresAt).toLocaleDateString("pt-BR")}
+                          <span className="text-xs text-ink-muted">
+                            {describeValidity({ authProvider: acc.authProvider, status: acc.status, tokenExpiresAt: acc.tokenExpiresAt })}
                           </span>
                         )}
                       </div>
@@ -659,7 +422,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
                       <span>{copiedField === "verify_token" ? "Copiado!" : "Copiar"}</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-ink-muted">
+                  <p className="text-xs text-ink-muted">
                     Cole este mesmo token no campo <strong>Token de Verificação</strong> ao editar o webhook no painel da Meta for Developers.
                   </p>
                 </div>
@@ -805,5 +568,31 @@ function LoginConfigStatus({ config }: LoginConfigStatusProps) {
         ))}
       </ul>
     </section>
+  );
+}
+
+const BADGE_STYLE: Record<AccountTone, string> = {
+  success: "border-success bg-success-soft text-ink",
+  warning: "border-warning bg-warning-soft text-ink",
+  danger: "border-danger bg-danger-soft text-ink",
+  neutral: "border-border bg-surface-300 text-ink",
+};
+const BADGE_ICON: Record<AccountTone, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-danger",
+  neutral: "text-ink-muted",
+};
+
+/** Selo do estado real do perfil: palavra em pt-BR + ícone + cor. */
+function AccountBadge({ status }: { status: string }) {
+  const { label, tone } = accountStatusLabel(status);
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${BADGE_STYLE[tone]}`}>
+      <span className={BADGE_ICON[tone]}>
+        <StatusIcon tone={tone} size={12} />
+      </span>
+      {label}
+    </span>
   );
 }

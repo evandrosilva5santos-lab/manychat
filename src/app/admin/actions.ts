@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { graphClientForAccount } from "@/lib/meta/account-client";
+import { createConnectInvite } from "@/lib/meta/connect-invite";
 import { impersonateWorkspace, requireSuperAdmin } from "@/lib/tenancy";
 
 export type AdminActionResult = {
@@ -61,7 +62,10 @@ export async function getReconnectWhatsAppLink(
 
     const appOrigin = new URL(appUrl);
     if (appOrigin.protocol !== "https:") throw new Error("insecure app url");
-    const connectUrl = new URL("/conectar", appOrigin).toString();
+    // Convite assinado: sem ele a tela /conectar não sabe a qual cliente a conta pertence.
+    const connectLink = new URL("/conectar", appOrigin);
+    connectLink.searchParams.set("convite", createConnectInvite(workspaceId));
+    const connectUrl = connectLink.toString();
     const text = `Olá! Reconecte a conta @${username.replace(/^@/, "")} ao Fluxo por este link seguro: ${connectUrl}`;
     url.searchParams.set("text", text);
     return { ok: true, url: url.toString() };

@@ -17,6 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AccountSwitcher } from "@/components/layout/AccountSwitcher";
+import { AccountStatusBanner } from "@/components/layout/AccountStatusBanner";
 import { getTenantContext, listAccessibleAccounts } from "@/lib/tenancy";
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               activeAccountId={tenant.account?.id ?? null}
             />
           </header>
+          {tenant.account && <AccountStatusBanner status={tenant.account.status} username={tenant.account.username} />}
           {children}
         </main>
       </body>

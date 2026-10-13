@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Workflow, Zap } from "lucide-react";
+import { PauseCircle, Workflow, Zap } from "lucide-react";
 import { getCurrentAccount } from "@/lib/account";
+import { pausedFlowLabel } from "@/components/layout/account-status";
 import { describeTrigger, STATUS_BADGE, timeAgo } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Automações · Fluxo" };
 
 export default async function FlowsPage() {
+  let accountStatus: string | null = null;
   let flows: Array<{
     id: string;
     name: string;
@@ -21,6 +23,7 @@ export default async function FlowsPage() {
   try {
     const account = await getCurrentAccount();
     if (account) {
+      accountStatus = account.status;
       flows = await prisma.flow.findMany({
         where: { accountId: account.id, archivedAt: null },
         orderBy: { updatedAt: "desc" },
@@ -30,6 +33,8 @@ export default async function FlowsPage() {
   } catch (error) {
     console.error("[fluxos] Erro ao buscar fluxos:", error);
   }
+
+  const pausedLabel = pausedFlowLabel(accountStatus);
 
   return (
     <main className="fx mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
@@ -64,7 +69,8 @@ export default async function FlowsPage() {
             const badge = STATUS_BADGE[flow.status as keyof typeof STATUS_BADGE] || STATUS_BADGE.DRAFT;
             const trigger = flow.triggers[0];
             return (
-              <Link key={flow.id} href={`/fluxos/${flow.id}`} className="fx-auto" style={{ gridTemplateColumns: "1fr 160px" }}>
+              <div key={flow.id} className="flex flex-col gap-1">
+              <Link href={`/fluxos/${flow.id}`} className="fx-auto" style={{ gridTemplateColumns: "1fr 160px" }}>
                 <div className="min-w-0">
                   <div className="fx-auto-title">
                     <span className={`fx-badge ${badge.className}`}>{badge.label}</span>
@@ -77,6 +83,16 @@ export default async function FlowsPage() {
                 </div>
                 <span className="fx-meta">{timeAgo(flow.updatedAt)}</span>
               </Link>
+              {flow.status === "LIVE" && pausedLabel && (
+                <p className="flex flex-wrap items-center gap-x-2 px-4 text-sm font-semibold text-warning">
+                  <PauseCircle size={14} aria-hidden />
+                  {pausedLabel}
+                  <Link href="/ajustes" className="inline-flex min-h-11 items-center text-primary underline underline-offset-2">
+                    Ver motivo
+                  </Link>
+                </p>
+              )}
+              </div>
             );
           })}
         </div>
