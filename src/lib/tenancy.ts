@@ -132,6 +132,12 @@ export async function setActiveAccount(accountId: string) {
   });
 }
 
+/** Remove a seleção de perfil da sessão após uma desconexão explícita. */
+export async function clearActiveAccount() {
+  const store = await cookies();
+  store.delete(ACTIVE_ACCOUNT_COOKIE);
+}
+
 export async function impersonateWorkspace(workspaceId: string) {
   await requireSuperAdmin();
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { id: true } });

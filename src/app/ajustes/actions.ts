@@ -2,6 +2,7 @@
 
 import { requireAuth } from "@/lib/auth/requireAuth";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
 import { getCurrentAccount, listAllAccounts } from "@/lib/account";
 import { graphClientForAccount } from "@/lib/meta/account-client";
 import { createConnectInvite } from "@/lib/meta/connect-invite";
@@ -12,7 +13,7 @@ import {
   getInstagramRedirectUri,
   getOAuthSigningSecret,
 } from "@/lib/meta/oauth";
-import { getOrCreateWorkspaceForActor, getTenantContext } from "@/lib/tenancy";
+import { clearActiveAccount, getOrCreateWorkspaceForActor, getTenantContext } from "@/lib/tenancy";
 
 export type MetaSettingsData = {
   account: {
@@ -75,6 +76,25 @@ async function buildClientConnectUrl(): Promise<string | null> {
   }
 }
 const META_UNAVAILABLE = "Não foi possível falar com a Meta agora. Tente novamente em instantes.";
+
+/**
+ * Desconecta apenas o perfil ativo. O histórico, fluxos e contatos continuam
+ * no banco; a credencial local é removida para impedir novos envios.
+ */
+export async function disconnectCurrentInstagramProfile(): Promise<{ ok: boolean; error?: string }> {
+  await requireAuth();
+  const account = await getCurrentAccount();
+  if (!account) return { ok: false, error: "Nenhum perfil do Instagram está carregado." };
+
+  await prisma.instagramAccount.update({
+    where: { id: account.id },
+    data: { status: "DISCONNECTED", tokenStatus: "REVOKED", accessTokenEnc: null, tokenExpiresAt: null },
+  });
+  await clearActiveAccount();
+  revalidatePath("/", "layout");
+  revalidatePath("/ajustes");
+  return { ok: true };
+}
 
 function maskSecret(value: string | undefined): string | null {
   if (!value) return null;

@@ -25,8 +25,10 @@ import {
   Send,
   Eye,
   EyeOff,
+  LogOut,
 } from "lucide-react";
 import {
+  disconnectCurrentInstagramProfile,
   testMetaConnection,
   renewMetaToken,
   subscribeMetaWebhooks,
@@ -54,6 +56,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
   } | null>(null);
   const [renewResult, setRenewResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [subscribeResult, setSubscribeResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [disconnectResult, setDisconnectResult] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   if (!settings.account) {
@@ -126,6 +129,19 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
           message: res.error || "Falha ao validar credenciais da Meta.",
         });
       }
+    });
+  };
+
+  const handleDisconnectProfile = () => {
+    if (!window.confirm("Descarregar este perfil? As automações serão pausadas e a credencial local será removida. Seus contatos e fluxos serão preservados.")) return;
+    setDisconnectResult(null);
+    startTransition(async () => {
+      const res = await disconnectCurrentInstagramProfile();
+      if (res.ok) {
+        window.location.reload();
+        return;
+      }
+      setDisconnectResult(res.error ?? "Não foi possível descarregar o perfil.");
     });
   };
 
@@ -338,13 +354,13 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
                 className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
               >
                 <ShieldCheck size={14} />
-                <span>Entrar com Instagram</span>
+                <span>Carregar perfil</span>
               </a>
               <a
                 href={`${settings.oauthLoginUrl}?mode=facebook`}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#0866FF] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition active:scale-95"
               >
-                <span>Entrar com Facebook</span>
+                <span>Carregar via Facebook</span>
               </a>
               <button
                 type="button"
@@ -373,6 +389,16 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
               >
                 <Radio size={14} />
                 <span>Inscrever Webhooks</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDisconnectProfile}
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2 text-xs font-bold text-danger hover:bg-danger/20 transition active:scale-95 disabled:opacity-50"
+                title="Descarregar perfil e pausar automações"
+              >
+                <LogOut size={14} />
+                <span>Descarregar perfil</span>
               </button>
             </div>
           </div>
@@ -414,6 +440,13 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
             >
               {subscribeResult.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
               <span>{subscribeResult.message}</span>
+            </div>
+          )}
+
+          {disconnectResult && (
+            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-danger/20 bg-danger/10 p-4 text-xs font-semibold text-danger">
+              <AlertTriangle size={16} />
+              <span>{disconnectResult}</span>
             </div>
           )}
 

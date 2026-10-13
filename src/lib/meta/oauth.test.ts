@@ -87,10 +87,13 @@ describe("Instagram Business Login OAuth", () => {
     expect(res.accessToken).toBe("long_tok_xyz");
     expect(res.expiresIn).toBe(5184000);
 
-    const [url] = fetchMock.mock.calls[0];
-    expect(url).toContain("https://graph.instagram.com/access_token");
-    expect(url).toContain("grant_type=ig_exchange_token");
-    expect(new URL(url).searchParams.get("client_secret")).toBe("ig_secret_2");
+    const [url, init] = fetchMock.mock.calls[0];
+    const endpoint = new URL(url);
+    expect(endpoint.origin + endpoint.pathname).toBe("https://graph.instagram.com/access_token");
+    expect(init.method).toBe("GET");
+    expect(endpoint.searchParams.get("grant_type")).toBe("ig_exchange_token");
+    expect(endpoint.searchParams.get("client_secret")).toBe("ig_secret_2");
+    expect(endpoint.searchParams.get("access_token")).toBe("short_tok_abc");
   });
 
   it("busca o perfil do usuário autenticado", async () => {
