@@ -16,9 +16,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 import { Sidebar } from "@/components/layout/Sidebar";
-import { AccountSwitcher } from "@/components/layout/AccountSwitcher";
 import { AccountStatusBanner } from "@/components/layout/AccountStatusBanner";
-import { getTenantContext, listAccessibleAccounts } from "@/lib/tenancy";
+import { expiringTokenDays } from "@/components/layout/account-status";
+import { getUserMenuData } from "@/lib/tenancy";
 
 export const metadata: Metadata = {
   title: "instachat · Automação de conversas",
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const tenant = await getTenantContext();
-  const accounts = tenant.actor ? await listAccessibleAccounts(tenant.actor) : [];
+  const menu = await getUserMenuData();
+  const active = menu.accounts.find((account) => account.id === menu.activeAccountId) ?? null;
   return (
     <html
       lang="pt-BR"
@@ -35,15 +35,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${jakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="h-screen h-[100dvh] w-screen flex flex-row overflow-hidden bg-surface-100 text-ink">
-        <Sidebar isSuperAdmin={tenant.actor?.role === "SUPERADMIN"} />
+        <Sidebar
+          isSuperAdmin={menu.actor?.role === "SUPERADMIN"}
+          accounts={menu.accounts.map((account) => ({
+            id: account.id,
+            username: account.username,
+            profilePicUrl: account.profilePicUrl,
+            status: account.status,
+          }))}
+          activeAccountId={menu.activeAccountId}
+          user={menu.actor ? { name: menu.actor.name, email: menu.actor.email, role: menu.actor.role } : null}
+        />
         <main className="flex-1 min-w-0 h-full flex flex-col overflow-y-auto overflow-x-hidden">
-          <header className="sticky top-0 z-30 flex min-h-14 items-center justify-end border-b border-border bg-surface-100/95 px-4 backdrop-blur sm:px-8">
-            <AccountSwitcher
-              accounts={accounts.map((account) => ({ id: account.id, username: account.username, profilePicUrl: account.profilePicUrl, status: account.status }))}
-              activeAccountId={tenant.account?.id ?? null}
-            />
-          </header>
-          {tenant.account && <AccountStatusBanner status={tenant.account.status} username={tenant.account.username} />}
+          {active && (
+            <AccountStatusBanner status={active.status} username={active.username} expiringDays={expiringTokenDays(active)} />
+          )}
           {children}
         </main>
       </body>

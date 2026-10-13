@@ -82,6 +82,7 @@ describe("isPublicPath", () => {
     "/api/auth/instagram/callback",
     "/api/cron/refresh-tokens",
     "/conectar",
+    "/sair",
   ])("treats %s as public", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });

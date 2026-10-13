@@ -21,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: db }));
 import {
   AccountAccessError,
   getTenantContext,
+  getUserMenuData,
   findNextConnectedAccount,
   getAdminOverview,
   hashSessionToken,
@@ -165,5 +166,66 @@ describe("multi-tenancy", () => {
         orderBy: [{ username: "asc" }, { id: "asc" }],
       });
     });
+  });
+});
+
+describe("getUserMenuData", () => {
+  const row = (id: string, workspaceId: string, extra: Record<string, unknown> = {}) => ({
+    id, workspaceId, username: `user_${id}`, name: `Nome ${id}`, profilePicUrl: null, status: "CONNECTED",
+    tokenExpiresAt: new Date("2026-12-01T00:00:00Z"), authProvider: "INSTAGRAM_LOGIN",
+    accessTokenEnc: "SEGREDO", pageAccessTokenEnc: "SEGREDO2", tokenStatus: "ACTIVE", ...extra,
+  });
+  const login = (user: typeof client | typeof admin, cookies: Record<string, string> = {}) => {
+    cookieStore.get.mockImplementation((name: string) => {
+      if (name === "fluxo_session") return { value: "s" };
+      return cookies[name] ? { value: cookies[name] } : undefined;
+    });
+    db.userSession.findUnique.mockResolvedValue({ user, expiresAt: new Date(Date.now() + 60_000) });
+  };
+
+  it("sem sessão devolve actor nulo e lista vazia", async () => {
+    await expect(getUserMenuData()).resolves.toEqual({ actor: null, accounts: [], activeAccountId: null, impersonatedWorkspaceId: null });
+  });
+
+  it("CLIENT consulta apenas o próprio workspace", async () => {
+    login(client);
+    db.instagramAccount.findMany.mockResolvedValue([row("a", "w1")]);
+    const data = await getUserMenuData();
+    expect(db.instagramAccount.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { workspace: { ownerId: "client" } } }));
+    expect(data.accounts.map((a) => a.id)).toEqual(["a"]);
+    expect(data.actor?.role).toBe("CLIENT");
+  });
+
+  it("SUPERADMIN vê todas as contas", async () => {
+    login(admin);
+    db.instagramAccount.findMany.mockResolvedValue([row("a", "w1"), row("b", "w2")]);
+    const data = await getUserMenuData();
+    expect(db.instagramAccount.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    expect(data.accounts.map((a) => a.id)).toEqual(["a", "b"]);
+  });
+
+  it("SUPERADMIN em visão de cliente enxerga só o workspace visualizado", async () => {
+    login(admin, { fluxo_workspace_view: "w2" });
+    db.instagramAccount.findMany.mockResolvedValue([row("a", "w1"), row("b", "w2")]);
+    const data = await getUserMenuData();
+    expect(data.accounts.map((a) => a.id)).toEqual(["b"]);
+    expect(data.impersonatedWorkspaceId).toBe("w2");
+    expect(data.activeAccountId).toBe("b");
+  });
+
+  it("marca como ativa a conta do cookie", async () => {
+    login(client, { active_ig_account_id: "b" });
+    db.instagramAccount.findMany.mockResolvedValue([row("a", "w1"), row("b", "w1")]);
+    expect((await getUserMenuData()).activeAccountId).toBe("b");
+  });
+
+  it("nunca expõe campos de token", async () => {
+    login(client);
+    db.instagramAccount.findMany.mockResolvedValue([row("a", "w1")]);
+    const data = await getUserMenuData();
+    expect(Object.keys(data.accounts[0]).sort()).toEqual(
+      ["authProvider", "id", "name", "profilePicUrl", "status", "tokenExpiresAt", "username", "workspaceId"],
+    );
+    expect(JSON.stringify(data)).not.toContain("SEGREDO");
   });
 });

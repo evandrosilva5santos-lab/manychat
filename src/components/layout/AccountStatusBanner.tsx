@@ -1,13 +1,30 @@
 import Link from "next/link";
 import { CircleAlert, PauseCircle } from "lucide-react";
 
-type Props = { status: string; username: string };
+type Props = {
+  status: string;
+  username: string;
+  /** Dias até o token vencer, quando faltam menos de 7 (ver `expiringTokenDays`). */
+  expiringDays?: number | null;
+};
 
 /**
- * Faixa fixa no topo do conteúdo quando o perfil ativo não está conectado.
- * Não é dispensável: some só quando o estado muda. Ícone + texto (cor nunca é o único sinal).
+ * Faixa fixa no topo do conteúdo quando o perfil ativo não está conectado ou o
+ * acesso está para vencer. Não é dispensável: some só quando o estado muda.
+ * Ícone + texto (cor nunca é o único sinal).
  */
-export function AccountStatusBanner({ status, username }: Props) {
+export function AccountStatusBanner({ status, username, expiringDays }: Props) {
+  if (status === "CONNECTED" && expiringDays) {
+    const when = expiringDays === 1 ? "em menos de 1 dia" : `em ${expiringDays} dias`;
+    return (
+      <Banner
+        tone="warning"
+        icon={<CircleAlert size={18} aria-hidden />}
+        text={`O acesso do Instagram de @${username} vence ${when}. Reconecte para as automações não pararem.`}
+        linkLabel="Reconectar"
+      />
+    );
+  }
   if (status === "EXPIRED") {
     return (
       <Banner

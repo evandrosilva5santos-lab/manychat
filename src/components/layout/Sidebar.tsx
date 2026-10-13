@@ -8,13 +8,13 @@ import {
   MessageSquare,
   Send,
   Settings,
-  HelpCircle,
-  PanelLeftClose,
   LayoutGrid,
   TriangleAlert,
   Shield,
 } from "lucide-react";
 import { BrandSymbol } from "@/components/brand/BrandLogo";
+import { ActiveAccountMenu, type ActiveMenuAccount } from "./ActiveAccountMenu";
+import { UserMenu, type MenuUser } from "./UserMenu";
 
 /** Ícone de Trevo / Automação característico do instachat */
 function FlowAutomationIcon({
@@ -82,11 +82,18 @@ const NAV_ITEMS = [
   { id: "ajustes", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
-export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
+type SidebarProps = {
+  isSuperAdmin?: boolean;
+  accounts: ActiveMenuAccount[];
+  activeAccountId: string | null;
+  user: MenuUser | null;
+};
+
+export function Sidebar({ isSuperAdmin = false, accounts, activeAccountId, user }: SidebarProps) {
   const pathname = usePathname();
 
-  // A tela de conexão do cliente (/conectar) é 100% isolada e sem menu interno do app
-  if (pathname === "/conectar" || pathname?.startsWith("/conectar")) {
+  // Telas públicas isoladas, sem menu interno do app: conexão do cliente e "Você saiu"
+  if (pathname?.startsWith("/conectar") || pathname === "/sair") {
     return null;
   }
 
@@ -96,23 +103,17 @@ export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
       style={{ width: "68px" }}
       aria-label="Menu principal"
     >
-      {/* Top: símbolo instachat e Badge PRO */}
+      {/* Top: símbolo instachat e perfil ativo (troca de perfil) */}
       <div className="flex flex-col items-center gap-3 w-full">
         <Link
           href="/"
-          className="flex flex-col items-center justify-center group transition-transform hover:scale-105"
+          className="flex h-9 w-9 items-center justify-center transition-transform hover:scale-105"
           title="instachat"
+          aria-label="instachat — Painel"
         >
-          <div className="flex h-9 w-9 items-center justify-center">
-            <BrandSymbol size={30} />
-          </div>
-          {/* Badge PRO idêntico ao print com gradiente arco-íris */}
-          <div className="mt-1 flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-amber-400 p-[1.5px] shadow-xs">
-            <span className="rounded-full bg-surface-200 px-1.5 py-0.2 text-[8px] font-black uppercase tracking-wider text-ink">
-              PRO
-            </span>
-          </div>
+          <BrandSymbol size={30} />
         </Link>
+        <ActiveAccountMenu accounts={accounts} activeAccountId={activeAccountId} />
 
         {/* Itens de Navegação com ícones exatos */}
         <nav className="flex flex-col items-center gap-2 mt-2 w-full px-2">
@@ -160,19 +161,20 @@ export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
         </nav>
       </div>
 
-      {/* Bottom: Colapsar, Avatar do Usuário e Ajuda */}
+      {/* Bottom: menu do usuário (dados, atalhos e Sair) */}
       <div className="flex flex-col items-center gap-2.5 w-full">
-        {/* Avatar da Conta */}
-        <Link
-          href="/ajustes"
-          className="relative flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 hover:bg-primary/30 text-primary p-[1px] shadow-sm hover:scale-105 transition-transform"
-          title="Conta e Ajustes"
-          aria-label="Conta e Ajustes"
-        >
-          <div className="h-full w-full rounded-full bg-surface-200 flex items-center justify-center text-[12px] font-bold text-ink">
-            <User size={14} />
-          </div>
-        </Link>
+        {user ? (
+          <UserMenu user={user} />
+        ) : (
+          <Link
+            href="/ajustes"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-ink-muted hover:bg-surface-300/60 hover:text-ink"
+            title="Ajustes"
+            aria-label="Ajustes"
+          >
+            <User size={18} aria-hidden />
+          </Link>
+        )}
       </div>
     </aside>
   );

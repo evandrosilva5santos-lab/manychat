@@ -51,3 +51,23 @@ export function describeValidity(input: {
   if (input.authProvider === "FACEBOOK_LOGIN") return "Não expira";
   return date ? `Renova sozinho até ${date}` : "Sem data de validade registrada";
 }
+
+export const EXPIRY_WARNING_DAYS = 7;
+const DAY_MS = 86_400_000;
+
+/**
+ * Dias (arredondados para cima) até o token vencer, quando vale avisar:
+ * conta CONECTADA com login Instagram e vencimento em menos de 7 dias.
+ * Login Facebook não expira; token já vencido é tratado pelo estado EXPIRED.
+ */
+export function expiringTokenDays(
+  input: { authProvider: "INSTAGRAM_LOGIN" | "FACEBOOK_LOGIN"; status: string; tokenExpiresAt: string | Date | null },
+  now: Date = new Date(),
+): number | null {
+  if (input.authProvider !== "INSTAGRAM_LOGIN" || input.status !== "CONNECTED" || !input.tokenExpiresAt) return null;
+  const expires = new Date(input.tokenExpiresAt).getTime();
+  if (Number.isNaN(expires)) return null;
+  const remaining = expires - now.getTime();
+  if (remaining <= 0 || remaining >= EXPIRY_WARNING_DAYS * DAY_MS) return null;
+  return Math.ceil(remaining / DAY_MS);
+}

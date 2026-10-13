@@ -118,12 +118,11 @@ async function withoutPendingDeletion<T extends { id: string }>(accounts: T[]): 
   return accounts.filter((account) => !deleting.has(account.id));
 }
 
-export async function getTenantContext() {
-  const [actor, store] = await Promise.all([getCurrentActor(), cookies()]);
-  if (!actor) return { actor: null, account: null, impersonatedWorkspaceId: null };
-  const requestedId = store.get(ACTIVE_ACCOUNT_COOKIE)?.value;
-  const impersonatedWorkspaceId = actor.role === "SUPERADMIN" ? store.get(IMPERSONATION_COOKIE)?.value ?? null : null;
-  const accounts = await listAccessibleAccounts(actor);
+async function resolveActiveAccount<T extends { id: string; workspaceId: string; status: string }>(
+  accounts: T[],
+  requestedId: string | undefined,
+  impersonatedWorkspaceId: string | null,
+) {
   const narrowed = impersonatedWorkspaceId ? accounts.filter((account) => account.workspaceId === impersonatedWorkspaceId) : accounts;
   const requested = requestedId ? narrowed.find((account) => account.id === requestedId) : undefined;
   // Sem seleção válida, prefere um perfil conectado: abrir o painel num perfil
@@ -131,7 +130,52 @@ export async function getTenantContext() {
   // Perfil com exclusão em andamento nunca vira o padrão (a tabela de pendentes é minúscula).
   const candidates = requested ? narrowed : await withoutPendingDeletion(narrowed);
   const selected = requested ?? candidates.find((account) => account.status === "CONNECTED") ?? candidates[0];
-  return { actor, account: selected ?? null, impersonatedWorkspaceId };
+  return { narrowed, selected: selected ?? null };
+}
+
+export async function getTenantContext() {
+  const [actor, store] = await Promise.all([getCurrentActor(), cookies()]);
+  if (!actor) return { actor: null, account: null, impersonatedWorkspaceId: null };
+  const impersonatedWorkspaceId = actor.role === "SUPERADMIN" ? store.get(IMPERSONATION_COOKIE)?.value ?? null : null;
+  const accounts = await listAccessibleAccounts(actor);
+  const { selected } = await resolveActiveAccount(accounts, store.get(ACTIVE_ACCOUNT_COOKIE)?.value, impersonatedWorkspaceId);
+  return { actor, account: selected, impersonatedWorkspaceId };
+}
+
+export type MenuAccount = {
+  id: string;
+  username: string;
+  name: string | null;
+  profilePicUrl: string | null;
+  status: string;
+  tokenExpiresAt: Date | null;
+  authProvider: "INSTAGRAM_LOGIN" | "FACEBOOK_LOGIN";
+  workspaceId: string;
+};
+
+/** Dados dos menus de perfil/conta. Só campos seguros: nenhum token sai daqui. */
+export async function getUserMenuData(): Promise<{
+  actor: TenantActor | null;
+  accounts: MenuAccount[];
+  activeAccountId: string | null;
+  impersonatedWorkspaceId: string | null;
+}> {
+  const [actor, store] = await Promise.all([getCurrentActor(), cookies()]);
+  if (!actor) return { actor: null, accounts: [], activeAccountId: null, impersonatedWorkspaceId: null };
+  const impersonatedWorkspaceId = actor.role === "SUPERADMIN" ? store.get(IMPERSONATION_COOKIE)?.value ?? null : null;
+  const all = await listAccessibleAccounts(actor);
+  const { narrowed, selected } = await resolveActiveAccount(all, store.get(ACTIVE_ACCOUNT_COOKIE)?.value, impersonatedWorkspaceId);
+  const accounts = narrowed.map((account): MenuAccount => ({
+    id: account.id,
+    username: account.username,
+    name: account.name ?? null,
+    profilePicUrl: account.profilePicUrl ?? null,
+    status: account.status,
+    tokenExpiresAt: account.tokenExpiresAt ?? null,
+    authProvider: account.authProvider,
+    workspaceId: account.workspaceId,
+  }));
+  return { actor, accounts, activeAccountId: selected?.id ?? null, impersonatedWorkspaceId };
 }
 
 export async function setActiveAccount(accountId: string) {
