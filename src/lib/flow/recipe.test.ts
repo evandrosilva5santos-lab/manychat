@@ -70,8 +70,8 @@ describe("limites da receita", () => {
     expect(recipeSchema.safeParse(r).success).toBe(false);
   });
 
-  it("recusa 6 respostas públicas", () => {
-    const r = recipe((r) => (r.trigger.publicReplies.variations = Array.from({ length: 6 }, () => "oi")));
+  it("recusa 11 respostas públicas (limite de 10)", () => {
+    const r = recipe((r) => (r.trigger.publicReplies.variations = Array.from({ length: 11 }, () => "oi")));
     expect(recipeSchema.safeParse(r).success).toBe(false);
   });
 
@@ -176,5 +176,24 @@ describe("portão de seguidor com sequência de mensagens", () => {
     expect(read.followGate.text).toBe("Segue a gente");
     expect(read.followGate.retryText.length).toBeGreaterThan(0);
     expect(read.followGate.finalText.length).toBeGreaterThan(0);
+  });
+});
+
+describe("respostas públicas no comentário", () => {
+  const withReplies = (variations: string[]) => {
+    const base = defaultRecipe();
+    return { ...base, trigger: { ...base.trigger, publicReplies: { enabled: true, variations } } };
+  };
+
+  it("aceita até 10 respostas e recusa a 11ª", () => {
+    expect(recipeSchema.safeParse(withReplies(Array.from({ length: 10 }, (_, i) => `Resposta ${i}`))).success).toBe(true);
+    expect(recipeSchema.safeParse(withReplies(Array.from({ length: 11 }, (_, i) => `Resposta ${i}`))).success).toBe(false);
+  });
+
+  it("campo ainda vazio não trava o salvamento e não vai para o gatilho", () => {
+    const recipe = withReplies(["Te mandei no direct!", "", "Olha tua DM 👀"]);
+    expect(recipeSchema.safeParse(recipe).success).toBe(true);
+    const trigger = compileRecipe("cflow00000000000000000000", recipe).nodes.find((node) => node.type === "TRIGGER");
+    expect((trigger?.data.config as { publicReplies: string[] }).publicReplies).toEqual(["Te mandei no direct!", "Olha tua DM 👀"]);
   });
 });

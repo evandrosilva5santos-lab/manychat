@@ -9,7 +9,7 @@ export const LIMITS = {
   text: 1000, // bytes UTF-8 de uma DM
   buttonText: 640, // texto do template de botões
   keywords: 15, // palavras-chave por gatilho (mesmo limite do ManyChat)
-  publicReplies: 5, // variações de resposta pública no comentário
+  publicReplies: 10, // variações de resposta pública no comentário (sorteada a cada comentário)
 } as const;
 
 export type ButtonType = "postback" | "web_url";

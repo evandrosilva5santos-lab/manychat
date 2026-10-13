@@ -814,36 +814,63 @@ export function SimpleBuilder({ flow, initial }: Props) {
 
               {trigger.publicReplies.enabled && (
                 <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-                  {(trigger.publicReplies.variations.length > 0
-                    ? trigger.publicReplies.variations
-                    : [
-                        "Que bom que você vai casar na Moving",
-                        "Aaaah, que alegria! 💍 Vai ser lindo! Olha tua DM",
-                        "Que demais! 💍✨ Vem saber como participar...",
-                      ]
-                  ).map((reply, idx) => (
-                    <input
-                      key={idx}
-                      type="text"
-                      className="fx-input w-full text-xs font-medium text-ink py-2 px-3 bg-surface-100"
-                      value={reply}
-                      onChange={(e) => {
-                        const current = [...trigger.publicReplies.variations];
-                        if (current.length === 0) {
-                          current.push(
-                            "Que bom que você vai casar na Moving",
-                            "Aaaah, que alegria! 💍 Vai ser lindo! Olha tua DM",
-                            "Que demais! 💍✨ Vem saber como participar..."
-                          );
-                        }
-                        current[idx] = e.target.value;
-                        update("trigger", {
-                          publicReplies: { ...trigger.publicReplies, variations: current },
-                        });
-                        setPhoneTab("comments");
-                      }}
-                    />
+                  {(trigger.publicReplies.variations.length > 0 ? trigger.publicReplies.variations : [""]).map((reply, idx, list) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        className="fx-input w-full text-xs font-medium text-ink py-2 px-3 bg-surface-100"
+                        value={reply}
+                        maxLength={LIMITS.text}
+                        placeholder={idx === 0 ? "Ex.: Te mandei no direct! 📩" : "Outra forma de responder"}
+                        aria-label={`Resposta pública ${idx + 1}`}
+                        onChange={(e) => {
+                          const current = [...list];
+                          current[idx] = e.target.value;
+                          update("trigger", { publicReplies: { ...trigger.publicReplies, variations: current } });
+                          setPhoneTab("comments");
+                        }}
+                      />
+                      {list.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            update("trigger", {
+                              publicReplies: { ...trigger.publicReplies, variations: list.filter((_, i) => i !== idx) },
+                            });
+                            setPhoneTab("comments");
+                          }}
+                          className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-ink-muted hover:bg-danger-soft hover:text-danger"
+                          aria-label={`Remover resposta ${idx + 1}`}
+                          title="Remover resposta"
+                        >
+                          <X size={14} aria-hidden />
+                        </button>
+                      )}
+                    </div>
                   ))}
+                  <div className="flex items-center justify-between gap-2">
+                    {trigger.publicReplies.variations.length < LIMITS.publicReplies ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = trigger.publicReplies.variations.length > 0 ? trigger.publicReplies.variations : [""];
+                          update("trigger", { publicReplies: { ...trigger.publicReplies, variations: [...current, ""] } });
+                          setPhoneTab("comments");
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-hover"
+                      >
+                        <Plus size={14} aria-hidden /> Adicionar outra resposta
+                      </button>
+                    ) : (
+                      <span className="text-xs text-ink-subtle">Limite de {LIMITS.publicReplies} respostas</span>
+                    )}
+                    <span className="text-[11px] font-mono text-ink-subtle">
+                      {Math.max(trigger.publicReplies.variations.length, 1)}/{LIMITS.publicReplies}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-subtle">
+                    A cada comentário, uma das respostas é sorteada — variar ajuda a não ser marcado como spam pela Meta.
+                  </p>
                 </div>
               )}
             </div>
