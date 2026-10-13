@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeEqual } from "@/lib/auth/basic";
+import { resumePendingDeletions } from "@/lib/meta/account-lifecycle";
 import { processDueEvents, resumeDueDelays } from "@/lib/queue/worker";
 
 /**
@@ -18,8 +20,8 @@ async function handle(request: NextRequest) {
       return NextResponse.json({ error: "CRON_SECRET não configurado" }, { status: 503 });
     }
   } else {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
+    const auth = request.headers.get("authorization") ?? "";
+    if (!safeEqual(auth, `Bearer ${secret}`)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
   }
@@ -30,7 +32,14 @@ async function handle(request: NextRequest) {
   const events = await processDueEvents(limit);
   const delaysResumed = await resumeDueDelays(limit);
 
-  return NextResponse.json({ ok: true, events, delaysResumed });
+  let deletionsResumed = 0;
+  try {
+    deletionsResumed = (await resumePendingDeletions({ budgetMs: 20_000 })).resumed;
+  } catch (err) {
+    console.error("[tick] retomada de exclusões falhou:", err instanceof Error ? err.name : "erro");
+  }
+
+  return NextResponse.json({ ok: true, events, delaysResumed, deletionsResumed });
 }
 
 export async function GET(request: NextRequest) {

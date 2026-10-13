@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renewExpiringTokens } from "@/lib/meta/token-renewal";
+import { resumePendingDeletions } from "@/lib/meta/account-lifecycle";
 import { safeEqual } from "@/lib/auth/basic";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +27,16 @@ async function handle(request: NextRequest) {
   }
 
   const summary = await renewExpiringTokens();
+  // Rede de segurança das exclusões de dados pendentes; não afeta a renovação.
+  let deletionsResumed = 0;
+  try {
+    deletionsResumed = (await resumePendingDeletions({ budgetMs: 30_000 })).resumed;
+  } catch (err) {
+    console.error("[cron/refresh-tokens] retomada de exclusões falhou:", err instanceof Error ? err.name : "erro");
+  }
+
   // 200 sempre: falhas por conta já ficam marcadas EXPIRED + alertadas.
-  return NextResponse.json({ ok: summary.failed === 0, ...summary });
+  return NextResponse.json({ ok: summary.failed === 0, ...summary, deletionsResumed });
 }
 
 export async function GET(request: NextRequest) {

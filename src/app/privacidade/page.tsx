@@ -206,7 +206,13 @@ export default function PoliticaPrivacidadePage() {
                 </li>
                 <li>
                   <strong>Exclusão via Painel do Fluxo:</strong> Acessando a página de <strong>Ajustes</strong> e
-                  clicando em &quot;Desconectar Conta&quot;, todos os tokens de acesso são imediatamente revogados e destruídos.
+                  clicando em &quot;Descarregar perfil&quot;, a credencial é removida do Fluxo e a assinatura de
+                  webhooks é cancelada na Meta. Os dados do negócio (contatos, conversas e fluxos) permanecem até que
+                  você use &quot;Excluir perfil e dados&quot; em Ajustes ou peça a exclusão por e-mail. Veja também{" "}
+                  <Link href="/exclusao-de-dados" className="text-primary underline">
+                    como apagar seus dados
+                  </Link>
+                  .
                 </li>
                 <li>
                   <strong>Solicitação por E-mail (LGPD Art. 18):</strong> Para solicitar a exclusão total de dados de
