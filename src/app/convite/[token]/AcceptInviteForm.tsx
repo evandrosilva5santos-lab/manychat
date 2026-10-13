@@ -56,7 +56,7 @@ export function AcceptInviteForm(props: {
           </label>
         </>
       )}
-      {error && <p role="alert" className="rounded-xl bg-error/10 px-3.5 py-2.5 text-sm font-medium text-error">{error}</p>}
+      {error && <p role="alert" className="rounded-xl border border-danger bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-ink">{error}</p>}
       <button type="submit" disabled={isPending} className={PRIMARY_BUTTON}>
         {isPending ? "Entrando…" : props.mode === "signup" ? "Criar acesso e entrar" : "Aceitar convite"}
       </button>

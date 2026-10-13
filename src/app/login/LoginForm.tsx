@@ -78,7 +78,7 @@ export default function LoginForm() {
       </label>
 
       {error && (
-        <p className="rounded-xl bg-error/10 px-3.5 py-2.5 text-sm text-error font-medium">{error}</p>
+        <p className="rounded-xl border border-danger bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-ink">{error}</p>
       )}
 
       <button

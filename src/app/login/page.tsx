@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { BrandWordmark } from "@/components/brand/BrandLogo";
 import LoginForm from "./LoginForm";
@@ -26,6 +27,10 @@ export default function LoginPage() {
             <LoginForm />
           </Suspense>
         </div>
+
+        <p className="text-center text-sm text-ink-muted">
+          Ainda não tem conta? <Link href="/precos" className="font-semibold text-primary underline">Ver planos</Link>
+        </p>
 
         <p className="text-center text-[11px] text-ink-subtle">
           instachat by Start Company · Automação de Instagram
