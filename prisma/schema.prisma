@@ -44,27 +44,34 @@ enum UserRole {
 /// Pessoa autenticada no Fluxo. Clientes possuem workspaces próprios; a
 /// agência usa SUPERADMIN para administrar todos os workspaces.
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  role      UserRole @default(CLIENT)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  role         UserRole @default(CLIENT)
+  /// Hash scrypt da senha (formato `scrypt$salt$hash`). Vazio = só entra por convite/Super Admin.
+  passwordHash String?
+  createdAt    DateTime @default(now())
 
-  workspacesOwned Workspace[]   @relation("WorkspaceOwner")
+  workspacesOwned Workspace[]       @relation("WorkspaceOwner")
   sessions        UserSession[]
+  memberships     WorkspaceMember[]
 }
 
 /// Limite de tenancy: um workspace pertence a um cliente e agrupa uma ou mais
 /// contas do Instagram. Todos os dados operacionais continuam vinculados à
 /// InstagramAccount para preservar o isolamento por conta.
 model Workspace {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   name      String
   ownerId   String
-  createdAt DateTime @default(now())
+  kind      WorkspaceKind @default(CUSTOMER)
+  createdAt DateTime      @default(now())
 
-  owner    User               @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  accounts InstagramAccount[]
+  owner        User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  accounts     InstagramAccount[]
+  members      WorkspaceMember[]
+  invitations  WorkspaceInvitation[]
+  subscription Subscription?
 
   @@index([ownerId])
 }
@@ -128,34 +135,34 @@ model InstagramAccount {
 
 /// A pessoa que conversou com você (comentou, mandou DM ou clicou num botão).
 model Contact {
-  id                String    @id @default(cuid())
-  accountId         String
+  id                 String    @id @default(cuid())
+  accountId          String
   /// IGSID: o ID que o Instagram dá pra essa pessoa *dentro da sua conta*.
-  igsid             String
-  username          String?
-  name              String?
-  profilePicUrl     String?
+  igsid              String
+  username           String?
+  name               String?
+  profilePicUrl      String?
   /// Segue o perfil? null = ainda não sabemos.
-  followsAccount    Boolean?
+  followsAccount     Boolean?
   /// Última mensagem que ELA mandou. A Meta só deixa responder DM
   /// até 24h depois disso.
-  lastInboundAt     DateTime?
-  lastInteractionAt DateTime?
+  lastInboundAt      DateTime?
+  lastInteractionAt  DateTime?
   /// Fluxo pelo qual a pessoa entrou ("Entrou por" na lista de contatos).
-  sourceFlowId      String?
+  sourceFlowId       String?
   /// Prévia desnormalizada da última mensagem (evita 1 query por contato
   /// na lista de conversas).
   lastMessagePreview String?
   lastMessageAt      DateTime?
   /// Opt-out (LGPD): mandou "parar"/"sair"/"stop"/"cancelar" no Direct e não
   /// recebe nenhum envio automático até mandar "voltar".
-  optedOut          Boolean   @default(false)
-  optedOutAt        DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  optedOut           Boolean   @default(false)
+  optedOutAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  account    InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  sourceFlow Flow?            @relation("ContactSource", fields: [sourceFlowId], references: [id], onDelete: SetNull)
+  account      InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sourceFlow   Flow?            @relation("ContactSource", fields: [sourceFlowId], references: [id], onDelete: SetNull)
   tags         ContactTag[]
   messages     Message[]
   runs         FlowRun[]
@@ -350,27 +357,27 @@ enum KeywordMatch {
 
 /// O que faz o fluxo começar.
 model Trigger {
-  id            String       @id @default(cuid())
-  flowId        String
-  type          TriggerType
-  keywords      String[] // ["casamento", "eu quero"]
-  negativeKeywords String[] @default([])
-  cooldownSeconds Int      @default(0)
-  priority      Int        @default(0)
-  match         KeywordMatch @default(CONTAINS)
+  id               String       @id @default(cuid())
+  flowId           String
+  type             TriggerType
+  keywords         String[] // ["casamento", "eu quero"]
+  negativeKeywords String[]     @default([])
+  cooldownSeconds  Int          @default(0)
+  priority         Int          @default(0)
+  match            KeywordMatch @default(CONTAINS)
   /// Post/reel/story específico. null = vale pra qualquer publicação.
-  mediaId       String?
+  mediaId          String?
   /// Payload do botão (só para BUTTON_CLICK).
-  payload       String?
+  payload          String?
   /// Respostas públicas no comentário (até 5); o motor sorteia uma.
-  publicReplies String[]     @default([])
+  publicReplies    String[]     @default([])
   /// Caixinha onde o fluxo começa. null = a primeira sem linha chegando.
-  startNodeId   String?
+  startNodeId      String?
   /// Posição da caixinha de gatilho no editor.
-  positionX     Float        @default(0)
-  positionY     Float        @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  positionX        Float        @default(0)
+  positionY        Float        @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   flow      Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
   startNode Node?     @relation("TriggerStart", fields: [startNodeId], references: [id], onDelete: SetNull)
@@ -400,17 +407,17 @@ enum RunStatus {
 /// Regra de unicidade (SQL na migration): no máximo UM run ativo por
 /// (contactId, flowId) — índice único parcial em RUNNING/WAITING_*.
 model FlowRun {
-  id            String    @id @default(cuid())
-  flowId        String
-  contactId     String
-  triggerId     String?
-  status        RunStatus @default(RUNNING)
-  currentNodeId String?
+  id             String    @id @default(cuid())
+  flowId         String
+  contactId      String
+  triggerId      String?
+  status         RunStatus @default(RUNNING)
+  currentNodeId  String?
   triggerContext Json?
-  resumeAt      DateTime?
-  error         String?
-  startedAt     DateTime  @default(now())
-  finishedAt    DateTime?
+  resumeAt       DateTime?
+  error          String?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
 
   flow        Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
   contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -494,23 +501,23 @@ enum WebhookEventStatus {
 /// processamento. `idempotencyKey` único garante processamento exatamente
 /// uma vez (entrega duplicada → P2002 → resposta 200 imediata).
 model WebhookEvent {
-  id             String            @id @default(cuid())
+  id             String             @id @default(cuid())
   /// Conta destinatária (resolvida do entry.id no processamento; null se
   /// a conta ainda não existia).
   accountId      String?
   /// igUserId:commentId | igUserId:messageMid | igUserId:postbackMid | hash
-  idempotencyKey String            @unique
+  idempotencyKey String             @unique
   /// comment | message | postback
   type           String
   /// Evento normalizado (NormalizedWebhookEvent) completo.
   payload        Json
   status         WebhookEventStatus @default(RECEIVED)
-  attempts       Int               @default(0)
+  attempts       Int                @default(0)
   lastError      String?
-  receivedAt     DateTime          @default(now())
+  receivedAt     DateTime           @default(now())
   claimedAt      DateTime?
   /// Quando a próxima tentativa pode rodar (backoff exponencial).
-  nextAttemptAt  DateTime          @default(now())
+  nextAttemptAt  DateTime           @default(now())
   processedAt    DateTime?
 
   @@index([status, nextAttemptAt])
@@ -620,4 +627,134 @@ model PrivateReply {
   account InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, commentId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Equipe, planos e cobrança (ADR-008)
+// ─────────────────────────────────────────────────────────────
+
+/// Papel dentro de um workspace. Independe do papel global (`UserRole`).
+enum WorkspaceRole {
+  OWNER // dono: plano, cobrança e equipe
+  ADMIN // configura tudo, menos cobrança
+  OPERATOR // atende: conversas e contatos
+}
+
+enum WorkspaceKind {
+  CUSTOMER // cliente: segue o plano
+  INTERNAL // operação da Start Inc: sem limites e fora do MRR
+}
+
+enum SubscriptionStatus {
+  TRIALING // teste grátis até `trialEndsAt`
+  ACTIVE
+  PAST_DUE // pagamento falhou: funciona até `graceEndsAt`
+  SUSPENDED // automações pausadas; dados preservados
+  CANCELED
+}
+
+/// Quem pode entrar em qual workspace, e com qual papel.
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+/// Convite por link: só o hash do token vai para o banco; vale uma vez.
+model WorkspaceInvitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  email       String
+  role        WorkspaceRole
+  tokenHash   String        @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+/// Plano à venda. Limite `null` = ilimitado (decisão explícita).
+/// `features` é a lista do que está liberado: o que não está nela fica bloqueado.
+model Plan {
+  id                   String   @id @default(cuid())
+  slug                 String   @unique
+  name                 String
+  description          String?
+  isPublic             Boolean  @default(true)
+  isActive             Boolean  @default(true)
+  sortOrder            Int      @default(0)
+  priceMonthlyCents    Int      @default(0)
+  currency             String   @default("brl")
+  trialDays            Int      @default(0)
+  graceDays            Int      @default(7)
+  /// Preço recorrente no Stripe. Sem ele, o plano não aparece no checkout.
+  stripePriceId        String?  @unique
+  maxInstagramAccounts Int?
+  maxMembers           Int?
+  maxActiveFlows       Int?
+  maxDmsPerMonth       Int?
+  features             String[] @default([])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+/// Única fonte do plano e do status de cada workspace.
+model Subscription {
+  id                   String             @id @default(cuid())
+  workspaceId          String             @unique
+  planId               String
+  status               SubscriptionStatus
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  /// Fim da carência quando o pagamento falha (PAST_DUE).
+  graceEndsAt          DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  /// Ajustes negociados com este cliente, ex.: { "maxInstagramAccounts": 5 }.
+  limitOverrides       Json               @default("{}")
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([planId])
+}
+
+/// Trilha das ações administrativas. Gravada na mesma transação da ação.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actorEmail  String
+  workspaceId String?
+  action      String
+  entityType  String
+  entityId    String?
+  changes     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([createdAt])
+}
+
+/// Eventos do Stripe já processados (idempotência do webhook).
+model BillingEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
 }
