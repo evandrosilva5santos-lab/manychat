@@ -19,6 +19,9 @@ const engine = vi.hoisted(() => ({
 }));
 const graph = vi.hoisted(() => ({ sendTextMessage: vi.fn(), replyToComment: vi.fn() }));
 
+// Plano em dia por padrão; o bloqueio por plano tem teste próprio abaixo e em billing/entitlements.
+const sendingBlockReason = vi.hoisted(() => vi.fn(async (): Promise<string | null> => null));
+vi.mock("@/lib/billing/entitlements", () => ({ sendingBlockReason }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/engine/contacts", () => contacts);
 vi.mock("@/lib/engine/matcher", () => ({ findMatchingTrigger: engine.findMatchingTrigger }));

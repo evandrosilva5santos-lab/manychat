@@ -308,6 +308,10 @@ export async function executeFlow(options: RunnerOptions) {
       }
       run = active;
     } else {
+      // Plano bloqueado: nem começa (não enche "Envios com falha" de cliente suspenso).
+      // O contato e a mensagem recebida já foram gravados pelo webhook.
+      const planBlock = await sendingBlockReason(accountId);
+      if (planBlock) return { success: false, skipped: true, error: planBlock };
       try {
         run = await prisma.flowRun.create({
           data: {

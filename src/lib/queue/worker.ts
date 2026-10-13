@@ -13,6 +13,7 @@ import {
 } from "@/lib/engine/runner";
 import { decodePostback } from "@/lib/meta/postback";
 import { applyOptOutGate } from "@/lib/lgpd/opt-out";
+import { sendingBlockReason } from "@/lib/billing/entitlements";
 import {
   claimEvent,
   findDueEventIds,
@@ -149,7 +150,8 @@ export async function processEvent(
     );
     return account.id;
   }
-  const canRun = account.status === "CONNECTED";
+  // Perfil conectado e plano em dia: senão o evento só é gravado (nada é enviado).
+  const canRun = account.status === "CONNECTED" && (await sendingBlockReason(account.id)) === null;
 
   const contact = await getOrCreateContact({
     accountId: account.id,

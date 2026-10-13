@@ -11,6 +11,9 @@ import {
 import { processEvent, resumeDueDelays } from "./worker";
 import type { NormalizedWebhookEvent } from "@/lib/meta/webhook";
 
+// Plano em dia por padrão; o bloqueio por plano tem teste próprio abaixo e em billing/entitlements.
+const sendingBlockReason = vi.hoisted(() => vi.fn(async (): Promise<string | null> => null));
+vi.mock("@/lib/billing/entitlements", () => ({ sendingBlockReason }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     webhookEvent: {
@@ -191,6 +194,20 @@ describe("Item 4 — processEvent (worker)", () => {
     expect(mockedRecordIncoming).toHaveBeenCalledTimes(2);
     expect(findMatchingTrigger).not.toHaveBeenCalled();
     expect(resumeFlowOnMessage).not.toHaveBeenCalled();
+    expect(mockedExecuteFlow).not.toHaveBeenCalled();
+  });
+
+  it("plano bloqueado: grava o comentário, mas não responde em público nem inicia fluxo", async () => {
+    mockedPrisma.instagramAccount.findUnique.mockResolvedValue(account as never);
+    sendingBlockReason.mockResolvedValueOnce("A assinatura está suspensa.");
+    vi.mocked(getOrCreateContact).mockResolvedValue({ id: "contact_1" } as never);
+    mockedRecordIncoming.mockResolvedValue({ message: {}, duplicate: false } as never);
+    const { findMatchingTrigger } = await import("@/lib/engine/matcher");
+    const { graphClientForAccount } = await import("@/lib/meta/account-client");
+    await processEvent(commentEvent());
+    expect(mockedRecordIncoming).toHaveBeenCalledTimes(1);
+    expect(findMatchingTrigger).not.toHaveBeenCalled();
+    expect(graphClientForAccount).not.toHaveBeenCalled();
     expect(mockedExecuteFlow).not.toHaveBeenCalled();
   });
 

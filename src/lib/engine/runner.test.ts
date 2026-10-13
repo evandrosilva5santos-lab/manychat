@@ -83,8 +83,17 @@ describe("FlowRunner: envios reais controlados por janela e conta", () => {
     expect(result.success).toBe(false);
     expect(client.sendTextMessage).not.toHaveBeenCalled();
   });
-  it("plano bloqueado (assinatura suspensa ou cota do mês) não envia e marca FAILED com o motivo", async () => {
-    sendingBlockReason.mockResolvedValueOnce("Limite de 100 mensagens enviadas no mês do plano atingido.");
+  it("plano bloqueado não inicia execução nova nem envia nada", async () => {
+    sendingBlockReason.mockResolvedValue("A assinatura está suspensa.");
+    const result = await executeFlow(options);
+    expect(result).toMatchObject({ success: false, skipped: true, error: "A assinatura está suspensa." });
+    expect(db.flowRun.create).not.toHaveBeenCalled();
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("cota do mês esgotada no meio da execução marca FAILED com o motivo", async () => {
+    sendingBlockReason
+      .mockResolvedValueOnce(null) // ao criar a execução
+      .mockResolvedValueOnce("Limite de 100 mensagens enviadas no mês do plano atingido.");
     const result = await executeFlow(options);
     expect(result).toMatchObject({ success: false, error: "Limite de 100 mensagens enviadas no mês do plano atingido." });
     expect(client.sendTextMessage).not.toHaveBeenCalled();
