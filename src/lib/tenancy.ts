@@ -30,16 +30,13 @@ function actorFrom(user: { id: string; name: string; email: string; role: "SUPER
   return { id: user.id, name: user.name, email: user.email, role: user.role };
 }
 
-async function resolveBootstrapAdmin(): Promise<TenantActor | null> {
-  const requestHeaders = await headers();
-  const principal = getAuthorizedBasicUser(requestHeaders.get("authorization"), readBasicAuthConfig());
-  if (!principal) return null;
-
-  // Enquanto o acesso legado por Basic Auth existir, seu único principal é o
-  // operador da plataforma. A variável explícita substitui o identificador
-  // local assim que o ambiente produtivo estiver configurado.
+/**
+ * Enquanto o acesso legado por Basic Auth existir, seu único principal é o
+ * operador da plataforma. A variável explícita substitui o identificador
+ * local assim que o ambiente produtivo estiver configurado.
+ */
+export async function upsertBootstrapSuperAdmin(principal: string): Promise<TenantActor> {
   const configuredEmail = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase() || `${principal}@fluxo.local`;
-
   const name = process.env.SUPERADMIN_NAME?.trim() || "Administrador";
   const user = await prisma.user.upsert({
     where: { email: configuredEmail },
@@ -47,6 +44,13 @@ async function resolveBootstrapAdmin(): Promise<TenantActor | null> {
     update: { name, role: "SUPERADMIN" },
   });
   return actorFrom(user);
+}
+
+async function resolveBootstrapAdmin(): Promise<TenantActor | null> {
+  const requestHeaders = await headers();
+  const principal = getAuthorizedBasicUser(requestHeaders.get("authorization"), readBasicAuthConfig());
+  if (!principal) return null;
+  return upsertBootstrapSuperAdmin(principal);
 }
 
 export async function getCurrentActor(): Promise<TenantActor | null> {

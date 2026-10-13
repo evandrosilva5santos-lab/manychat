@@ -19,10 +19,15 @@ export function proxy(request: NextRequest) {
       return new NextResponse("Site fechado: configure SITE_PASSWORD.", { status: 503 });
     }
     if (result === "unauthorized" && !hasSessionCandidate) {
-      return new NextResponse("Autenticação necessária.", {
-        status: 401,
-        headers: { "WWW-Authenticate": `Basic realm="${BASIC_AUTH_REALM}", charset="UTF-8"` },
-      });
+      // API routes keep the standard 401; browser navigation redirects to the login page.
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return new NextResponse("Autenticação necessária.", {
+          status: 401,
+          headers: { "WWW-Authenticate": `Basic realm="${BASIC_AUTH_REALM}", charset="UTF-8"` },
+        });
+      }
+      const loginUrl = new URL("/login", request.url);
+      return NextResponse.redirect(loginUrl, { status: 302 });
     }
   }
 

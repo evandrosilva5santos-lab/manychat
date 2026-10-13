@@ -19,15 +19,20 @@ describe("proxy", () => {
     vi.unstubAllEnvs();
   });
 
-  it("asks for credentials on private pages", () => {
+  it("sends anonymous visitors of private pages to /login", () => {
     const res = proxy(request("/fluxos"));
-    expect(res.status).toBe(401);
-    expect(res.headers.get("www-authenticate")).toBe('Basic realm="Fluxo", charset="UTF-8"');
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("http://localhost:3007/login");
+    expect(res.headers.get("www-authenticate")).toBeNull();
   });
 
   it("rejects wrong credentials", () => {
     const res = proxy(request("/", `Basic ${btoa("fluxo:errada")}`));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(302);
+  });
+
+  it("serves the login page without credentials", () => {
+    expect(proxy(request("/login")).status).toBe(200);
   });
 
   it("lets authenticated requests through with a nonce-based CSP", () => {
@@ -57,7 +62,9 @@ describe("proxy", () => {
     }
   );
 
-  it("protects private API routes too", () => {
-    expect(proxy(request("/api/instagram/media")).status).toBe(401);
+  it("protects private API routes with a plain 401", () => {
+    const res = proxy(request("/api/instagram/media"));
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toBe('Basic realm="Fluxo", charset="UTF-8"');
   });
 });

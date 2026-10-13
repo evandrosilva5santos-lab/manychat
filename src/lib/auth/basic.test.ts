@@ -83,6 +83,7 @@ describe("isPublicPath", () => {
     "/api/cron/refresh-tokens",
     "/conectar",
     "/sair",
+    "/login",
   ])("treats %s as public", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
@@ -96,6 +97,7 @@ describe("isPublicPath", () => {
     "/api/webhookx",
     "/privacidade-falsa",
     "/termosx",
+    "/loginx",
   ])("treats %s as private", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });
