@@ -8,7 +8,9 @@
 
 ## Estado atual (13/10/2026, tarde) — planos, equipe e cobrança
 - **CONCLUÍDO NO BRANCH (sem deploy):** ADR-008 inteiro, fases 1 a 6 — login de cliente, equipe com papéis, planos com limites aplicados no servidor, Super Admin de planos e assinaturas, cobrança Stripe, `/precos` e `/cadastro`. Ver `state/CHANGELOG.md`.
-- **ANTES DO DEPLOY (dono):** definir preços e criar os preços no Stripe; colocar o `price_...` de cada plano em `/admin/planos`; configurar `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e o webhook `${APP_URL}/api/webhook/stripe`; ativar o Customer Portal; só então `PUBLIC_SIGNUP=on`.
+- **STRIPE (modo teste, configurado em 13/10):** produtos e preços mensais em BRL — Starter R$ 97 (`price_1UQ7JfDM9Yh5kkSFue3rcLbu`), Pro R$ 197 (`price_1UQ7JgDM9Yh5kkSFkcM8aXgd`), Agência R$ 497 (`price_1UQ7JhDM9Yh5kkSFplnKM5jy`); webhook `we_1UQ7JhDM9Yh5kkSF7f5iyEfN` → `https://instachat.startinc.com.br/api/webhook/stripe`; portal `bpc_1UQ7JiDM9Yh5kkSFBetNrqxF` (padrão). `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` e `STRIPE_WEBHOOK_SECRET` na Vercel (produção) e no `.env` local. Preços editáveis em `/admin/planos`.
+- **PARA COBRAR DE VERDADE:** ativar a conta no Stripe (hoje `charges_enabled=false`), repetir a configuração em modo live (chaves `sk_live`/`pk_live`, preços, webhook e portal) e trocar os `price_...` em `/admin/planos`. Só então `PUBLIC_SIGNUP=on`: em modo teste qualquer um assinaria com cartão de teste.
+- **CORTESIA:** em `/admin/workspaces/[id]`, cliente grátis por 1, 3, 6, 9 meses ou indeterminado (fora do MRR; ao vencer, pausa as automações).
 - **EFEITO DO DEPLOY:** a migration dá o plano Pro ativo (sem cobrança) a todo cliente existente e marca o workspace do Super Admin como interno — ninguém para de funcionar.
 - **PENDENTE:** e-mails de cobrança e recuperação de senha dependem de um serviço de e-mail. (Workspace com plano bloqueado já não inicia fluxo nem responde em público: só grava o que chega.)
 
