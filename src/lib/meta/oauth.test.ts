@@ -8,6 +8,9 @@ import {
   exchangeForLongLivedFacebookUserToken,
   exchangeForLongLivedToken,
   fetchFacebookPagesAndInstagram,
+  fetchFacebookUserId,
+  refreshInstagramLongLivedToken,
+  MetaTokenError,
   fetchInstagramProfile,
   getFacebookAppCredentials,
   getFacebookBusinessLoginUrl,
@@ -401,5 +404,92 @@ describe("Facebook Login para Empresas com config_id", () => {
     const url = new URL(getFacebookBusinessLoginUrl("https://app.test/cb", "st"));
     expect(url.searchParams.get("config_id")).toBe("cfg_42");
     expect(url.searchParams.get("scope")).toBeNull();
+  });
+});
+
+describe("troca/renovação de token: GET com retry único em POST", () => {
+  const unsupported = () =>
+    new Response(
+      JSON.stringify({ error: { message: "Unsupported request - method type: get", code: 100, error_subcode: 33, fbtrace_id: "TRACE" } }),
+      { status: 400 }
+    );
+  const ok = () => new Response(JSON.stringify({ access_token: "long", expires_in: 5184000 }), { status: 200 });
+
+  it("troca: refaz UMA vez com POST form-urlencoded quando a Meta recusa o método", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValueOnce(unsupported()).mockResolvedValueOnce(ok());
+    const res = await exchangeForLongLivedToken("short_tok");
+    expect(res.accessToken).toBe("long");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe("https://graph.instagram.com/access_token");
+    expect(init.method).toBe("POST");
+    expect(init.headers["Content-Type"]).toBe("application/x-www-form-urlencoded");
+    const body = new URLSearchParams(init.body);
+    expect(body.get("grant_type")).toBe("ig_exchange_token");
+    expect(body.get("access_token")).toBe("short_tok");
+    expect(body.get("client_secret")).toBe("ig_secret_2");
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain("TRACE");
+    expect(logged).not.toContain("short_tok");
+    expect(logged).not.toContain("ig_secret_2");
+  });
+
+  it("troca: não repete em outros erros e mantém o formato da mensagem", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: { message: "Invalid token", code: 190 } }), { status: 400 }));
+    await expect(exchangeForLongLivedToken("x")).rejects.toThrow("Meta Token Exchange Error: Invalid token");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("troca: se o POST também falhar, lança o erro do POST (sem terceira tentativa)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValueOnce(unsupported()).mockResolvedValueOnce(unsupported());
+    await expect(exchangeForLongLivedToken("x")).rejects.toThrow(/^Meta Token Exchange Error: Unsupported request/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("renovação: mesmo comportamento (GET, depois POST uma vez)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValueOnce(unsupported()).mockResolvedValueOnce(ok());
+    const res = await refreshInstagramLongLivedToken("long_old");
+    expect(res.accessToken).toBe("long");
+    expect(fetchMock.mock.calls[0][1].method).toBe("GET");
+    expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+    expect(new URLSearchParams(fetchMock.mock.calls[1][1].body).get("grant_type")).toBe("ig_refresh_token");
+  });
+
+  it("renovação: erro comum não repete e vira MetaTokenError", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: { message: "Expired", code: 190 } }), { status: 400 }));
+    await expect(refreshInstagramLongLivedToken("x")).rejects.toBeInstanceOf(MetaTokenError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("identificadores do perfil", () => {
+  it("fetchInstagramProfile pede id e devolve metaUserId (id) separado do igUserId (user_id)", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ id: "app_1", user_id: "ig_1", username: "loja" }), { status: 200 }));
+    const profile = await fetchInstagramProfile("tok");
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("fields")).toBe("id,user_id,username,name,profile_picture_url");
+    expect(profile).toMatchObject({ igUserId: "ig_1", metaUserId: "app_1" });
+  });
+
+  it("fetchFacebookUserId devolve o id do /me", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ id: "fb_1" }), { status: 200 }));
+    expect(await fetchFacebookUserId("user_tok")).toBe("fb_1");
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.origin + url.pathname).toBe("https://graph.facebook.com/v21.0/me");
+    expect(url.searchParams.get("fields")).toBe("id");
+  });
+
+  it("fetchFacebookUserId devolve null (com aviso) em falha de HTTP ou rede", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 190 } }), { status: 400 }));
+    expect(await fetchFacebookUserId("user_tok")).toBeNull();
+    fetchMock.mockRejectedValueOnce(new Error("rede"));
+    expect(await fetchFacebookUserId("user_tok")).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("user_tok");
   });
 });

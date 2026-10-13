@@ -1,13 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { getCurrentAccount } from "@/lib/account";
-import { defaultGraphClient } from "@/lib/meta/graph";
 import {
   recordIncomingMessage,
   recordOutgoingMessage,
   getOrCreateContact,
 } from "@/lib/engine/contacts";
 import { findMatchingTrigger } from "@/lib/engine/matcher";
-import { executeFlow, resumeFlowOnClick, resumeFlowOnMessage } from "@/lib/engine/runner";
+import {
+  executeFlow,
+  resumeFlowOnClick,
+  resumeFlowOnMessage,
+} from "@/lib/engine/runner";
 import { decodePostback } from "@/lib/meta/postback";
 import {
   claimEvent,
@@ -113,28 +115,39 @@ export async function processDueEvents(limit = 10): Promise<TickSummary> {
 }
 
 /**
- * Resolve a conta destinatária pelo entry.id do evento (roteamento por
- * conta) com fallback para a conta atual. Sobreposição mínima e
- * documentada com o item 3 (OAuth/roteamento).
+ * Resolve a conta destinatária SOMENTE pelo entry.id do evento. Sem fallback
+ * para "conta atual": evento de perfil desconhecido não pertence a ninguém.
  */
 async function resolveAccount(igUserId: string) {
-  const byEntry = await prisma.instagramAccount.findUnique({
-    where: { igUserId },
-  });
-  if (byEntry) return byEntry;
-  return getCurrentAccount();
+  return prisma.instagramAccount.findUnique({ where: { igUserId } });
 }
 
 /**
  * Processa UM evento normalizado: contato → histórico → gatilho → motor.
- * Retorna o accountId usado (para auditoria no WebhookEvent).
+ * Retorna o accountId usado (para auditoria no WebhookEvent) ou null quando
+ * o evento é descartado (perfil desconhecido). Descartar termina DONE, nunca DEAD.
  * Lança RetryableError/PermanentError para a fila decidir o destino.
+ *
+ * Só contas CONNECTED rodam gatilhos/fluxos. EXPIRED apenas registra
+ * contato + mensagem (histórico e janela de 24h). DISCONNECTED não grava nada.
  */
-export async function processEvent(event: NormalizedWebhookEvent): Promise<string | null> {
+export async function processEvent(
+  event: NormalizedWebhookEvent,
+): Promise<string | null> {
   const account = await resolveAccount(event.igUserId);
   if (!account) {
-    throw new PermanentError(`Nenhuma conta Instagram conectada para entry ${event.igUserId}`);
+    console.warn(
+      `[worker] Evento descartado: nenhum perfil cadastrado para entry ${event.igUserId}`,
+    );
+    return null;
   }
+  if (account.status === "DISCONNECTED") {
+    console.warn(
+      `[worker] Evento descartado: perfil ${account.id} desconectado`,
+    );
+    return account.id;
+  }
+  const canRun = account.status === "CONNECTED";
 
   const contact = await getOrCreateContact({
     accountId: account.id,
@@ -153,30 +166,40 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
       mediaId: event.mediaId,
       igMessageId: event.commentId,
     });
-    if (!recorded) return account.id; // já processado — nada de DM duplicada
+    if (!recorded || !canRun) return account.id; // já processado ou perfil expirado
 
     const match = await findMatchingTrigger(account.id, event);
     if (match) {
       if (match.publicReply) {
-        let client = defaultGraphClient;
+        let client: Awaited<
+          ReturnType<
+            typeof import("@/lib/meta/account-client").graphClientForAccount
+          >
+        > | null = null;
         try {
-          const { graphClientForAccount } = await import("@/lib/meta/account-client");
+          const { graphClientForAccount } =
+            await import("@/lib/meta/account-client");
           client = await graphClientForAccount(account.id);
-        } catch {
-          client = defaultGraphClient;
+        } catch (error) {
+          console.warn(
+            `[worker] Resposta pública ignorada: perfil ${account.id} sem token utilizável`,
+            error instanceof Error ? error.message : error,
+          );
         }
-        const replyRes = await client.replyToComment(
-          event.commentId,
-          match.publicReply
-        );
-        await recordOutgoingMessage({
-          accountId: account.id,
-          contactId: contact.id,
-          text: match.publicReply,
-          kind: "COMMENT_REPLY",
-          flowId: match.flow.id,
-          error: replyRes.error,
-        });
+        if (client) {
+          const replyRes = await client.replyToComment(
+            event.commentId,
+            match.publicReply,
+          );
+          await recordOutgoingMessage({
+            accountId: account.id,
+            contactId: contact.id,
+            text: match.publicReply,
+            kind: "COMMENT_REPLY",
+            flowId: match.flow.id,
+            error: replyRes.error,
+          });
+        }
         // Falha na resposta pública não bloqueia a DM (registrada acima).
       }
 
@@ -207,7 +230,7 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
       kind: "TEXT",
       igMessageId: event.messageId,
     });
-    if (!recorded) return account.id;
+    if (!recorded || !canRun) return account.id;
 
     // Se o contato estava com um fluxo aguardando resposta (WAITING_REPLY), retoma a automação
     const resumed = await resumeFlowOnMessage({
@@ -244,7 +267,7 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
     payload: { payload: event.payload },
     igMessageId: event.postbackMid ?? event.messageId,
   });
-  if (!recorded) return account.id;
+  if (!recorded || !canRun) return account.id;
 
   // 1. Postback com codificação resiliente (Item 03)
   const decoded = decodePostback(event.payload);
@@ -312,7 +335,11 @@ export async function processEvent(event: NormalizedWebhookEvent): Promise<strin
  */
 export async function resumeDueDelays(limit = 10): Promise<number> {
   const due = await prisma.flowRun.findMany({
-    where: { status: "WAITING_DELAY", resumeAt: { lte: new Date() } },
+    where: {
+      status: "WAITING_DELAY",
+      resumeAt: { lte: new Date() },
+      flow: { account: { status: "CONNECTED" } },
+    },
     orderBy: { resumeAt: "asc" },
     take: limit,
     select: { id: true, flowId: true, contactId: true },
@@ -326,7 +353,9 @@ export async function resumeDueDelays(limit = 10): Promise<number> {
     });
     if (claim.count !== 1) continue;
 
-    const contact = await prisma.contact.findUnique({ where: { id: run.contactId } });
+    const contact = await prisma.contact.findUnique({
+      where: { id: run.contactId },
+    });
     if (!contact) continue;
 
     try {

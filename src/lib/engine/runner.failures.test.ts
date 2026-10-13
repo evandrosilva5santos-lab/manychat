@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeFlow } from "./runner";
 import { RetryableError } from "@/lib/queue/errors";
 
@@ -9,26 +9,27 @@ vi.mock("@/lib/prisma", () => ({
     contact: { update: vi.fn() },
     contactTag: { findUnique: vi.fn(), upsert: vi.fn() },
     node: { findFirst: vi.fn() },
+    instagramAccount: { findUnique: vi.fn() },
   },
 }));
 
-vi.mock("@/lib/meta/graph", () => ({
-  defaultGraphClient: {
+const { accountClient } = vi.hoisted(() => ({
+  accountClient: {
     sendTextMessage: vi.fn(),
     sendButtonMessage: vi.fn(),
     sendCarouselMessage: vi.fn(),
     checkUserFollows: vi.fn(),
   },
 }));
+vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount: vi.fn(async () => accountClient) }));
 
 vi.mock("./contacts", () => ({ recordOutgoingMessage: vi.fn() }));
 
 import { prisma } from "@/lib/prisma";
-import { defaultGraphClient } from "@/lib/meta/graph";
 
 const mockedPrisma = vi.mocked(prisma, true);
-const mockedSend = vi.mocked(defaultGraphClient.sendTextMessage);
-const mockedSendButtons = vi.mocked(defaultGraphClient.sendButtonMessage);
+const mockedSend = vi.mocked(accountClient.sendTextMessage);
+const mockedSendButtons = vi.mocked(accountClient.sendButtonMessage);
 
 const contact = { id: "contact_1", igsid: "ig_user_9", username: "maria", name: null, followsAccount: null };
 
@@ -84,7 +85,11 @@ function mockFreshRun(startNodeId = "n1") {
   } as never);
 }
 
-afterEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  mockedPrisma.instagramAccount.findUnique.mockResolvedValue({ status: "CONNECTED" } as never);
+  mockedPrisma.flowRun.updateMany.mockResolvedValue({ count: 1 } as never);
+});
+afterEach(() => vi.resetAllMocks());
 
 describe("Item 4 — falhas de envio no motor", () => {
   it("erro permanente: run vira FAILED com motivo e o fluxo PARA (segunda mensagem não sai)", async () => {
@@ -122,8 +127,9 @@ describe("Item 4 — falhas de envio no motor", () => {
     ).rejects.toThrow(RetryableError);
 
     expect(mockedSend).toHaveBeenCalledTimes(1);
-    expect(mockedPrisma.flowRun.update).toHaveBeenCalledWith(
+    expect(mockedPrisma.flowRun.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: "run_1", status: { not: "FAILED" } },
         data: expect.objectContaining({ status: "RUNNING", currentNodeId: "n1" }),
       })
     );
@@ -137,7 +143,9 @@ describe("Item 4 — falhas de envio no motor", () => {
     const result = await executeFlow({ accountId: "acc", contact, flowId: "flow_1", startNodeId: "q1" });
 
     expect(result).toMatchObject({ success: false, failed: true });
-    const statuses = mockedPrisma.flowRun.update.mock.calls.map((c) => (c[0] as any).data?.status);
+    const statuses = [...mockedPrisma.flowRun.update.mock.calls, ...mockedPrisma.flowRun.updateMany.mock.calls].map(
+      (c) => (c[0] as any).data?.status
+    );
     expect(statuses).not.toContain("WAITING_CLICK");
   });
 
@@ -163,7 +171,7 @@ describe("Item 4 — falhas de envio no motor", () => {
     expect(result).toMatchObject({ success: true, finished: true });
     // n0 não reenvia (retomada começa no DELAY); só "pos-espera" sai.
     expect(mockedSend).toHaveBeenCalledTimes(1);
-    expect(mockedSend).toHaveBeenCalledWith("ig_user_9", "pos-espera");
+    expect(mockedSend).toHaveBeenCalledWith("ig_user_9", "pos-espera", undefined);
   });
 
   it("gatilho novo com run aguardando clique NÃO redispara o fluxo", async () => {

@@ -39,6 +39,7 @@ export async function enqueueEvent(params: {
   idempotencyKey: string;
   type: string;
   payload: NormalizedWebhookEvent;
+  accountId?: string | null;
 }): Promise<EnqueueResult> {
   try {
     const event = await prisma.webhookEvent.create({
@@ -46,6 +47,7 @@ export async function enqueueEvent(params: {
         idempotencyKey: params.idempotencyKey,
         type: params.type,
         payload: params.payload as unknown as object,
+        accountId: params.accountId ?? null,
       },
     });
     return { event };

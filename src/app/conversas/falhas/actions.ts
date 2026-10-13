@@ -65,9 +65,11 @@ export async function listFailedSends(): Promise<FailedSendItem[]> {
 /** Eventos que morreram na fila (DEAD) ou falharam de vez (FAILED). */
 export async function listDeadEvents(): Promise<DeadEventItem[]> {
   await requireAuth();
+  const account = await getCurrentAccount();
+  if (!account) return [];
 
   const events = await prisma.webhookEvent.findMany({
-    where: { status: { in: ["DEAD", "FAILED"] } },
+    where: { accountId: account.id, status: { in: ["DEAD", "FAILED"] } },
     orderBy: { receivedAt: "desc" },
     take: 20,
   });
@@ -110,8 +112,13 @@ export async function retryFailedSend(formData: FormData): Promise<RetryResult> 
     where: { id: messageId },
     include: { contact: true, run: true },
   });
-  if (!message || !message.contact || !message.run) {
+  const account = await getCurrentAccount();
+  if (!account) return { ok: false, error: "Sem conta conectada" };
+  if (!message || !message.contact || !message.run || message.accountId !== account.id) {
     return { ok: false, error: "Mensagem não encontrada" };
+  }
+  if (account.status !== "CONNECTED") {
+    return { ok: false, error: "Perfil não conectado — reconecte em Ajustes." };
   }
   if (message.kind !== "TEXT") {
     return { ok: false, error: "Reenvio disponível apenas para mensagens de texto" };
@@ -119,9 +126,6 @@ export async function retryFailedSend(formData: FormData): Promise<RetryResult> 
   if (message.run.status !== "FAILED" || !message.nodeId) {
     return { ok: false, error: "Execução não está em estado de reenvio" };
   }
-
-  const account = await getCurrentAccount();
-  if (!account) return { ok: false, error: "Sem conta conectada" };
 
   // Reexecuta a partir do nó que falhou: envia de novo e segue o fluxo.
   await prisma.flowRun.update({

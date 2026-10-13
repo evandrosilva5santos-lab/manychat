@@ -10,6 +10,7 @@ const { db, oauth } = vi.hoisted(() => ({
     exchangeFacebookCodeForToken: vi.fn(),
     exchangeForLongLivedFacebookUserToken: vi.fn(),
     fetchFacebookPagesAndInstagram: vi.fn(),
+    fetchFacebookUserId: vi.fn(),
   },
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { instagramAccount: db, $transaction: (ops: Promise<unknown>[]) => Promise.all(ops) } }));
@@ -54,6 +55,23 @@ describe("connectViaInstagram", () => {
     expect(oauth.exchangeFacebookCodeForToken).not.toHaveBeenCalled();
   });
 
+  it("salva metaUserId (id app-scoped do perfil) e connectedAt", async () => {
+    oauth.fetchInstagramProfile.mockResolvedValue({ igUserId: "178", metaUserId: "app_scoped_9", username: "loja" });
+    await connectViaInstagram("code", REDIRECT, "ws_1");
+    expect(db.create.mock.calls[0][0].data).toMatchObject({ metaUserId: "app_scoped_9", connectedAt: NOW });
+  });
+
+  it("sem id no perfil, usa o user_id da troca de código como metaUserId", async () => {
+    await connectViaInstagram("code", REDIRECT, "ws_1");
+    expect(db.create.mock.calls[0][0].data).toMatchObject({ metaUserId: "178", connectedAt: NOW });
+  });
+
+  it("reconexão atualiza connectedAt na conta existente", async () => {
+    db.findUnique.mockResolvedValue({ id: "acc_1", workspaceId: "ws_1" });
+    await connectViaInstagram("code", REDIRECT, "ws_1");
+    expect(db.update.mock.calls[0][0].data).toMatchObject({ connectedAt: NOW });
+  });
+
   it("atualiza a conta existente do mesmo workspace", async () => {
     db.findUnique.mockResolvedValue({ id: "acc_1", workspaceId: "ws_1" });
     await connectViaInstagram("code", REDIRECT, "ws_1");
@@ -89,6 +107,22 @@ describe("connectViaFacebook", () => {
     oauth.exchangeFacebookCodeForToken.mockResolvedValue({ accessToken: "user_short" });
     oauth.exchangeForLongLivedFacebookUserToken.mockResolvedValue({ accessToken: "user_long" });
     oauth.fetchFacebookPagesAndInstagram.mockResolvedValue([page(1), page(2)]);
+    oauth.fetchFacebookUserId.mockResolvedValue("fb_user_1");
+  });
+
+  it("grava o ID do usuário do Facebook e connectedAt em cada conta", async () => {
+    await connectViaFacebook("code", REDIRECT, "ws_1");
+    expect(oauth.fetchFacebookUserId).toHaveBeenCalledOnce();
+    expect(oauth.fetchFacebookUserId).toHaveBeenCalledWith("user_long");
+    for (const call of db.create.mock.calls) {
+      expect(call[0].data).toMatchObject({ metaUserId: "fb_user_1", connectedAt: NOW });
+    }
+  });
+
+  it("sem o ID do usuário do Facebook, conecta com metaUserId null", async () => {
+    oauth.fetchFacebookUserId.mockResolvedValue(null);
+    await connectViaFacebook("code", REDIRECT, "ws_1");
+    expect(db.create.mock.calls[0][0].data).toMatchObject({ metaUserId: null, connectedAt: NOW });
   });
 
   it("conecta todas as contas das Páginas autorizadas como FACEBOOK_LOGIN, sem validade", async () => {

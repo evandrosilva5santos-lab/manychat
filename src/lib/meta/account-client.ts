@@ -29,7 +29,10 @@ export async function graphClientForAccount(accountId: string): Promise<Instagra
   if (!token) throw new Error("Token não configurado para esta conta do Instagram.");
   return new InstagramGraphClient(token, {
     onExpired: async () => {
-      await prisma.instagramAccount.update({ where: { id: accountId }, data: { status: "EXPIRED" } });
+      await prisma.instagramAccount.updateMany({
+        where: { id: accountId, status: "CONNECTED" },
+        data: { status: "EXPIRED", tokenStatus: "EXPIRED" },
+      });
     },
     provider: account.authProvider === "FACEBOOK_LOGIN" ? "facebook" : "instagram",
   });

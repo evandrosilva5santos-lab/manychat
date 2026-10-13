@@ -376,6 +376,46 @@ export async function exchangeCodeForShortLivedToken(
   };
 }
 
+const UNSUPPORTED_METHOD_RE = /Unsupported request - method type/i;
+
+/**
+ * Chamada de troca/renovação de token: GET documentado; se a Meta responder
+ * "Unsupported request - method type", repete UMA vez com POST (mesmos params
+ * no corpo form-urlencoded). Logs sem tokens/segredos.
+ */
+async function tokenRequestWithMethodRetry(
+  url: URL
+): Promise<{ res: Response; raw: any }> {
+  const attempt = async (method: "GET" | "POST") => {
+    const init: RequestInit = { method, signal: AbortSignal.timeout(15_000) };
+    let target = url.toString();
+    if (method === "POST") {
+      target = `${url.origin}${url.pathname}`;
+      init.headers = { "Content-Type": "application/x-www-form-urlencoded" };
+      init.body = new URLSearchParams(url.searchParams).toString();
+    }
+    const res = await fetch(target, init);
+    const raw = await res.json().catch(() => null);
+    if (!res.ok || !raw) {
+      console.warn("[oauth] Falha na troca de token", {
+        method,
+        code: raw?.error?.code,
+        error_subcode: raw?.error?.error_subcode,
+        fbtrace_id: raw?.error?.fbtrace_id,
+        httpStatus: res.status,
+      });
+    }
+    return { res, raw };
+  };
+
+  const first = await attempt("GET");
+  const message: unknown = first.raw?.error?.message;
+  if (!first.res.ok && typeof message === "string" && UNSUPPORTED_METHOD_RE.test(message)) {
+    return attempt("POST");
+  }
+  return first;
+}
+
 /**
  * Troca o token de curta duração por um token de longa duração (60 dias).
  */
@@ -389,12 +429,7 @@ export async function exchangeForLongLivedToken(
   url.searchParams.set("client_secret", clientSecret);
   url.searchParams.set("access_token", shortLivedToken);
 
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  const raw = await res.json().catch(() => null);
+  const { res, raw } = await tokenRequestWithMethodRetry(url);
   if (!res.ok || !raw) {
     const errorMsg = raw?.error?.message || "Falha ao gerar token de 60 dias";
     throw new Error(`Meta Token Exchange Error: ${errorMsg}`);
@@ -444,14 +479,14 @@ export async function refreshInstagramLongLivedToken(
   url.searchParams.set("access_token", longLivedToken);
 
   let res: Response;
+  let raw: any;
   try {
-    res = await fetch(url.toString(), { method: "GET", signal: AbortSignal.timeout(15_000) });
+    ({ res, raw } = await tokenRequestWithMethodRetry(url));
   } catch (err) {
     // Timeout / rede → passageiro (httpStatus 0).
     throw new MetaTokenError(`Falha de rede ao renovar token: ${(err as Error).message}`, 0);
   }
 
-  const raw = await res.json().catch(() => null);
   if (!res.ok || !raw) {
     const errorMsg = raw?.error?.message || `Falha ao renovar token (HTTP ${res.status})`;
     throw new MetaTokenError(errorMsg, res.status, raw?.error?.code);
@@ -473,12 +508,14 @@ export async function refreshInstagramLongLivedToken(
  */
 export async function fetchInstagramProfile(accessToken: string): Promise<{
   igUserId: string;
+  /** ID app-scoped (`id` do /me); distinto do igUserId (user_id) quando a Meta devolve ambos. */
+  metaUserId?: string;
   username: string;
   name?: string;
   profilePicUrl?: string;
 }> {
   const url = new URL(`https://graph.instagram.com/${GRAPH_API_VERSION}/me`);
-  url.searchParams.set("fields", "user_id,username,name,profile_picture_url");
+  url.searchParams.set("fields", "id,user_id,username,name,profile_picture_url");
   url.searchParams.set("access_token", accessToken);
 
   const res = await fetch(url.toString(), {
@@ -503,10 +540,33 @@ export async function fetchInstagramProfile(accessToken: string): Promise<{
 
   return {
     igUserId,
+    metaUserId: parsed.data.id,
     username: parsed.data.username,
     name: parsed.data.name,
     profilePicUrl: parsed.data.profile_picture_url,
   };
+}
+
+/** ID do usuário do Facebook dono do token (null se não for possível obter). */
+export async function fetchFacebookUserId(userAccessToken: string): Promise<string | null> {
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/me`);
+  url.searchParams.set("fields", "id");
+  url.searchParams.set("access_token", userAccessToken);
+  try {
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10_000) });
+    const raw = await res.json().catch(() => null);
+    if (!res.ok || typeof raw?.id !== "string" || !raw.id) {
+      console.warn("[oauth] Não foi possível obter o ID do usuário do Facebook", {
+        code: raw?.error?.code,
+        httpStatus: res.status,
+      });
+      return null;
+    }
+    return raw.id;
+  } catch (error) {
+    console.warn("[oauth] Falha ao obter o ID do usuário do Facebook", (error as Error).message);
+    return null;
+  }
 }
 
 /**

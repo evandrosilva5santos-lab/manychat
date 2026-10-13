@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   findMany: vi.fn(),
-  update: vi.fn(),
+  updateMany: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { instagramAccount: db } }));
 
@@ -42,7 +42,7 @@ const daysAgo = (d: number) => new Date(NOW.getTime() - d * DAY);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.update.mockResolvedValue({});
+  db.updateMany.mockResolvedValue({});
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -59,7 +59,7 @@ describe("renewExpiringTokens", () => {
     const s = await renewExpiringTokens(NOW);
     expect(s.skippedNonExpiring).toBe(1);
     expect(oauth.refreshInstagramLongLivedToken).not.toHaveBeenCalled();
-    expect(db.update).not.toHaveBeenCalled();
+    expect(db.updateMany).not.toHaveBeenCalled();
   });
 
   it("nunca renova conta conectada pelo Facebook, mesmo com validade preenchida", async () => {
@@ -67,7 +67,7 @@ describe("renewExpiringTokens", () => {
     const s = await renewExpiringTokens(NOW);
     expect(s.skippedNonExpiring).toBe(1);
     expect(oauth.refreshInstagramLongLivedToken).not.toHaveBeenCalled();
-    expect(db.update).not.toHaveBeenCalled();
+    expect(db.updateMany).not.toHaveBeenCalled();
   });
 
   it("não renova token ainda longe de vencer (> janela)", async () => {
@@ -83,10 +83,11 @@ describe("renewExpiringTokens", () => {
     const s = await renewExpiringTokens(NOW);
     expect(oauth.refreshInstagramLongLivedToken).toHaveBeenCalledWith("velho");
     expect(s.renewed).toBe(1);
-    const data = db.update.mock.calls[0][0].data;
+    const data = db.updateMany.mock.calls[0][0].data;
     expect(data.accessTokenEnc).toBe("enc(novo)");
     expect(data.tokenStatus).toBe("ACTIVE");
     expect(data.tokenExpiresAt.getTime()).toBeGreaterThan(inDays(50).getTime());
+    expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: "a1", status: "CONNECTED" });
   });
 
   it("não renova token de refresh com menos de 24h de vida (regra da Meta)", async () => {
@@ -102,9 +103,11 @@ describe("renewExpiringTokens", () => {
     const s = await renewExpiringTokens(NOW);
     expect(s.failed).toBe(1);
     expect(s.renewed).toBe(0);
-    const data = db.update.mock.calls[0][0].data;
+    const data = db.updateMany.mock.calls[0][0].data;
     expect(data.status).toBe("EXPIRED");
     expect(data.tokenStatus).toBe("EXPIRED");
+    // Só expira conta ainda CONNECTED (não sobrescreve DISCONNECTED).
+    expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: "a1", status: "CONNECTED" });
   });
 
   it("erro passageiro (rede/timeout/5xx) NÃO expira a conta — tenta no próximo ciclo", async () => {
@@ -113,7 +116,7 @@ describe("renewExpiringTokens", () => {
     const s = await renewExpiringTokens(NOW);
     expect(s.transient).toBe(1);
     expect(s.failed).toBe(0);
-    expect(db.update).not.toHaveBeenCalled(); // conta segue CONNECTED
+    expect(db.updateMany).not.toHaveBeenCalled(); // conta segue CONNECTED
   });
 
   it("token ilegível (chave trocada) é pulado SEM expirar, e não derruba as demais", async () => {
@@ -128,7 +131,7 @@ describe("renewExpiringTokens", () => {
     expect(s.renewed).toBe(1);
     expect(s.failed).toBe(0);
     // Nenhuma conta foi marcada EXPIRED por causa do token ilegível.
-    const expiredCalls = db.update.mock.calls.filter((c) => c[0].data.status === "EXPIRED");
+    const expiredCalls = db.updateMany.mock.calls.filter((c) => c[0].data.status === "EXPIRED");
     expect(expiredCalls).toHaveLength(0);
   });
 });

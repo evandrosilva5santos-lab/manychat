@@ -52,8 +52,8 @@ function alert(accountId: string, message: string, detail?: string) {
 }
 
 async function markExpired(accountId: string) {
-  await prisma.instagramAccount.update({
-    where: { id: accountId },
+  await prisma.instagramAccount.updateMany({
+    where: { id: accountId, status: "CONNECTED" },
     data: { status: "EXPIRED", tokenStatus: "EXPIRED" },
   });
 }
@@ -86,8 +86,8 @@ async function renewOne(acc: AccountRow, now: Date): Promise<Outcome> {
 
   try {
     const { accessToken, expiresIn } = await refreshInstagramLongLivedToken(plain);
-    await prisma.instagramAccount.update({
-      where: { id: acc.id },
+    await prisma.instagramAccount.updateMany({
+      where: { id: acc.id, status: "CONNECTED" },
       data: {
         accessTokenEnc: encryptToken(accessToken),
         tokenExpiresAt: new Date(now.getTime() + (expiresIn || LONG_LIVED_FALLBACK_SECONDS) * 1000),

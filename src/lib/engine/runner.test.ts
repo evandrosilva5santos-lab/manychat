@@ -3,7 +3,8 @@ import type { Contact } from "@/generated/prisma/client";
 const { db, client, record, clicked, link } = vi.hoisted(() => ({
   db: {
     flow: { findFirst: vi.fn() }, contact: { findFirst: vi.fn(), update: vi.fn() },
-    flowRun: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    flowRun: { create: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    instagramAccount: { findUnique: vi.fn() },
     contactTag: { findUnique: vi.fn(), upsert: vi.fn() }, privateReply: { create: vi.fn(), update: vi.fn() },
   },
   client: { sendTextMessage: vi.fn(), sendButtonMessage: vi.fn(), sendCarouselMessage: vi.fn(), checkUserFollows: vi.fn() },
@@ -35,6 +36,8 @@ beforeEach(() => {
   db.contact.findFirst.mockResolvedValue({ ...contact, lastInboundAt: new Date() });
   db.flowRun.create.mockResolvedValue({ id: "run", triggerContext: null });
   db.flowRun.update.mockResolvedValue({});
+  db.flowRun.findUnique.mockImplementation(async (args: unknown) => db.flowRun.findFirst(args));
+  db.instagramAccount.findUnique.mockResolvedValue({ status: "CONNECTED" });
   db.flowRun.updateMany.mockResolvedValue({ count: 1 });
   db.privateReply.create.mockResolvedValue({ id: "claim" });
   for (const send of [client.sendTextMessage, client.sendButtonMessage, client.sendCarouselMessage]) send.mockResolvedValue({ success: true, messageId: "mid", retryable: false });
@@ -48,7 +51,7 @@ describe("FlowRunner: envios reais controlados por janela e conta", () => {
     expect(result.success).toBe(true);
     expect(client.sendTextMessage).toHaveBeenCalledExactlyOnceWith("lead", "Olá", { commentId: "comment" });
     expect(db.privateReply.create).toHaveBeenCalledOnce();
-    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "WAITING_REPLY", currentNodeId: "second" }) }));
+    expect(db.flowRun.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run", status: { not: "FAILED" } }, data: expect.objectContaining({ status: "WAITING_REPLY", currentNodeId: "second" }) }));
   });
   it("não repete private reply com claim existente", async () => {
     db.privateReply.create.mockRejectedValue({ code: "P2002" });
@@ -99,7 +102,7 @@ describe("FlowRunner: envios reais controlados por janela e conta", () => {
   it("DELAY pausa sem executar próximo nó", async () => {
     db.flow.findFirst.mockResolvedValue(flow("DELAY", { seconds: 60 }));
     await executeFlow(options);
-    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "WAITING_DELAY" }) }));
+    expect(db.flowRun.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "WAITING_DELAY" }) }));
     expect(client.sendTextMessage).not.toHaveBeenCalled();
   });
   it("NOTE continua", async () => {
@@ -144,5 +147,55 @@ describe("FlowRunner: envios reais controlados por janela e conta", () => {
     expect((await resumeFlowOnMessage({ accountId: "account", contact, inboundText: "oi" })).success).toBe(true);
     expect(client.sendTextMessage).toHaveBeenCalledWith("lead", "Fim", undefined);
     expect(db.privateReply.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("Perfil seguro: sem fallback global e com status checado a cada envio", () => {
+  const lostMessage = "Perfil desconectado ou com token expirado — reconecte em Ajustes.";
+  it("sem cliente da conta, não envia e o run termina FAILED com a mensagem de reconexão", async () => {
+    const { graphClientForAccount } = await import("@/lib/meta/account-client");
+    vi.mocked(graphClientForAccount).mockRejectedValueOnce(new Error("indisponível"));
+    const result = await executeFlow(options);
+    expect(result).toMatchObject({ success: false, failed: true, error: lostMessage });
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED", error: lostMessage }) }));
+  });
+  it("perfil desconectado no meio do fluxo interrompe antes do próximo envio", async () => {
+    db.instagramAccount.findUnique.mockResolvedValueOnce({ status: "CONNECTED" }).mockResolvedValueOnce({ status: "DISCONNECTED" });
+    const result = await executeFlow(options);
+    expect(client.sendTextMessage).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ success: false, failed: true, error: "Perfil descarregado" });
+    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED", error: "Perfil descarregado" }) }));
+  });
+  it("perfil EXPIRED antes do envio falha com a mensagem de reconexão", async () => {
+    db.instagramAccount.findUnique.mockResolvedValue({ status: "EXPIRED" });
+    expect(await executeFlow(options)).toMatchObject({ failed: true, error: lostMessage });
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("não consulta o status em nós que não falam com a Meta", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("NOTE", {}, false));
+    await executeFlow(options);
+    expect(db.instagramAccount.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("Perfil seguro: run FAILED não ressuscita", () => {
+  it("escritas de estado são condicionais (status != FAILED)", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("DELAY", { seconds: 60 }));
+    await executeFlow(options);
+    expect(db.flowRun.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run", status: { not: "FAILED" } } }));
+    expect(db.flowRun.update).not.toHaveBeenCalled();
+  });
+  it("runId de um run FAILED não é reaberto pelo executeFlow", async () => {
+    db.flowRun.findUnique.mockResolvedValue({ id: "run", status: "FAILED", error: "x" });
+    const result = await executeFlow({ ...options, runId: "run" });
+    expect(result.success).toBe(false);
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+    expect(db.flowRun.updateMany).not.toHaveBeenCalled();
+  });
+  it("retomada com runId já RUNNING (reabertura explícita do retry) segue normalmente", async () => {
+    db.flowRun.findUnique.mockResolvedValue({ id: "run", status: "RUNNING", currentNodeId: "first" });
+    expect((await executeFlow({ ...options, runId: "run" })).success).toBe(true);
+    expect(client.sendTextMessage).toHaveBeenCalledWith("lead", "Olá", undefined);
   });
 });

@@ -6,6 +6,7 @@ import {
   exchangeForLongLivedFacebookUserToken,
   exchangeForLongLivedToken,
   fetchFacebookPagesAndInstagram,
+  fetchFacebookUserId,
   fetchInstagramProfile,
   subscribeAccountWebhooks,
 } from "./oauth";
@@ -35,6 +36,7 @@ type ConnectedAccount = {
   tokenExpiresAt: Date | null;
   authProvider: "INSTAGRAM_LOGIN" | "FACEBOOK_LOGIN";
   fbPageId: string | null;
+  metaUserId: string | null;
 };
 
 /** Confere TODAS as contas antes de gravar: ou entram todas, ou nenhuma. */
@@ -61,6 +63,8 @@ async function saveConnectedAccounts(workspaceId: string, accounts: ConnectedAcc
       tokenExpiresAt: acc.tokenExpiresAt,
       authProvider: acc.authProvider,
       fbPageId: acc.fbPageId,
+      metaUserId: acc.metaUserId,
+      connectedAt: new Date(),
       status: "CONNECTED" as const,
       tokenStatus: "ACTIVE" as const,
     };
@@ -75,7 +79,7 @@ async function saveConnectedAccounts(workspaceId: string, accounts: ConnectedAcc
 
 /** Instagram Login: token de 60 dias (renovado pelo cron), host graph.instagram.com. */
 export async function connectViaInstagram(code: string, redirectUri: string, workspaceId: string): Promise<string[]> {
-  const { accessToken: shortLived } = await exchangeCodeForShortLivedToken(code, redirectUri);
+  const { accessToken: shortLived, igUserId: shortLivedUserId } = await exchangeCodeForShortLivedToken(code, redirectUri);
   const { accessToken, expiresIn } = await exchangeForLongLivedToken(shortLived);
   const profile = await fetchInstagramProfile(accessToken);
   if (!(await subscribeAccountWebhooks(accessToken))) {
@@ -91,6 +95,8 @@ export async function connectViaInstagram(code: string, redirectUri: string, wor
       tokenExpiresAt: new Date(Date.now() + (expiresIn || LONG_LIVED_FALLBACK_SECONDS) * 1000),
       authProvider: "INSTAGRAM_LOGIN",
       fbPageId: null,
+      // `id` do /me é app-scoped; sem ele, o user_id da troca de código (escopo Instagram).
+      metaUserId: profile.metaUserId ?? shortLivedUserId ?? null,
     },
   ]);
 }
@@ -102,6 +108,7 @@ export async function connectViaFacebook(code: string, redirectUri: string, work
   const { accessToken: longLivedUser } = await exchangeForLongLivedFacebookUserToken(shortLivedUser);
   const pages = await fetchFacebookPagesAndInstagram(longLivedUser);
   if (pages.length === 0) throw new ConnectUserError(NO_LINKED_INSTAGRAM);
+  const facebookUserId = await fetchFacebookUserId(longLivedUser);
   return saveConnectedAccounts(
     workspaceId,
     pages.map((page) => ({
@@ -113,6 +120,7 @@ export async function connectViaFacebook(code: string, redirectUri: string, work
       tokenExpiresAt: null,
       authProvider: "FACEBOOK_LOGIN",
       fbPageId: page.pageId,
+      metaUserId: facebookUserId,
     }))
   );
 }

@@ -8,7 +8,7 @@ import {
   markRetryable,
   MAX_ATTEMPTS,
 } from "./store";
-import { processEvent } from "./worker";
+import { processEvent, resumeDueDelays } from "./worker";
 import type { NormalizedWebhookEvent } from "@/lib/meta/webhook";
 
 vi.mock("@/lib/prisma", () => ({
@@ -21,20 +21,19 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
     },
     instagramAccount: { findUnique: vi.fn() },
+    flowRun: { findMany: vi.fn(), updateMany: vi.fn() },
+    contact: { findUnique: vi.fn() },
   },
 }));
 
-vi.mock("@/lib/account", () => ({ getCurrentAccount: vi.fn() }));
-vi.mock("@/lib/meta/graph", () => ({
-  defaultGraphClient: { replyToComment: vi.fn(), sendTextMessage: vi.fn() },
-}));
+vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount: vi.fn() }));
 vi.mock("@/lib/engine/contacts", () => ({
   getOrCreateContact: vi.fn(),
   recordIncomingMessage: vi.fn(),
   recordOutgoingMessage: vi.fn(),
 }));
 vi.mock("@/lib/engine/matcher", () => ({ findMatchingTrigger: vi.fn() }));
-vi.mock("@/lib/engine/runner", () => ({ executeFlow: vi.fn(), resumeFlowOnClick: vi.fn() }));
+vi.mock("@/lib/engine/runner", () => ({ executeFlow: vi.fn(), resumeFlowOnClick: vi.fn(), resumeFlowOnMessage: vi.fn() }));
 
 import { prisma } from "@/lib/prisma";
 import { getOrCreateContact, recordIncomingMessage } from "@/lib/engine/contacts";
@@ -46,7 +45,7 @@ const mockedExecuteFlow = vi.mocked(executeFlow);
 
 afterEach(() => vi.clearAllMocks());
 
-const account = { id: "acc_1", igUserId: "IG_1" };
+const account = { id: "acc_1", igUserId: "IG_1", status: "CONNECTED" };
 
 function commentEvent(overrides: Partial<Record<string, unknown>> = {}): NormalizedWebhookEvent {
   return {
@@ -161,12 +160,56 @@ describe("Item 4 — store da fila", () => {
 });
 
 describe("Item 4 — processEvent (worker)", () => {
-  it("sem conta conectada lança erro permanente (não retenta)", async () => {
+  it("perfil desconhecido: descarta sem gravar nada (sem fallback para conta atual)", async () => {
     mockedPrisma.instagramAccount.findUnique.mockResolvedValue(null as never);
-    const { getCurrentAccount } = await import("@/lib/account");
-    vi.mocked(getCurrentAccount).mockResolvedValue(null as never);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(processEvent(commentEvent())).resolves.toBeNull();
+    expect(getOrCreateContact).not.toHaveBeenCalled();
+    expect(mockedRecordIncoming).not.toHaveBeenCalled();
+    expect(mockedExecuteFlow).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 
-    await expect(processEvent(commentEvent())).rejects.toThrow(/Nenhuma conta Instagram/);
+  it("perfil DISCONNECTED: não grava contato nem mensagem e não dispara gatilho", async () => {
+    mockedPrisma.instagramAccount.findUnique.mockResolvedValue({ ...account, status: "DISCONNECTED" } as never);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await processEvent(commentEvent());
+    expect(getOrCreateContact).not.toHaveBeenCalled();
+    expect(mockedRecordIncoming).not.toHaveBeenCalled();
+    expect(mockedExecuteFlow).not.toHaveBeenCalled();
+  });
+
+  it("perfil EXPIRED: registra contato e mensagem, mas não procura gatilho nem envia", async () => {
+    mockedPrisma.instagramAccount.findUnique.mockResolvedValue({ ...account, status: "EXPIRED" } as never);
+    vi.mocked(getOrCreateContact).mockResolvedValue({ id: "contact_1" } as never);
+    mockedRecordIncoming.mockResolvedValue({ message: {}, duplicate: false } as never);
+    const { findMatchingTrigger } = await import("@/lib/engine/matcher");
+    const { resumeFlowOnMessage } = await import("@/lib/engine/runner");
+    await processEvent(commentEvent());
+    await processEvent({ kind: "message", igUserId: "IG_1", messageId: "m1", userIgsid: "u", text: "oi", timestamp: 1, isStoryReply: false } as never);
+    expect(getOrCreateContact).toHaveBeenCalledTimes(2);
+    expect(mockedRecordIncoming).toHaveBeenCalledTimes(2);
+    expect(findMatchingTrigger).not.toHaveBeenCalled();
+    expect(resumeFlowOnMessage).not.toHaveBeenCalled();
+    expect(mockedExecuteFlow).not.toHaveBeenCalled();
+  });
+
+  it("resposta pública sem cliente da conta é ignorada (sem token global) e o fluxo segue", async () => {
+    mockedPrisma.instagramAccount.findUnique.mockResolvedValue(account as never);
+    vi.mocked(getOrCreateContact).mockResolvedValue({ id: "contact_1" } as never);
+    mockedRecordIncoming.mockResolvedValue({ message: {}, duplicate: false } as never);
+    const { findMatchingTrigger } = await import("@/lib/engine/matcher");
+    const { graphClientForAccount } = await import("@/lib/meta/account-client");
+    const { recordOutgoingMessage } = await import("@/lib/engine/contacts");
+    vi.mocked(graphClientForAccount).mockRejectedValueOnce(new Error("sem token"));
+    vi.mocked(findMatchingTrigger).mockResolvedValueOnce({
+      flow: { id: "flow_1" }, trigger: { id: "trg_1" }, startNodeId: "n1", publicReply: "Enviei no direct!",
+    } as never);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await processEvent(commentEvent());
+    expect(recordOutgoingMessage).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+    expect(mockedExecuteFlow).toHaveBeenCalledTimes(1);
   });
 
   it("mensagem duplicada NÃO reexecuta o fluxo (exatamente 1 DM)", async () => {
@@ -197,5 +240,24 @@ describe("Item 4 — processEvent (worker)", () => {
     expect(mockedExecuteFlow).toHaveBeenCalledWith(
       expect.objectContaining({ flowId: "flow_1", startNodeId: "n1", triggerId: "trg_1" })
     );
+  });
+});
+
+describe("Perfil seguro: fila", () => {
+  it("enqueueEvent grava accountId quando informado e null quando não", async () => {
+    mockedPrisma.webhookEvent.create.mockResolvedValue({ id: "e" } as never);
+    await enqueueEvent({ idempotencyKey: "k1", type: "comment", payload: commentEvent(), accountId: "acc_1" });
+    await enqueueEvent({ idempotencyKey: "k2", type: "comment", payload: commentEvent() });
+    expect(mockedPrisma.webhookEvent.create.mock.calls[0][0].data.accountId).toBe("acc_1");
+    expect(mockedPrisma.webhookEvent.create.mock.calls[1][0].data.accountId).toBeNull();
+  });
+
+  it("resumeDueDelays só considera runs cujo perfil está CONNECTED", async () => {
+    mockedPrisma.flowRun.findMany.mockResolvedValue([] as never);
+    await resumeDueDelays(5);
+    expect(mockedPrisma.flowRun.findMany.mock.calls[0][0]?.where).toMatchObject({
+      status: "WAITING_DELAY",
+      flow: { account: { status: "CONNECTED" } },
+    });
   });
 });

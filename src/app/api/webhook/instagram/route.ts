@@ -8,6 +8,7 @@ import {
   verifyWebhookSignature,
 } from "@/lib/meta/webhook";
 import { idempotencyKeyFor } from "@/lib/queue/idempotency";
+import { prisma } from "@/lib/prisma";
 import { enqueueEvent } from "@/lib/queue/store";
 import { processDueEvents } from "@/lib/queue/worker";
 
@@ -72,6 +73,25 @@ export async function POST(request: NextRequest) {
   // 2. Extração dos eventos padronizados (Zod)
   const events = parseInstagramWebhookPayload(body);
 
+  // Resolve a conta de cada igUserId (uma consulta por igUserId distinto).
+  // Falha na consulta NÃO derruba o webhook: enfileira sem accountId.
+  const accountIdCache = new Map<string, string | null>();
+  async function resolveAccountId(igUserId: string): Promise<string | null> {
+    if (accountIdCache.has(igUserId)) return accountIdCache.get(igUserId) ?? null;
+    let id: string | null = null;
+    try {
+      const account = await prisma.instagramAccount.findUnique({
+        where: { igUserId },
+        select: { id: true },
+      });
+      id = account?.id ?? null;
+    } catch (error) {
+      console.warn("[webhook] Falha ao resolver conta do evento; enfileirando sem accountId:", error);
+    }
+    accountIdCache.set(igUserId, id);
+    return id;
+  }
+
   // 3. Enfileiramento idempotente
   let duplicates = 0;
   try {
@@ -80,6 +100,7 @@ export async function POST(request: NextRequest) {
         idempotencyKey: idempotencyKeyFor(event),
         type: event.kind,
         payload: event,
+        accountId: await resolveAccountId(event.igUserId),
       });
       if ("duplicate" in result) duplicates++;
     }
