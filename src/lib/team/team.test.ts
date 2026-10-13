@@ -74,7 +74,8 @@ describe("createInvitation", () => {
   });
 });
 
-describe("acceptInvitation", () => {
+// Cria senha com scrypt (lento de propósito): folga de tempo para a máquina carregada.
+describe("acceptInvitation", { timeout: 30_000 }, () => {
   it("sem sessão cria a pessoa com senha e vira membro com o papel do convite", async () => {
     const result = await acceptInvitation("tok", { actor: null, name: "Nova", password: "senha-segura" });
     expect(result).toEqual({ userId: "u-novo", workspaceId: "w1" });

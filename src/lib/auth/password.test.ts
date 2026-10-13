@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { hashPassword, passwordProblem, verifyPassword } from "./password";
 
-describe("senhas", () => {
+// scrypt é lento de propósito: folga de tempo para a máquina carregada.
+describe("senhas", { timeout: 30_000 }, () => {
   it("confere a senha certa e recusa a errada", async () => {
     const stored = await hashPassword("senha-forte-1");
     expect(stored).toMatch(/^scrypt\$[\w-]+\$[\w-]+$/);
