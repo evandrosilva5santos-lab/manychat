@@ -11,7 +11,7 @@ import {
 import { idempotencyKeyFor } from "@/lib/queue/idempotency";
 import { prisma } from "@/lib/prisma";
 import { enqueueEvent } from "@/lib/queue/store";
-import { processDueEvents } from "@/lib/queue/worker";
+import { processDueEvents, resumeDueDelays } from "@/lib/queue/worker";
 
 /**
  * GET /api/webhook/instagram
@@ -111,13 +111,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Falha ao enfileirar evento" }, { status: 500 });
   }
 
-  // 4. Processamento assíncrono (best-effort; o cron /tick cobre o resto)
+  // 4. Processamento assíncrono (best-effort; o cron /tick cobre o resto).
+  // Aproveita a chamada para retomar esperas vencidas: com tráfego, os nós
+  // "Esperar" andam mesmo antes do agendador externo.
   if (events.length > duplicates) {
     after(async () => {
       try {
         await processDueEvents(10);
       } catch (error) {
         console.error(`[webhook] Worker pós-resposta falhou (${errorCode(error)})`);
+      }
+      try {
+        await resumeDueDelays(10);
+      } catch (error) {
+        console.error(`[webhook] Retomada de esperas pós-resposta falhou (${errorCode(error)})`);
       }
     });
   }

@@ -12,6 +12,13 @@ O webhook da Meta processa os eventos com `after()`, que é "melhor esforço". T
 
 No plano Hobby a Vercel só roda cron uma vez por dia. O QStash chama a URL no intervalo que você escolher.
 
+## Redes de segurança que já funcionam sem o QStash
+
+- Cada webhook recebido também retoma esperas vencidas (`after()` no `POST /api/webhook/instagram`).
+- O cron diário da Vercel chama o `/tick` às 06:30 UTC (`vercel.json`). Precisa do `CRON_SECRET` na Vercel; a Vercel envia o cabeçalho sozinha.
+
+O QStash serve para as esperas curtas (minutos) andarem mesmo quando o perfil não recebe mensagens.
+
 ## O que o código já faz
 
 - A rota é pública no proxy (prefixo `/api/webhook/`) e exige `Authorization: Bearer <CRON_SECRET>`.

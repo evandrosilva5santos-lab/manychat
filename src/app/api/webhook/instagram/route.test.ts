@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { db, enqueue, parse } = vi.hoisted(() => ({
+const { db, enqueue, parse, worker } = vi.hoisted(() => ({
   db: { findUnique: vi.fn() },
   enqueue: vi.fn(),
   parse: vi.fn(),
+  worker: { processDueEvents: vi.fn(), resumeDueDelays: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { instagramAccount: db } }));
 vi.mock("@/lib/queue/store", () => ({ enqueueEvent: enqueue }));
-vi.mock("@/lib/queue/worker", () => ({ processDueEvents: vi.fn() }));
+vi.mock("@/lib/queue/worker", () => worker);
 vi.mock("@/lib/meta/webhook", () => ({
   allowUnsignedWebhooks: () => true,
   parseInstagramWebhookPayload: parse,
@@ -20,7 +21,7 @@ vi.mock("next/server", async (importOriginal) => ({
   after: vi.fn(),
 }));
 
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { POST } from "./route";
 
 const ev = (igUserId: string, commentId: string) => ({ kind: "comment", igUserId, commentId });
@@ -67,5 +68,40 @@ describe("POST /api/webhook/instagram: accountId no enqueue", () => {
     expect((await POST(request())).status).toBe(500);
     expect(JSON.stringify(error.mock.calls)).not.toContain("INSERT");
     expect(JSON.stringify(error.mock.calls)).toContain("P1001");
+  });
+});
+
+describe("POST /api/webhook/instagram: trabalho depois da resposta", () => {
+  async function runAfter() {
+    const task = vi.mocked(after).mock.calls[0]?.[0] as (() => Promise<void>) | undefined;
+    expect(task).toBeTypeOf("function");
+    await task!();
+  }
+
+  it("processa a fila e retoma esperas vencidas", async () => {
+    parse.mockReturnValue([ev("IG_1", "c1")]);
+    db.findUnique.mockResolvedValue({ id: "a" });
+    await POST(request());
+    await runAfter();
+    expect(worker.processDueEvents).toHaveBeenCalledWith(10);
+    expect(worker.resumeDueDelays).toHaveBeenCalledWith(10);
+  });
+
+  it("falha na fila não impede a retomada das esperas", async () => {
+    parse.mockReturnValue([ev("IG_1", "c1")]);
+    db.findUnique.mockResolvedValue({ id: "a" });
+    worker.processDueEvents.mockRejectedValue(new Error("fila"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await POST(request());
+    await runAfter();
+    expect(worker.resumeDueDelays).toHaveBeenCalled();
+  });
+
+  it("lote só de duplicados não agenda trabalho", async () => {
+    parse.mockReturnValue([ev("IG_1", "c1")]);
+    db.findUnique.mockResolvedValue({ id: "a" });
+    enqueue.mockResolvedValue({ duplicate: true });
+    await POST(request());
+    expect(after).not.toHaveBeenCalled();
   });
 });
