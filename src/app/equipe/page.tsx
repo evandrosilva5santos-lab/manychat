@@ -14,6 +14,7 @@ export default async function EquipePage() {
       workspaceName={workspace.name}
       currentUserId={actor.id}
       canManage={role !== null && MANAGER_ROLES.includes(role)}
+      currentRole={role ?? "OPERATOR"}
       members={team.members}
       invitations={team.invitations.map((invite) => ({ ...invite, expiresAt: invite.expiresAt.toISOString() }))}
     />

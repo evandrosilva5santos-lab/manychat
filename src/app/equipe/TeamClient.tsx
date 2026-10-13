@@ -5,7 +5,10 @@ import { useState, useTransition, type FormEvent } from "react";
 import { Copy, UserPlus } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CARD, INPUT, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/ui/styles";
-import { cancelInvitation, inviteMember, removeTeamMember, updateTeamMemberRole, type TeamActionResult } from "./actions";
+import { canResetPassword } from "@/lib/team/roles";
+import { AddCollaboratorForm } from "./AddCollaboratorForm";
+import { cancelInvitation, inviteMember, removeTeamMember, resetTeamMemberPassword, updateTeamMemberRole, type TeamActionResult } from "./actions";
+import { MemberPasswordButton } from "./MemberPasswordButton";
 
 type Role = "OWNER" | "ADMIN" | "OPERATOR";
 type Member = { id: string; userId: string; name: string; email: string; role: Role };
@@ -22,6 +25,7 @@ export function TeamClient(props: {
   workspaceName: string;
   currentUserId: string;
   canManage: boolean;
+  currentRole: Role;
   members: Member[];
   invitations: Invitation[];
 }) {
@@ -84,7 +88,18 @@ export function TeamClient(props: {
       )}
 
       {props.canManage && (
-        <form onSubmit={onInvite} className={`${CARD} flex flex-col gap-3 sm:flex-row sm:items-end`}>
+        <AddCollaboratorForm
+          canCreateAdmin={props.currentRole === "OWNER"}
+          onDone={(result) => {
+            setFeedback(result);
+            if (result.ok) router.refresh();
+          }}
+        />
+      )}
+
+      {props.canManage && (
+        <form onSubmit={onInvite} className={`${CARD} flex flex-col gap-3 sm:flex-row sm:items-end`} aria-label="Convidar por link">
+          <p className="text-sm text-ink-muted sm:w-48">Ou convide por link: a pessoa escolhe a própria senha.</p>
           <label className="flex flex-1 flex-col gap-1.5">
             <span className="text-sm font-semibold text-ink">E-mail</span>
             <input name="email" type="email" required placeholder="pessoa@empresa.com" className={INPUT} />
@@ -93,7 +108,7 @@ export function TeamClient(props: {
             <span className="text-sm font-semibold text-ink">Papel</span>
             <select name="role" defaultValue="OPERATOR" className={INPUT}>
               <option value="OPERATOR">{ROLE_LABEL.OPERATOR}</option>
-              <option value="ADMIN">{ROLE_LABEL.ADMIN}</option>
+              {props.currentRole === "OWNER" && <option value="ADMIN">{ROLE_LABEL.ADMIN}</option>}
             </select>
           </label>
           <button type="submit" disabled={isPending} className={PRIMARY_BUTTON}>
@@ -125,6 +140,9 @@ export function TeamClient(props: {
                       <option value="OPERATOR">{ROLE_LABEL.OPERATOR}</option>
                       <option value="ADMIN">{ROLE_LABEL.ADMIN}</option>
                     </select>
+                    {canResetPassword(props.currentRole, member.role) && (
+                      <MemberPasswordButton name={member.name} onSave={(password) => run(() => resetTeamMemberPassword(member.id, password))} />
+                    )}
                     <button type="button" className={SECONDARY_BUTTON} onClick={() => setRemoveTarget(member)}>
                       Remover
                     </button>

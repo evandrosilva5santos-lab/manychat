@@ -18,6 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AccountStatusBanner } from "@/components/layout/AccountStatusBanner";
 import { expiringTokenDays } from "@/components/layout/account-status";
+import { getAccessContext } from "@/lib/access/context";
 import { getUserMenuData } from "@/lib/tenancy";
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const menu = await getUserMenuData();
+  const [menu, access] = await Promise.all([getUserMenuData(), getAccessContext()]);
   const active = menu.accounts.find((account) => account.id === menu.activeAccountId) ?? null;
   return (
     <html
@@ -43,7 +44,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             status: account.status,
           }))}
           activeAccountId={menu.activeAccountId}
-          user={menu.actor ? { name: menu.actor.name, email: menu.actor.email, role: menu.actor.role } : null}
+          user={menu.actor ? { name: menu.actor.name, email: menu.actor.email, role: menu.actor.role, menuRole: access?.menuRole ?? "OPERATOR" } : null}
+          features={access?.features ?? null}
         />
         <main className="flex-1 min-w-0 h-full flex flex-col overflow-y-auto overflow-x-hidden">
           {active && (

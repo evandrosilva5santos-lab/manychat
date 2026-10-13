@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { assertCanAddMember } from "@/lib/billing/entitlements";
+import { addCollaborator, resetCollaboratorPassword } from "@/lib/team/collaborators";
 import { changeMemberRole, createInvitation, removeMember, revokeInvitation } from "@/lib/team/team";
 import { getCurrentWorkspace } from "@/lib/tenancy";
 import { actionErrorMessage, UserFacingError } from "@/lib/user-error";
 
-export type TeamActionResult = { ok: true; message: string; invitePath?: string } | { ok: false; message: string };
+export type TeamActionResult = { ok: true; message: string; invitePath?: string; passwordSet?: boolean } | { ok: false; message: string };
 
 const GENERIC_FAILURE = "Não foi possível concluir agora. Tente de novo em instantes.";
 
@@ -47,5 +48,25 @@ export async function updateTeamMemberRole(memberId: string, role: string): Prom
   return run(async (workspaceId) => {
     await changeMemberRole(workspaceId, memberId, role);
     return { ok: true, message: "Papel atualizado." };
+  });
+}
+
+export async function addTeamCollaborator(input: unknown): Promise<TeamActionResult> {
+  return run(async (workspaceId) => {
+    const added = await addCollaborator(workspaceId, input, () => assertCanAddMember(workspaceId));
+    return {
+      ok: true,
+      passwordSet: added.passwordSet,
+      message: added.passwordSet
+        ? `Acesso criado para ${added.email}. Copie os dados abaixo e envie para a pessoa.`
+        : `${added.email} já tinha conta no instachat: agora tem acesso a esta equipe e entra com a senha que já usa.`,
+    };
+  });
+}
+
+export async function resetTeamMemberPassword(memberId: string, password: string): Promise<TeamActionResult> {
+  return run(async (workspaceId) => {
+    await resetCollaboratorPassword(workspaceId, String(memberId), String(password));
+    return { ok: true, message: "Senha redefinida. Envie a nova senha para a pessoa; ela foi desconectada dos outros aparelhos." };
   });
 }

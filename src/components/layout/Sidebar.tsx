@@ -9,7 +9,10 @@ import {
   Send,
   LayoutGrid,
   TriangleAlert,
+  Lock,
 } from "lucide-react";
+import type { FeatureFlags } from "@/lib/access/menu-rules";
+import type { FeatureKey } from "@/lib/billing/plan-rules";
 import { BrandSymbol } from "@/components/brand/BrandLogo";
 import { ActiveAccountMenu, type ActiveMenuAccount } from "./ActiveAccountMenu";
 import { UserMenu, type MenuUser } from "./UserMenu";
@@ -70,7 +73,7 @@ const NAV_ITEMS = [
     customIcon: FlowAutomationIcon,
   },
   { id: "catalogo", label: "Catálogo", href: "/catalogo", icon: LayoutGrid },
-  { id: "ai", label: "Agentes de IA", href: "/ai", customIcon: FlowAiIcon },
+  { id: "ai", label: "Agentes de IA", href: "/ai", customIcon: FlowAiIcon, feature: "ai" as FeatureKey },
   {
     id: "conversas",
     label: "Conversas",
@@ -79,16 +82,18 @@ const NAV_ITEMS = [
     hasNotification: true,
   },
   { id: "falhas", label: "Envios com falha", href: "/conversas/falhas", icon: TriangleAlert },
-  { id: "direct", label: "Transmissão", href: "/direct", icon: Send },
+  { id: "direct", label: "Transmissão", href: "/direct", icon: Send, feature: "broadcast" as FeatureKey },
 ];
 
 type SidebarProps = {
   accounts: ActiveMenuAccount[];
   activeAccountId: string | null;
   user: MenuUser | null;
+  /** Recursos do plano; `null` = sem sessão (não marca nada). */
+  features: FeatureFlags | null;
 };
 
-export function Sidebar({ accounts, activeAccountId, user }: SidebarProps) {
+export function Sidebar({ accounts, activeAccountId, user, features }: SidebarProps) {
   const pathname = usePathname();
 
   // Telas públicas isoladas, sem menu interno do app: conexão do cliente e "Você saiu"
@@ -122,6 +127,9 @@ export function Sidebar({ accounts, activeAccountId, user }: SidebarProps) {
               item.href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
+            // Fora do plano: continua clicável e abre a tela de upgrade.
+            const locked = Boolean("feature" in item && item.feature && features && !features[item.feature]);
+            const label = locked ? `${item.label} (fora do plano)` : item.label;
 
             return (
               <Link
@@ -132,9 +140,9 @@ export function Sidebar({ accounts, activeAccountId, user }: SidebarProps) {
                     ? "bg-surface-300 text-ink shadow-xs"
                     : "text-ink-muted hover:bg-surface-300/60 hover:text-ink"
                 }`}
-                aria-label={item.label}
+                aria-label={label}
                 aria-current={isActive ? "page" : undefined}
-                title={item.label}
+                title={label}
               >
                 {item.customIcon ? (
                   <item.customIcon size={20} />
@@ -151,9 +159,15 @@ export function Sidebar({ accounts, activeAccountId, user }: SidebarProps) {
                   </div>
                 ) : null}
 
+                {locked && (
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-surface-300 text-ink-muted ring-2 ring-surface-200">
+                    <Lock size={9} strokeWidth={2.6} aria-hidden />
+                  </span>
+                )}
+
                 {/* Tooltip flutuante no hover */}
                 <span className="pointer-events-none absolute left-full ml-3 z-50 hidden rounded-md bg-ink px-2.5 py-1 text-xs font-semibold text-surface-100 shadow-md group-hover:block whitespace-nowrap">
-                  {item.label}
+                  {label}
                 </span>
               </Link>
             );

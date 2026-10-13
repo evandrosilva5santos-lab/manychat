@@ -23,7 +23,8 @@ export async function startCheckout(_previous: BillingActionState, formData: For
   let url: string;
   try {
     const { workspace } = await getCurrentWorkspace();
-    url = await createCheckoutSession(workspace.id, String(formData.get("planId") ?? ""), billingBaseUrl());
+    const cycle = formData.get("cycle") === "YEARLY" ? "YEARLY" : "MONTHLY";
+    url = await createCheckoutSession(workspace.id, String(formData.get("planId") ?? ""), billingBaseUrl(), cycle);
   } catch (error) {
     return failure(error);
   }

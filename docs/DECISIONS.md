@@ -149,3 +149,48 @@
 - **PENDENTE DO DONO:** preços; se no limite deve bloquear ou cobrar excedente (implementado: bloquear); retenção após cancelamento (BLK-010; nada é apagado automaticamente).
 - **STATUS:** `ACTIVE`
 - **SOURCE:** Pedido do dono em 13/10/2026 ("comite o login, depois siga para as outras etapas").
+
+## ADR-009: Modelos de pagamento, console do Super Admin e visão do dono da conta
+- **ID:** `ADR-009`
+- **DATE:** 2026-10-13
+- **CATEGORY:** PRODUCT / BILLING / SECURITY / TENANCY
+- **CONTEXT:** Depois do ADR-008 só existia cobrança mensal no cartão. O dono do SaaS não conseguia vender anual, registrar Pix ou boleto, criar cliente com login, filtrar clientes, ver pagamentos nem auditoria. O dono da conta só convidava por link e, sem serviço de e-mail, o colaborador não conseguia entrar. Os menus não mudavam por papel e os recursos do plano não eram aplicados. PRD e plano: `docs/plans/2026-10-13-painel-dono-admin-cobranca.md`.
+- **DECISION:**
+  1. **Plano mensal e anual:** `Plan.priceYearlyCents` e `stripeYearlyPriceId` são opcionais. Sem preço anual, o plano é só mensal. O checkout do Stripe deixa o dono escolher entre mensal e anual.
+  2. **Forma de cobrança por cliente:** `Subscription.billingMode` (`STRIPE`, `MANUAL` ou `COMPLIMENTARY`) e `billingCycle` (`MONTHLY` ou `YEARLY`). A cortesia do ADR-008 passa a ser a forma `COMPLIMENTARY`.
+  3. **Pagamentos recebidos** (`SubscriptionPayment`):
+     - O Super Admin registra Pix, boleto, transferência, dinheiro ou outro.
+     - Fatura paga no Stripe entra sozinha (`invoice.paid`), uma vez só por fatura.
+     - Registrar um pagamento ativa o cliente até o fim do período pago. Pagar adiantado soma ao período atual, sem perder dias.
+  4. **Cobrança manual vence:**
+     - Quando o período pago termina, o cliente fica em `PAST_DUE` durante a carência do plano, com aviso da data em que as automações pausam. Depois, `SUSPENDED`.
+     - O cálculo é feito pela data, sem cron.
+     - Cliente manual novo nasce vencendo no dia da criação: usa a carência até o primeiro pagamento ser registrado.
+  5. **Console do Super Admin** (`/admin`):
+     - Abas: Visão geral, Clientes, Planos, Pagamentos e Auditoria.
+     - "Novo cliente" cria o cliente, o dono com e-mail e senha, e a assinatura. Cliente no cartão exige dias de teste, para assinar durante o teste.
+     - Na página do cliente: forma de cobrança e ciclo, limites em campos (não JSON), registro de pagamento e redefinição de senha de qualquer pessoa. Redefinir a senha encerra as sessões da pessoa.
+     - Tudo é auditado na mesma transação, sem gravar senha.
+  6. **Equipe sem e-mail:**
+     - Dono e administrador criam o login do colaborador com senha inicial, sem depender de convite por e-mail. O convite por link continua.
+     - Só o dono cria, convida ou promove administradores.
+     - Quem já tem conta em outra empresa só ganha o acesso: a senha dela não é tocada e ninguém de fora pode trocá-la.
+     - `/minha-conta` permite trocar nome e senha. A troca de senha exige a senha atual e encerra as outras sessões.
+  7. **Papéis na interface:**
+     - O selo do menu mostra Super Admin, Dono da conta, Administrador ou Atendente.
+     - O atendente não vê Plano e cobrança, Ajustes nem Gerenciamento de contas.
+     - Ajustes e Painel Admin ficam só no menu do avatar.
+     - O servidor confere o papel em todas as ações.
+  8. **Recursos do plano aplicados:**
+     - IA, Transmissão e Autoposter mostram uma tela de upgrade quando o plano não os inclui.
+     - Na barra lateral, esses itens ganham um cadeado.
+     - O portal de aprovação e o calendário público do Autoposter ficam fora do bloqueio.
+- **IMPACT:**
+  - Migration `20261013210000_modelos_pagamento`: só acrescenta. Cortesias existentes viram `billingMode = COMPLIMENTARY`.
+  - O MRR conta o plano anual como 1/12 e deixa a cortesia de fora.
+- **PENDENTE DO DONO:**
+  - Criar preços anuais no Stripe, se quiser vender anual no cartão, e colar o `price_` em `/admin/planos`.
+  - E-mail transacional (fora do escopo).
+  - O bloqueio por plano nas ações do Autoposter fica para quando o Autoposter for commitado; hoje o bloqueio é na tela.
+- **STATUS:** `ACTIVE`
+- **SOURCE:** Pedido do dono em 13/10/2026 ("me ajude a corrigir esse sistema.. que nao tem opcao de modelo de pagamento.. eu tb preciso da minha visao (super admin, DONO do SAAS) e da visao admin (dono da conta)… o admin pode ter usuarios, colaboradores… faca o PRD e aplique tudo").

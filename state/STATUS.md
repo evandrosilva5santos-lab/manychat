@@ -6,6 +6,21 @@
 
 ---
 
+## Estado atual (13/10/2026, noite) — modelos de pagamento e visões Super Admin / dono da conta (ADR-009)
+- **CONCLUÍDO NO BRANCH (sem deploy):**
+  - Plano mensal e anual.
+  - Forma de cobrança por cliente: cartão (Stripe), manual (Pix, boleto ou transferência) ou cortesia.
+  - Registro de pagamentos, com histórico e vencimento da cobrança manual.
+  - Console do Super Admin em `/admin`: Clientes, Planos, Pagamentos e Auditoria, mais "Novo cliente" com login.
+  - Equipe com colaborador criado já com senha, e `/minha-conta`.
+  - Menu por papel.
+  - Recursos do plano aplicados em IA, Transmissão e Autoposter.
+- **BANCO:** migration `20261013210000_modelos_pagamento` (só acrescenta) **pendente**: aplica no próximo deploy.
+- **TESTES:** 870 testes e roteiro no navegador das três visões, com 35 checagens passando e banco local descartável.
+- **DEPENDE DO DONO:**
+  - Deploy.
+  - Preços anuais no Stripe, se for vender o anual no cartão: colar o `price_` em `/admin/planos`.
+
 ## Estado atual (13/10/2026, tarde) — planos, equipe e cobrança
 - **CONCLUÍDO NO BRANCH (sem deploy):** ADR-008 inteiro, fases 1 a 6 — login de cliente, equipe com papéis, planos com limites aplicados no servidor, Super Admin de planos e assinaturas, cobrança Stripe, `/precos` e `/cadastro`. Ver `state/CHANGELOG.md`.
 - **STRIPE (modo teste, configurado em 13/10):** produtos e preços mensais em BRL — Starter R$ 97 (`price_1UQ7JfDM9Yh5kkSFue3rcLbu`), Pro R$ 197 (`price_1UQ7JgDM9Yh5kkSFkcM8aXgd`), Agência R$ 497 (`price_1UQ7JhDM9Yh5kkSFplnKM5jy`); webhook `we_1UQ7JhDM9Yh5kkSF7f5iyEfN` → `https://instachat.startinc.com.br/api/webhook/stripe`; portal `bpc_1UQ7JiDM9Yh5kkSFBetNrqxF` (padrão). `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` e `STRIPE_WEBHOOK_SECRET` na Vercel (produção) e no `.env` local. Preços editáveis em `/admin/planos`.

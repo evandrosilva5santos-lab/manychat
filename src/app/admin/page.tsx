@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Activity, Bot, CheckCircle2, CreditCard, MessageSquare, ShieldCheck, Users, XCircle } from "lucide-react";
 import { AdminAccountActions } from "@/components/admin/AdminAccountActions";
+import { getSubscriptionMetrics } from "@/lib/admin/console";
 import { getMrrCents } from "@/lib/billing/admin";
+import { formatCents } from "@/lib/billing/billing-cycle";
 import { getAdminOverview, requireSuperAdmin } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +29,7 @@ function accountHealthy(status: string, tokenExpiresAt: Date | null): boolean {
 }
 
 export default async function AdminPage() {
-  const [admin, overview, mrrCents] = await Promise.all([requireSuperAdmin(), getAdminOverview(), getMrrCents()]);
+  const [admin, overview, mrrCents, billing] = await Promise.all([requireSuperAdmin(), getAdminOverview(), getMrrCents(), getSubscriptionMetrics()]);
   const { metrics, clients } = overview;
   const cards = [
     { label: "Clientes", value: metrics.clientCount, description: "workspaces cadastrados", icon: Users, tone: "text-primary" },
@@ -37,8 +39,8 @@ export default async function AdminPage() {
   ];
 
   return (
-    <main className="fx min-h-full bg-surface-100 px-5 py-7 text-ink sm:px-8 lg:px-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-7">
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-7">
         <header className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-surface-200 p-5 shadow-xs sm:flex-row sm:items-center sm:p-6">
           <div>
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
@@ -56,12 +58,28 @@ export default async function AdminPage() {
               <span className="text-ink-muted">
                 MRR: <strong className="text-ink">{(mrrCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
               </span>
-              <Link href="/admin/planos" className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary hover:underline">
-                <CreditCard size={15} aria-hidden /> Planos
+              <Link href="/admin/clientes/novo" className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary hover:underline">
+                <CreditCard size={15} aria-hidden /> Novo cliente
               </Link>
             </div>
           </div>
         </header>
+
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="Assinaturas e receita">
+          {[
+            { label: "MRR", value: formatCents(mrrCents), href: "/admin/clientes" },
+            { label: "Recebido no mês", value: formatCents(billing.receivedThisMonthCents), href: "/admin/pagamentos" },
+            { label: "Ativos", value: formatNumber(billing.active), href: "/admin/clientes?status=ACTIVE" },
+            { label: "Em teste", value: formatNumber(billing.trialing), href: "/admin/clientes?status=TRIALING" },
+            { label: "Pagamento pendente", value: formatNumber(billing.pastDue), href: "/admin/clientes?status=PAST_DUE" },
+            { label: "Cortesia", value: formatNumber(billing.complimentary), href: "/admin/clientes?cobranca=COMPLIMENTARY" },
+          ].map((card) => (
+            <Link key={card.label} href={card.href} className="rounded-2xl border border-border bg-surface-200 p-4 shadow-xs transition hover:border-border-strong">
+              <span className="text-xs font-semibold text-ink-muted">{card.label}</span>
+              <p className="mt-2 text-xl font-extrabold tabular-nums tracking-tight text-ink">{card.value}</p>
+            </Link>
+          ))}
+        </section>
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Métricas globais">
           {cards.map(({ label, value, description, icon: Icon, tone }) => (
@@ -141,6 +159,6 @@ export default async function AdminPage() {
           )}
         </section>
       </div>
-    </main>
+    </div>
   );
 }

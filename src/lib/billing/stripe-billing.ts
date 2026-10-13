@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe/client";
 import { requireWorkspaceRole } from "@/lib/tenancy";
 import { UserFacingError } from "@/lib/user-error";
+import type { BillingCycle } from "./billing-cycle";
 import type { SubscriptionStatus } from "./plan-rules";
 
 /** Status do Stripe → status do instachat. `null` = não mexe (ex.: checkout ainda não pago). */
@@ -32,21 +33,29 @@ function idOf(value: string | { id: string } | null | undefined): string | null 
   return typeof value === "string" ? value : value.id;
 }
 
-/** O dono abre o checkout de um plano. Devolve a URL do Stripe. */
-export async function createCheckoutSession(workspaceId: string, planId: string, baseUrl: string): Promise<string> {
+/** O dono abre o checkout de um plano, mensal ou anual. Devolve a URL do Stripe. */
+export async function createCheckoutSession(
+  workspaceId: string,
+  planId: string,
+  baseUrl: string,
+  cycle: BillingCycle = "MONTHLY",
+): Promise<string> {
   const { actor } = await requireWorkspaceRole(workspaceId, ["OWNER"]);
   const [plan, subscription] = await Promise.all([
     prisma.plan.findUnique({ where: { id: planId } }),
     prisma.subscription.findUnique({ where: { workspaceId } }),
   ]);
-  if (!plan || !plan.isActive || !plan.stripePriceId) throw new UserFacingError("Este plano não está disponível para assinatura.");
+  const priceId = cycle === "YEARLY" ? plan?.stripeYearlyPriceId : plan?.stripePriceId;
+  if (!plan || !plan.isActive || !priceId) {
+    throw new UserFacingError(cycle === "YEARLY" ? "Este plano não tem opção anual." : "Este plano não está disponível para assinatura.");
+  }
   if (subscription?.stripeSubscriptionId && subscription.status !== "CANCELED") {
     throw new UserFacingError("Este workspace já tem uma assinatura. Use “Gerenciar pagamento” para trocar de plano.");
   }
 
   const session = await getStripeClient().checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: workspaceId,
     ...(subscription?.stripeCustomerId ? { customer: subscription.stripeCustomerId } : { customer_email: actor.email }),
     subscription_data: { metadata: { workspaceId, planId: plan.id } },
@@ -90,6 +99,8 @@ function periodEnd(sub: Stripe.Subscription): Date | null {
 type SyncData = {
   planId: string;
   status: SubscriptionStatus;
+  billingMode: "STRIPE";
+  billingCycle: BillingCycle;
   stripeSubscriptionId: string;
   stripeCustomerId: string | null;
   currentPeriodEnd: Date | null;
@@ -111,7 +122,9 @@ async function planSync(sub: Stripe.Subscription, now: Date): Promise<SyncPlan |
     return null;
   }
   const priceId = sub.items.data[0]?.price?.id;
-  const plan = priceId ? await prisma.plan.findUnique({ where: { stripePriceId: priceId } }) : null;
+  const plan = priceId
+    ? await prisma.plan.findFirst({ where: { OR: [{ stripePriceId: priceId }, { stripeYearlyPriceId: priceId }] } })
+    : null;
   if (!plan) {
     console.error("[stripe] preço sem plano cadastrado", priceId ?? "(sem preço)");
     return null;
@@ -129,6 +142,8 @@ async function planSync(sub: Stripe.Subscription, now: Date): Promise<SyncPlan |
     data: {
       planId: plan.id,
       status,
+      billingMode: "STRIPE",
+      billingCycle: plan.stripeYearlyPriceId === priceId ? "YEARLY" : "MONTHLY",
       stripeSubscriptionId: sub.id,
       stripeCustomerId: idOf(sub.customer),
       currentPeriodEnd: periodEnd(sub),
@@ -157,6 +172,35 @@ async function subscriptionFromEvent(event: Stripe.Event): Promise<Stripe.Subscr
   return null;
 }
 
+type InvoicePayment = {
+  stripeInvoiceId: string;
+  stripeCustomerId: string;
+  amountCents: number;
+  currency: string;
+  paidAt: Date;
+  periodStart: Date;
+  periodEnd: Date;
+};
+
+/** Fatura paga → pagamento no histórico do cliente. `null` = não é fatura paga com valor. */
+export function invoicePaymentFrom(event: Stripe.Event): InvoicePayment | null {
+  if (event.type !== "invoice.paid") return null;
+  const invoice = event.data.object;
+  const customerId = idOf(invoice.customer);
+  if (!invoice.id || !customerId || !invoice.amount_paid) return null;
+  const line = invoice.lines?.data?.[0]?.period;
+  const paidAtSeconds = invoice.status_transitions?.paid_at ?? invoice.created;
+  return {
+    stripeInvoiceId: invoice.id,
+    stripeCustomerId: customerId,
+    amountCents: invoice.amount_paid,
+    currency: invoice.currency,
+    paidAt: new Date(paidAtSeconds * 1000),
+    periodStart: new Date((line?.start ?? invoice.period_start) * 1000),
+    periodEnd: new Date((line?.end ?? invoice.period_end) * 1000),
+  };
+}
+
 /**
  * Aplica um evento do Stripe. O registro do evento e a alteração da assinatura
  * vão na mesma transação: evento repetido é ignorado; falha deixa o Stripe tentar de novo.
@@ -165,20 +209,36 @@ export async function applyStripeEvent(event: Stripe.Event, now = new Date()): P
   if (await prisma.billingEvent.findUnique({ where: { id: event.id }, select: { id: true } })) return "duplicate";
   const sub = await subscriptionFromEvent(event);
   const sync = sub ? await planSync(sub, now) : null;
+  const invoice = invoicePaymentFrom(event);
+  const payer = invoice
+    ? await prisma.subscription.findFirst({ where: { stripeCustomerId: invoice.stripeCustomerId }, select: { id: true, workspaceId: true } })
+    : null;
   try {
     await prisma.$transaction(async (tx) => {
       await tx.billingEvent.create({ data: { id: event.id, type: event.type } });
-      if (!sync) return;
-      await tx.subscription.upsert({
-        where: { workspaceId: sync.workspaceId },
-        create: { workspaceId: sync.workspaceId, ...sync.data },
-        update: sync.data,
-      });
+      if (sync) {
+        await tx.subscription.upsert({
+          where: { workspaceId: sync.workspaceId },
+          create: { workspaceId: sync.workspaceId, ...sync.data },
+          update: sync.data,
+        });
+      }
+      if (invoice && payer) {
+        await tx.subscriptionPayment.upsert({
+          where: { stripeInvoiceId: invoice.stripeInvoiceId },
+          create: {
+            stripeInvoiceId: invoice.stripeInvoiceId, amountCents: invoice.amountCents, currency: invoice.currency, paidAt: invoice.paidAt,
+            periodStart: invoice.periodStart, periodEnd: invoice.periodEnd, subscriptionId: payer.id, workspaceId: payer.workspaceId,
+            method: "CARD", source: "stripe",
+          },
+          update: {},
+        });
+      }
     });
   } catch (error) {
     // Dois envios do mesmo evento ao mesmo tempo: o segundo bate na chave do BillingEvent.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return "duplicate";
     throw error;
   }
-  return sync ? "applied" : "ignored";
+  return sync || (invoice && payer) ? "applied" : "ignored";
 }

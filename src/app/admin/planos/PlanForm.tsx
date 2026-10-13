@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { CARD, INPUT, PRIMARY_BUTTON } from "@/components/ui/styles";
+import { yearlyDiscountPercent } from "@/lib/billing/billing-cycle";
 import { FEATURES, LIMIT_KEYS, LIMIT_LABELS } from "@/lib/billing/plan-rules";
 import { savePlanAction, type AdminActionState } from "./actions";
 
@@ -13,9 +14,11 @@ export type PlanFormValues = {
   isActive: boolean;
   sortOrder: number;
   priceMonthlyCents: number;
+  priceYearlyCents: number | null;
   trialDays: number;
   graceDays: number;
   stripePriceId: string | null;
+  stripeYearlyPriceId: string | null;
   maxInstagramAccounts: number | null;
   maxMembers: number | null;
   maxActiveFlows: number | null;
@@ -25,7 +28,7 @@ export type PlanFormValues = {
 
 const EMPTY: PlanFormValues = {
   slug: "", name: "", description: null, isPublic: true, isActive: true, sortOrder: 100, priceMonthlyCents: 0,
-  trialDays: 0, graceDays: 7, stripePriceId: null, maxInstagramAccounts: 1, maxMembers: 1, maxActiveFlows: 5,
+  priceYearlyCents: null, trialDays: 0, graceDays: 7, stripePriceId: null, stripeYearlyPriceId: null, maxInstagramAccounts: 1, maxMembers: 1, maxActiveFlows: 5,
   maxDmsPerMonth: 1000, features: [],
 };
 
@@ -37,6 +40,13 @@ function optionalInt(data: FormData, key: string): number | null {
   return raw === "" ? null : Number(raw);
 }
 
+/** "1.970,00" ou "1970.5" → centavos; vazio = `null`. */
+function reais(data: FormData, key: string): number | null {
+  const typed = text(data, key);
+  const raw = typed.includes(",") ? typed.replace(/\./g, "").replace(",", ".") : typed;
+  return raw === "" ? null : Math.round(Number(raw) * 100);
+}
+
 /** Lê o formulário no formato que o servidor valida (o servidor confere tudo de novo). */
 function readForm(data: FormData): PlanFormValues {
   return {
@@ -46,16 +56,25 @@ function readForm(data: FormData): PlanFormValues {
     isPublic: data.get("isPublic") === "on",
     isActive: data.get("isActive") === "on",
     sortOrder: Number(text(data, "sortOrder") || 0),
-    priceMonthlyCents: Math.round(Number(text(data, "price").replace(",", ".") || 0) * 100),
+    priceMonthlyCents: reais(data, "price") ?? 0,
+    priceYearlyCents: reais(data, "priceYearly"),
     trialDays: Number(text(data, "trialDays") || 0),
     graceDays: Number(text(data, "graceDays") || 0),
     stripePriceId: text(data, "stripePriceId") || null,
+    stripeYearlyPriceId: text(data, "stripeYearlyPriceId") || null,
     maxInstagramAccounts: optionalInt(data, "maxInstagramAccounts"),
     maxMembers: optionalInt(data, "maxMembers"),
     maxActiveFlows: optionalInt(data, "maxActiveFlows"),
     maxDmsPerMonth: optionalInt(data, "maxDmsPerMonth"),
     features: data.getAll("features").map(String),
   };
+}
+
+function yearlyHint(values: PlanFormValues): string {
+  if (values.priceYearlyCents === null) return "Sem preço anual, o cliente só vê a opção mensal.";
+  const perMonth = (values.priceYearlyCents / 12 / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const discount = yearlyDiscountPercent(values);
+  return `Equivale a ${perMonth}/mês${discount > 0 ? ` (${discount}% de desconto)` : ""}. Pix e boleto anuais são registrados à mão no cliente.`;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -103,9 +122,25 @@ export function PlanForm({ planId, subscribers, initial }: { planId: string | nu
         </Field>
         <Field label="Dias de teste"><input name="trialDays" type="number" min={0} max={90} defaultValue={values.trialDays} className={INPUT} /></Field>
         <Field label="Dias de carência"><input name="graceDays" type="number" min={0} max={60} defaultValue={values.graceDays} className={INPUT} /></Field>
-        <Field label="ID de preço no Stripe">
+        <Field label="ID do preço mensal no Stripe">
           <input name="stripePriceId" placeholder="price_..." defaultValue={values.stripePriceId ?? ""} className={INPUT} />
         </Field>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <Field label="Preço anual (R$)">
+          <input
+            name="priceYearly"
+            inputMode="decimal"
+            placeholder="vazio = só mensal"
+            defaultValue={values.priceYearlyCents === null ? "" : (values.priceYearlyCents / 100).toFixed(2)}
+            className={INPUT}
+          />
+        </Field>
+        <Field label="ID do preço anual no Stripe">
+          <input name="stripeYearlyPriceId" placeholder="price_..." defaultValue={values.stripeYearlyPriceId ?? ""} className={INPUT} />
+        </Field>
+        <p className="self-end pb-3 text-xs text-ink-muted sm:col-span-2">{yearlyHint(values)}</p>
       </div>
 
       <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-4">

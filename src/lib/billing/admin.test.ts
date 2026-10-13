@@ -95,11 +95,26 @@ describe("setWorkspaceSubscription", () => {
 
 describe("relatórios", () => {
   it("MRR soma só clientes ativos ou em carência", async () => {
-    db.subscription.findMany.mockResolvedValue([{ plan: { priceMonthlyCents: 19700 } }, { plan: { priceMonthlyCents: 9700 } }]);
+    db.subscription.findMany.mockResolvedValue([
+      { billingCycle: "MONTHLY", plan: { priceMonthlyCents: 19700, priceYearlyCents: null } },
+      { billingCycle: "MONTHLY", plan: { priceMonthlyCents: 9700, priceYearlyCents: 97000 } },
+    ]);
     await expect(getMrrCents()).resolves.toBe(29400);
     expect(db.subscription.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: { in: ["ACTIVE", "PAST_DUE"] }, isComplimentary: false, workspace: { kind: "CUSTOMER" } } }),
+      expect.objectContaining({
+        where: {
+          status: { in: ["ACTIVE", "PAST_DUE"] },
+          isComplimentary: false,
+          billingMode: { not: "COMPLIMENTARY" },
+          workspace: { kind: "CUSTOMER" },
+        },
+      }),
     );
+  });
+
+  it("MRR conta o plano anual como 1/12 do preço anual", async () => {
+    db.subscription.findMany.mockResolvedValue([{ billingCycle: "YEARLY", plan: { priceMonthlyCents: 19700, priceYearlyCents: 197000 } }]);
+    await expect(getMrrCents()).resolves.toBe(16417);
   });
 
   it("diffFields ignora o que não mudou", () => {
@@ -137,6 +152,19 @@ describe("cortesia (cliente grátis)", () => {
     const update = db.subscription.upsert.mock.calls[0][0].update;
     expect(update).toMatchObject({ status: "ACTIVE", isComplimentary: true, complimentaryUntil: new Date("2026-04-30T12:00:00.000Z") });
     expect(db.auditLog.create.mock.calls[0][0].data.changes).toHaveProperty("isComplimentary");
+  });
+
+  it("escolher cortesia como forma de cobrança sem prazo vale por tempo indeterminado", async () => {
+    await setWorkspaceSubscription("w1", { ...base, billingMode: "COMPLIMENTARY" }, NOW);
+    expect(db.subscription.upsert.mock.calls[0][0].update).toMatchObject({
+      billingMode: "COMPLIMENTARY", isComplimentary: true, complimentaryUntil: null, status: "ACTIVE",
+    });
+  });
+
+  it("trocar cortesia por cobrança manual encerra a cortesia", async () => {
+    db.workspace.findUnique.mockResolvedValue({ id: "w1", kind: "CUSTOMER", subscription: { isComplimentary: true, billingMode: "COMPLIMENTARY" } });
+    await setWorkspaceSubscription("w1", { ...base, status: "ACTIVE", billingMode: "MANUAL", billingCycle: "YEARLY" }, NOW);
+    expect(db.subscription.upsert.mock.calls[0][0].update).toMatchObject({ billingMode: "MANUAL", billingCycle: "YEARLY", isComplimentary: false });
   });
 
   it("sem escolher cortesia, os campos dela não são tocados", async () => {

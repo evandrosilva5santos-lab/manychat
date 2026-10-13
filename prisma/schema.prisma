@@ -653,6 +653,27 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+/// Como o cliente paga (ADR-009).
+enum BillingMode {
+  STRIPE // cartão recorrente pelo Stripe
+  MANUAL // Pix, boleto ou transferência, registrado pelo Super Admin
+  COMPLIMENTARY // cortesia
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum PaymentMethod {
+  CARD
+  PIX
+  BOLETO
+  TRANSFER
+  CASH
+  OTHER
+}
+
 /// Quem pode entrar em qual workspace, e com qual papel.
 model WorkspaceMember {
   id          String        @id @default(cuid())
@@ -696,11 +717,14 @@ model Plan {
   isActive             Boolean  @default(true)
   sortOrder            Int      @default(0)
   priceMonthlyCents    Int      @default(0)
+  /// Preço anual (cobrado de uma vez). Vazio = plano só mensal.
+  priceYearlyCents     Int?
   currency             String   @default("brl")
   trialDays            Int      @default(0)
   graceDays            Int      @default(7)
   /// Preço recorrente no Stripe. Sem ele, o plano não aparece no checkout.
   stripePriceId        String?  @unique
+  stripeYearlyPriceId  String?  @unique
   maxInstagramAccounts Int?
   maxMembers           Int?
   maxActiveFlows       Int?
@@ -731,13 +755,42 @@ model Subscription {
   isComplimentary      Boolean            @default(false)
   /// Fim da cortesia; vazio = por tempo indeterminado.
   complimentaryUntil   DateTime?
+  billingMode          BillingMode        @default(STRIPE)
+  billingCycle         BillingCycle       @default(MONTHLY)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  workspace Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      Plan                  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments  SubscriptionPayment[]
 
   @@index([planId])
+}
+
+/// Pagamento recebido: registrado à mão (Pix, boleto…) ou vindo do Stripe.
+model SubscriptionPayment {
+  id              String        @id @default(cuid())
+  subscriptionId  String
+  workspaceId     String
+  amountCents     Int
+  currency        String        @default("brl")
+  method          PaymentMethod
+  paidAt          DateTime
+  periodStart     DateTime
+  periodEnd       DateTime
+  reference       String?
+  notes           String?
+  /// manual | stripe
+  source          String        @default("manual")
+  /// Fatura do Stripe (evita gravar o mesmo pagamento duas vezes).
+  stripeInvoiceId String?       @unique
+  recordedById    String?
+  createdAt       DateTime      @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, paidAt])
+  @@index([paidAt])
 }
 
 /// Trilha das ações administrativas. Gravada na mesma transação da ação.

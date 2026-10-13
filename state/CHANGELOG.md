@@ -212,3 +212,13 @@
 - **Migration:** `20261013120000_planos_e_equipe` (aditiva, testada em Postgres descartável com backfill). Não aplicada: o `.env` local aponta para o banco de produção; aplica no deploy.
 - **Validação (cópia isolada do commit, sem o autoposter em andamento):** `tsc` 0 erros, 771 testes, `npm run build` ok.
 - **Fora do commit:** trabalho do autoposter feito em paralelo pelo Antigravity na mesma pasta (schema, `proxy.ts`, `csp.ts` etc.) segue sem commit; a cópia `stash@{0}` é só backup.
+
+### [2026-10-13] — Modelos de pagamento, console do Super Admin e visão do dono da conta (ADR-009)
+- **AGENT:** Claude Code. Pedido do dono: "faça o PRD e aplique tudo… execute, resolva e me entregue tudo testado". PRD em `docs/plans/2026-10-13-painel-dono-admin-cobranca.md`.
+- **Cobrança:** preço anual nos planos (checkout mensal ou anual); forma de cobrança por cliente (`STRIPE`, `MANUAL`, `COMPLIMENTARY`) e ciclo; pagamentos recebidos (`SubscriptionPayment`), registrados à mão (Pix, boleto, transferência) ou vindos do Stripe (`invoice.paid`); cobrança manual vence no fim do período pago, com carência e depois suspensão; MRR com anual em 1/12.
+- **Console do Super Admin:** abas Visão geral, Clientes (filtros e "Novo cliente" com login), Planos, Pagamentos (totais do mês e do ano) e Auditoria. Página do cliente com forma de cobrança, limites em campos, registro de pagamento e redefinição de senha.
+- **Dono da conta:** "Adicionar colaborador" com senha inicial em `/equipe`; redefinir senha da equipe; só o dono cria administradores; `/minha-conta` com troca de nome e senha; selo e itens do menu por papel; IA, Transmissão e Autoposter com tela de upgrade e cadeado quando fora do plano.
+- **Migration:** `20261013210000_modelos_pagamento`, que só acrescenta. Validada em Postgres descartável (PGlite) com backfill da cortesia. **Não foi aplicada em produção**: o classificador bloqueou, e ela entra no próximo deploy.
+- **Validação:**
+  - `tsc` 0 erros e 870 testes.
+  - Teste no navegador (Chrome headless via DevTools Protocol) contra um banco local descartável, com as três visões, Super Admin, dono e atendente: 35 checagens passaram e não houve erro de console.

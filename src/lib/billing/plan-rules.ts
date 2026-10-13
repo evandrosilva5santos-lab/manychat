@@ -23,7 +23,7 @@ export type FeatureKey = keyof typeof FEATURES;
 
 export type SubscriptionStatus = "TRIALING" | "ACTIVE" | "PAST_DUE" | "SUSPENDED" | "CANCELED";
 
-export type PlanLike = { name: string; slug: string; features: string[] } & Limits;
+export type PlanLike = { name: string; slug: string; features: string[]; graceDays?: number } & Limits;
 
 export type SubscriptionLike = {
   status: SubscriptionStatus;
@@ -32,8 +32,20 @@ export type SubscriptionLike = {
   limitOverrides: unknown;
   isComplimentary?: boolean;
   complimentaryUntil?: Date | null;
+  /** Cobrança manual (Pix, boleto…): vence no fim do período pago. */
+  billingMode?: "STRIPE" | "MANUAL" | "COMPLIMENTARY";
+  currentPeriodEnd?: Date | null;
   plan: PlanLike;
 };
+
+const DAY_MS = 86_400_000;
+
+/** Cobrança manual com o período pago vencido: carência (PAST_DUE) e depois suspensão. */
+function manualStatus(sub: SubscriptionLike, now: Date): SubscriptionStatus | null {
+  if (sub.billingMode !== "MANUAL" || sub.status !== "ACTIVE" || !sub.currentPeriodEnd || sub.currentPeriodEnd > now) return null;
+  const graceEnd = sub.currentPeriodEnd.getTime() + (sub.plan.graceDays ?? 7) * DAY_MS;
+  return now.getTime() < graceEnd ? "PAST_DUE" : "SUSPENDED";
+}
 
 export type Entitlements = {
   kind: "CUSTOMER" | "INTERNAL";
@@ -83,6 +95,8 @@ function complimentaryExpired(sub: SubscriptionLike, now: Date): boolean {
 function effectiveStatus(sub: SubscriptionLike, now: Date): SubscriptionStatus {
   // Cortesia manda no status: vale ativa até a data (ou para sempre) e suspende ao vencer.
   if (sub.isComplimentary) return complimentaryExpired(sub, now) ? "SUSPENDED" : "ACTIVE";
+  const manual = manualStatus(sub, now);
+  if (manual) return manual;
   if (sub.status === "TRIALING" && sub.trialEndsAt && sub.trialEndsAt <= now) return "SUSPENDED";
   if (sub.status === "PAST_DUE" && sub.graceEndsAt && sub.graceEndsAt <= now) return "SUSPENDED";
   return sub.status;
@@ -95,7 +109,16 @@ function blockReasonFor(sub: SubscriptionLike, status: SubscriptionStatus, now: 
   if (status !== "SUSPENDED") return null;
   if (original === "TRIALING") return "O teste grátis terminou. Escolha um plano para continuar com as automações.";
   if (original === "PAST_DUE") return "O pagamento não foi confirmado e a carência acabou. Atualize o pagamento para reativar.";
+  if (sub.billingMode === "MANUAL") return "O período pago venceu e a carência acabou. Fale com a Start Inc. para registrar o pagamento.";
   return "A assinatura está suspensa. Fale com o suporte ou atualize o pagamento.";
+}
+
+function pastDueWarning(sub: SubscriptionLike): string {
+  if (sub.billingMode !== "MANUAL" || !sub.currentPeriodEnd) {
+    return "Pagamento pendente. Atualize a forma de pagamento para não ter as automações pausadas.";
+  }
+  const limit = new Date(sub.currentPeriodEnd.getTime() + (sub.plan.graceDays ?? 7) * DAY_MS);
+  return `Pagamento pendente. As automações pausam em ${limit.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} se o pagamento não for registrado.`;
 }
 
 export function computeEntitlements(
@@ -125,7 +148,7 @@ export function computeEntitlements(
     status,
     canOperate: blockReason === null,
     blockReason,
-    warning: status === "PAST_DUE" ? "Pagamento pendente. Atualize a forma de pagamento para não ter as automações pausadas." : null,
+    warning: status === "PAST_DUE" ? pastDueWarning(sub) : null,
     complimentary: sub.isComplimentary ? { until: sub.complimentaryUntil ?? null } : null,
     limits: { ...planLimits, ...readLimitOverrides(sub.limitOverrides) },
     features: sub.plan.features.filter((key): key is FeatureKey => key in FEATURES),

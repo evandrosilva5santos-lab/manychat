@@ -62,9 +62,15 @@ describe("createInvitation", () => {
   });
 
   it("recusa e-mail inválido e quem já é membro", async () => {
-    await expect(createInvitation("w1", "não-é-email", "ADMIN")).rejects.toThrow("E-mail inválido.");
+    await expect(createInvitation("w1", "não-é-email", "OPERATOR")).rejects.toThrow("E-mail inválido.");
     db.workspaceMember.findFirst.mockResolvedValue({ id: "m" });
-    await expect(createInvitation("w1", "x@y.com", "ADMIN")).rejects.toThrow("já faz parte");
+    await expect(createInvitation("w1", "x@y.com", "OPERATOR")).rejects.toThrow("já faz parte");
+  });
+
+  it("administrador não convida outro administrador (só o dono)", async () => {
+    await expect(createInvitation("w1", "x@y.com", "ADMIN")).rejects.toThrow("Só o dono");
+    requireWorkspaceRole.mockResolvedValue({ actor: admin, role: "OWNER" });
+    await expect(createInvitation("w1", "x@y.com", "ADMIN")).resolves.toMatchObject({ email: "x@y.com" });
   });
 
   it("atendente não convida", async () => {

@@ -12,6 +12,7 @@ import {
   type WorkspaceRole,
 } from "@/lib/tenancy";
 import { UserFacingError } from "@/lib/user-error";
+import { canAssign } from "./roles";
 
 export const INVITE_TTL_DAYS = 7;
 /** Papéis que podem ser dados por convite ou troca. Dono não se transfere por aqui. */
@@ -55,8 +56,9 @@ export async function listTeam(workspaceId: string) {
 
 /** Cria o convite e devolve o caminho com o token (o token em texto só existe aqui). */
 export async function createInvitation(workspaceId: string, rawEmail: string, role: string, assertCanAddMember?: () => Promise<void>) {
-  const { actor } = await requireWorkspaceRole(workspaceId, MANAGER_ROLES);
+  const { actor, role: actorRole } = await requireWorkspaceRole(workspaceId, MANAGER_ROLES);
   assertAssignable(role);
+  if (!canAssign(actorRole, role)) throw new UserFacingError("Só o dono da conta pode convidar administradores.");
   const parsed = emailSchema.safeParse(rawEmail);
   if (!parsed.success) throw new UserFacingError("E-mail inválido.");
   const email = parsed.data;
@@ -170,8 +172,9 @@ export async function removeMember(workspaceId: string, memberId: string) {
 }
 
 export async function changeMemberRole(workspaceId: string, memberId: string, role: string) {
-  await requireWorkspaceRole(workspaceId, MANAGER_ROLES);
+  const { role: actorRole } = await requireWorkspaceRole(workspaceId, MANAGER_ROLES);
   assertAssignable(role);
   const member = await findManagedMember(workspaceId, memberId);
+  if (!canAssign(actorRole, role) || !canAssign(actorRole, member.role)) throw new UserFacingError("Só o dono da conta pode mudar administradores.");
   await prisma.workspaceMember.update({ where: { id: member.id }, data: { role } });
 }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { FeatureLocked } from "@/components/billing/FeatureLocked";
+import { canUseFeature } from "@/lib/access/context";
 import { Bot, Sparkles, ArrowLeft, Zap, MessageSquare, ShieldCheck } from "lucide-react";
 
 export const metadata = {
@@ -6,7 +8,9 @@ export const metadata = {
   description: "Crie agentes de IA inteligentes para atender e qualificar leads 24h no Instagram Direct.",
 };
 
-export default function AiAgentsPage() {
+export default async function AiAgentsPage() {
+  const { allowed, context } = await canUseFeature("ai");
+  if (!allowed) return <FeatureLocked feature="ai" role={context?.menuRole ?? null} />;
   return (
     <main className="fx mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
       <div>

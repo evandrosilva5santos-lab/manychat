@@ -4,8 +4,9 @@ import { Prisma } from "@/generated/prisma/client";
 const { db, stripe, requireWorkspaceRole } = vi.hoisted(() => {
   const db = {
     billingEvent: { findUnique: vi.fn(), create: vi.fn() },
-    plan: { findUnique: vi.fn() },
+    plan: { findUnique: vi.fn(), findFirst: vi.fn() },
     subscription: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() },
+    subscriptionPayment: { upsert: vi.fn() },
     $transaction: vi.fn(),
   };
   db.$transaction.mockImplementation(async (fn: (tx: typeof db) => unknown) => fn(db));
@@ -44,6 +45,7 @@ beforeEach(() => {
   requireWorkspaceRole.mockResolvedValue({ actor: { email: "dono@loja.com" }, role: "OWNER" });
   db.billingEvent.findUnique.mockResolvedValue(null);
   db.plan.findUnique.mockResolvedValue(plan);
+  db.plan.findFirst.mockResolvedValue(plan);
   db.subscription.findUnique.mockResolvedValue(null);
   stripe.checkout.sessions.create.mockResolvedValue({ url: "https://checkout.stripe.com/c/1" });
   stripe.billingPortal.sessions.create.mockResolvedValue({ url: "https://billing.stripe.com/p/1" });
@@ -158,7 +160,7 @@ describe("applyStripeEvent", () => {
   });
 
   it("preço sem plano cadastrado não grava assinatura", async () => {
-    db.plan.findUnique.mockResolvedValue(null);
+    db.plan.findFirst.mockResolvedValue(null);
     await expect(applyStripeEvent(event("customer.subscription.updated", stripeSub()), NOW)).resolves.toBe("ignored");
     expect(db.subscription.upsert).not.toHaveBeenCalled();
   });
@@ -177,5 +179,27 @@ describe("applyStripeEvent", () => {
   it("eventos que não mexem em assinatura só são registrados", async () => {
     await expect(applyStripeEvent(event("invoice.paid", {}), NOW)).resolves.toBe("ignored");
     expect(db.subscription.upsert).not.toHaveBeenCalled();
+    expect(db.subscriptionPayment.upsert).not.toHaveBeenCalled();
+  });
+
+  it("assinatura com o preço anual fica com ciclo anual", async () => {
+    db.plan.findFirst.mockResolvedValue({ ...plan, stripeYearlyPriceId: "price_pro" });
+    await applyStripeEvent(event("customer.subscription.updated", stripeSub()), NOW);
+    expect(db.subscription.upsert.mock.calls[0][0].update).toMatchObject({ billingMode: "STRIPE", billingCycle: "YEARLY" });
+  });
+
+  it("fatura paga entra no histórico de pagamentos uma vez só", async () => {
+    db.subscription.findFirst.mockResolvedValue({ id: "s1", workspaceId: "w1" });
+    const invoice = {
+      id: "in_1", customer: "cus_1", amount_paid: 19700, currency: "brl", created: 1_790_000_000,
+      period_start: 1_790_000_000, period_end: 1_790_000_000, status_transitions: { paid_at: 1_790_000_100 },
+      lines: { data: [{ period: { start: 1_790_000_000, end: 1_792_600_000 } }] },
+    };
+    await expect(applyStripeEvent(event("invoice.paid", invoice), NOW)).resolves.toBe("applied");
+    const call = db.subscriptionPayment.upsert.mock.calls[0][0];
+    expect(call.where).toEqual({ stripeInvoiceId: "in_1" });
+    expect(call.update).toEqual({});
+    expect(call.create).toMatchObject({ amountCents: 19700, method: "CARD", source: "stripe", workspaceId: "w1", subscriptionId: "s1" });
+    expect(call.create.periodEnd).toEqual(new Date(1_792_600_000 * 1000));
   });
 });

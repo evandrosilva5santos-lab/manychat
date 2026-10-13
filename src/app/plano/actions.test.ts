@@ -29,8 +29,19 @@ afterEach(() => vi.unstubAllEnvs());
 describe("ações de cobrança", () => {
   it("abre o checkout do plano escolhido e volta para o APP_URL", async () => {
     await startCheckout(null, form("plan_pro"));
-    expect(createCheckoutSession).toHaveBeenCalledWith("w1", "plan_pro", "https://instachat.test");
+    expect(createCheckoutSession).toHaveBeenCalledWith("w1", "plan_pro", "https://instachat.test", "MONTHLY");
     expect(redirect).toHaveBeenCalledWith("https://checkout.stripe.com/c/1");
+  });
+
+  it("anual escolhido vai para o checkout anual; valor inventado vira mensal", async () => {
+    const yearly = form("plan_pro");
+    yearly.set("cycle", "YEARLY");
+    await startCheckout(null, yearly);
+    expect(createCheckoutSession).toHaveBeenLastCalledWith("w1", "plan_pro", "https://instachat.test", "YEARLY");
+    const odd = form("plan_pro");
+    odd.set("cycle", "SEMANAL");
+    await startCheckout(null, odd);
+    expect(createCheckoutSession).toHaveBeenLastCalledWith("w1", "plan_pro", "https://instachat.test", "MONTHLY");
   });
 
   it("sem APP_URL não abre cobrança nenhuma", async () => {

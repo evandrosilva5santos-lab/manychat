@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { FeatureLocked } from "@/components/billing/FeatureLocked";
+import { canUseFeature } from "@/lib/access/context";
 import { Send, Users, ArrowLeft, Radio, Clock, ShieldCheck } from "lucide-react";
 
 export const metadata = {
@@ -6,7 +8,9 @@ export const metadata = {
   description: "Dispare mensagens e comunicados segmentados para seus contatos dentro da política da Meta.",
 };
 
-export default function DirectBroadcastPage() {
+export default async function DirectBroadcastPage() {
+  const { allowed, context } = await canUseFeature("broadcast");
+  if (!allowed) return <FeatureLocked feature="broadcast" role={context?.menuRole ?? null} />;
   return (
     <main className="fx mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
       <div>

@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin, type TenantActor } from "@/lib/tenancy";
 import { UserFacingError } from "@/lib/user-error";
+import { addMonths, BILLING_CYCLES, BILLING_MODES, monthlyRevenueCents, reconcileBilling } from "./billing-cycle";
 import { getEntitlements, getUsage } from "./entitlements";
 import { FEATURES, readLimitOverrides } from "./plan-rules";
 
@@ -20,7 +21,9 @@ export const planInputSchema = z.object({
   priceMonthlyCents: z.number().int().min(0).max(100_000_000),
   trialDays: z.number().int().min(0).max(90),
   graceDays: z.number().int().min(0).max(60),
+  priceYearlyCents: z.number().int().min(0).max(1_000_000_000).nullable().default(null),
   stripePriceId: z.string().trim().regex(/^price_[A-Za-z0-9]+$/, "ID de preço do Stripe começa com price_.").nullable(),
+  stripeYearlyPriceId: z.string().trim().regex(/^price_[A-Za-z0-9]+$/, "ID de preço anual do Stripe começa com price_.").nullable().default(null),
   maxInstagramAccounts: limit,
   maxMembers: limit,
   maxActiveFlows: limit,
@@ -41,18 +44,11 @@ export const subscriptionInputSchema = z.object({
   trialEndsAt: z.coerce.date().nullable(),
   limitOverrides: z.record(z.string(), z.unknown()),
   complimentary: z.enum(COMPLIMENTARY_OPTIONS).default("keep"),
+  billingMode: z.enum(BILLING_MODES).default("STRIPE"),
+  billingCycle: z.enum(BILLING_CYCLES).default("MONTHLY"),
 });
 
-/** Soma meses de calendário (31/01 + 1 mês = último dia de fevereiro). */
-export function addMonths(date: Date, months: number): Date {
-  const result = new Date(date);
-  const day = result.getUTCDate();
-  result.setUTCDate(1);
-  result.setUTCMonth(result.getUTCMonth() + months);
-  const lastDay = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
-  result.setUTCDate(Math.min(day, lastDay));
-  return result;
-}
+export { addMonths };
 
 /** Campos de cortesia a gravar, ou `null` para manter os atuais. */
 export function complimentaryFields(option: ComplimentaryOption, now: Date) {
@@ -135,17 +131,19 @@ export async function getWorkspaceBilling(workspaceId: string) {
     include: {
       owner: { select: { name: true, email: true } },
       subscription: { include: { plan: true } },
+      members: { orderBy: { createdAt: "asc" }, select: { role: true, user: { select: { id: true, name: true, email: true, role: true } } } },
       _count: { select: { members: true, accounts: true } },
     },
   });
   if (!workspace) return null;
-  const [entitlements, usage, plans, audit] = await Promise.all([
+  const [entitlements, usage, plans, audit, payments] = await Promise.all([
     getEntitlements(workspaceId),
     getUsage(workspaceId),
-    prisma.plan.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, isActive: true } }),
+    prisma.plan.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.auditLog.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" }, take: 20 }),
+    prisma.subscriptionPayment.findMany({ where: { workspaceId }, orderBy: { paidAt: "desc" }, take: 24 }),
   ]);
-  return { workspace, entitlements, usage, plans, audit };
+  return { workspace, entitlements, usage, plans, audit, payments };
 }
 
 /** Troca plano, status, fim do teste e ajustes de limite de um workspace. */
@@ -161,9 +159,12 @@ export async function setWorkspaceSubscription(workspaceId: string, input: unkno
   if (workspace.kind === "INTERNAL") throw new UserFacingError("Workspace interno não tem plano.");
   if (!plan) throw new UserFacingError("Plano não encontrado.");
 
-  const complimentary = complimentaryFields(data.complimentary, now);
+  const billing = reconcileBilling(data.billingMode, data.complimentary, workspace.subscription?.isComplimentary ?? false);
+  const complimentary = complimentaryFields(billing.complimentary, now);
   const next = {
     planId: data.planId,
+    billingMode: billing.mode,
+    billingCycle: data.billingCycle,
     // Cortesia vale como ativa: o status gravado acompanha para relatórios e filtros.
     status: complimentary?.isComplimentary ? ("ACTIVE" as const) : data.status,
     trialEndsAt: data.trialEndsAt,
@@ -174,6 +175,8 @@ export async function setWorkspaceSubscription(workspaceId: string, input: unkno
   const before = current
     ? {
         planId: current.planId,
+        billingMode: current.billingMode,
+        billingCycle: current.billingCycle,
         status: current.status,
         trialEndsAt: current.trialEndsAt,
         limitOverrides: current.limitOverrides,
@@ -195,12 +198,17 @@ export async function setWorkspaceSubscription(workspaceId: string, input: unkno
   ]);
 }
 
-/** MRR em centavos: assinaturas pagas ativas ou em carência (interno e cortesia ficam fora). */
+/** MRR em centavos: assinaturas pagas ativas ou em carência; anual conta 1/12 (interno e cortesia ficam fora). */
 export async function getMrrCents(): Promise<number> {
   await requireSuperAdmin();
   const active = await prisma.subscription.findMany({
-    where: { status: { in: ["ACTIVE", "PAST_DUE"] }, isComplimentary: false, workspace: { kind: "CUSTOMER" } },
-    select: { plan: { select: { priceMonthlyCents: true } } },
+    where: {
+      status: { in: ["ACTIVE", "PAST_DUE"] },
+      isComplimentary: false,
+      billingMode: { not: "COMPLIMENTARY" },
+      workspace: { kind: "CUSTOMER" },
+    },
+    select: { billingCycle: true, plan: { select: { priceMonthlyCents: true, priceYearlyCents: true } } },
   });
-  return active.reduce((sum, row) => sum + row.plan.priceMonthlyCents, 0);
+  return active.reduce((sum, row) => sum + monthlyRevenueCents(row.plan, row.billingCycle), 0);
 }

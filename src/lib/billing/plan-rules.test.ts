@@ -119,3 +119,32 @@ describe("cortesia", () => {
     expect(ent.blockReason).toMatch(/cortesia terminou/);
   });
 });
+
+describe("cobrança manual (Pix, boleto, transferência)", () => {
+  const manual = (currentPeriodEnd: Date | null) => sub({ billingMode: "MANUAL", currentPeriodEnd, plan: { ...pro, graceDays: 7 } });
+
+  it("dentro do período pago funciona normalmente", () => {
+    const ent = customer(manual(future));
+    expect(ent.status).toBe("ACTIVE");
+    expect(ent.canOperate).toBe(true);
+    expect(ent.warning).toBeNull();
+  });
+
+  it("período vencido: pendente com aviso da data em que pausa, ainda funcionando", () => {
+    const ent = customer(manual(past));
+    expect(ent.status).toBe("PAST_DUE");
+    expect(ent.canOperate).toBe(true);
+    expect(ent.warning).toMatch(/pausam em 19\/10\/2026/);
+  });
+
+  it("carência vencida suspende com motivo de pagamento manual", () => {
+    const ent = customer(manual(new Date("2026-10-01T00:00:00Z")));
+    expect(ent.status).toBe("SUSPENDED");
+    expect(ent.canOperate).toBe(false);
+    expect(ent.blockReason).toMatch(/registrar o pagamento/);
+  });
+
+  it("cobrança pelo Stripe não vence por data aqui (quem manda é o webhook)", () => {
+    expect(customer(sub({ billingMode: "STRIPE", currentPeriodEnd: past })).status).toBe("ACTIVE");
+  });
+});
