@@ -147,3 +147,18 @@
   - `npx tsc --noEmit` 0 erros; `npm test` 576/576; `npm run build` ok.
   - Runtime (`next start -p 3007`): cabeçalhos presentes em `/privacidade`; `/brand/*.png` 200 sem senha; `/conectar` 200 com o logotipo; `/tick` sem segredo 401.
   - Lint: nenhum erro novo (82 erros antigos de `no-explicit-any`).
+
+---
+
+### [2026-10-13] — Menu de perfil, esperas sem agendador externo e limpeza de qualidade
+- **AGENT:** `CLAUDE` (Claude Code) · **PASTA:** oficial, branch `feat-login-duplo`
+- **PEDIDO DO DONO:** "priorizar e fazer tudo o que não dependa de mim".
+- **COMMITS:**
+  - `5c4d966` — menu de perfil trazido do rascunho de `../Manychat-novas-implementacoes` e concluído: `ActiveAccountMenu` no topo da sidebar, `UserMenu` com Sair, `logout`, `/sair` (pública), `/contas` (ativar, reconectar, descarregar), aviso de token vencendo em < 7 dias, `getUserMenuData` sem campos de token; removidos o `<select>` do cabeçalho e o selo "PRO" com gradiente.
+  - `8ed8937` — cada webhook também retoma esperas vencidas; `/tick` no cron diário da Vercel (`CRON_SECRET` já cadastrado em Production).
+  - `9e2c740` — `UserFacingError`/`actionErrorMessage`: Server Actions param de mostrar `err.message` interno; tipos no lugar de `any` fora do motor; cores do Tailwind trocadas por tokens (selo "AO VIVO" agora `success`).
+- **NÃO FEITO (depende do dono):** deploy, URLs no painel da Meta, recarregar `@movingfestival`/`@loveu.sunset`, decisões A–D de `docs/PASSOS-DO-DONO.md`; login de cliente (escolha de provedor).
+- **VALIDATION:**
+  - `npx tsc --noEmit` 0 erros; `npm test` 603/603; `npm run build` ok.
+  - Runtime (`next start -p 3007`, só leitura): `/contas` e `/` 200 com o menu mostrando `@loveu.sunset` descarregado; `/sair` 200 sem senha.
+  - Lint: 82 → 38 erros, todos em `src/lib/engine/runner.ts`.

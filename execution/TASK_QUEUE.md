@@ -32,6 +32,8 @@
 
 ## ⚪ DONE (Concluídas e Validadas)
 
+- [x] **`MENU-PERFIL`** (2026-10-13): sidebar com troca de perfil, menu do usuário com Sair, `/contas`, `/sair`, aviso de token vencendo. Commit `5c4d966`.
+- [x] **`ESPERAS-E-QUALIDADE`** (2026-10-13): webhook e cron diário retomam esperas (`8ed8937`); erros internos fora da tela, tipos e cores do design system (`9e2c740`).
 - [x] **`PORTE-ITENS-6-8`** (2026-10-12): `vercel-build` só em produção, opt-out "PARAR" (migration pendente — BLK-008), exportar/excluir contato, cabeçalhos de segurança. Commits `9bef2b7`, `45e5bed`, `eced9c5`, `4acf127`.
 - [x] **`MARCA-INSTACHAT`** (2026-10-12): logos, favicon, `primary` vermelho, token `brand`, saneamento da governança. Commit `500e025`.
 

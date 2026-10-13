@@ -17,7 +17,9 @@ No plano Hobby a Vercel só roda cron uma vez por dia. O QStash chama a URL no i
 - Cada webhook recebido também retoma esperas vencidas (`after()` no `POST /api/webhook/instagram`).
 - O cron diário da Vercel chama o `/tick` às 06:30 UTC (`vercel.json`). Precisa do `CRON_SECRET` na Vercel; a Vercel envia o cabeçalho sozinha.
 
-O QStash serve para as esperas curtas (minutos) andarem mesmo quando o perfil não recebe mensagens.
+O QStash serve para as esperas curtas (minutos) andarem mesmo quando o perfil não recebe mensagens. É uma melhoria, não um requisito: sem ele, nenhuma espera fica parada mais de um dia.
+
+> Conferido em 12/10/2026 (`vercel env ls`): `CRON_SECRET` já está cadastrado em Production. Os passos 1 e 2 abaixo já estão feitos; falta só criar a conta e o agendamento no QStash.
 
 ## O que o código já faz
 

@@ -6,15 +6,14 @@
 
 ---
 
-## Estado atual (12/10/2026, 23h)
+## Estado atual (13/10/2026, madrugada)
 - **PRODUTO:** instachat (código interno "Fluxo"). Nome sempre em minúsculas, como no logotipo.
-- **PASTA OFICIAL:** `/Users/evandro/Downloads/Manychat`, branch `feat-login-duplo` — já contém o pacote "Perfil seguro" (fast-forward de `feat-novas-implementacoes` em 12/10).
-- **CONCLUÍDO:** login duplo Instagram/Facebook (ADR-006); pacote "Perfil seguro" (ADR-007); marca instachat; porte dos itens 6 e 8 (`vercel-build` só em produção, opt-out "PARAR", exportar/excluir contato, cabeçalhos de segurança). `tsc` 0 erros, 576 testes, build ok.
-- **ANTES DO PRÓXIMO DEPLOY:** aplicar a migration de opt-out (BLK-008) — o `vercel-build` faz isso sozinho em produção.
-- **NÃO INTEGRADO:** retenção LGPD (BLK-010, decisão), Sentry (BLK-011, falta DSN), acessibilidade (item 7, rascunho).
-- **LACUNAS CONHECIDAS:** esperas (DELAY) só andam quando o QStash estiver chamando o `/tick` (`docs/agendador-qstash.md`); cliente não tem login próprio; páginas "Agentes de IA" e "Transmissão" são vitrines "Em breve" (ISSUE-009); 82 erros de lint (`no-explicit-any` antigos).
-- **BLOQUEIOS EXTERNOS (dono):** criar a conta e o agendamento no QStash com `CRON_SECRET`; cadastrar `https://instachat.startinc.com.br/api/auth/instagram/callback` e as URLs de desautorização/exclusão no painel da Meta; adicionar a conta do Instagram como testadora; recarregar `@movingfestival` e `@loveu.sunset` (descarregadas pela tela em 12/10).
-- **PRÓXIMO:** dono escolhe a próxima tarefa em `execution/CURRENT_TASK.md`; depois, deploy.
+- **PASTA OFICIAL:** `/Users/evandro/Downloads/Manychat`, branch `feat-login-duplo` (commits locais, sem push).
+- **CONCLUÍDO:** login duplo (ADR-006); Perfil seguro (ADR-007); marca instachat; porte dos itens 6 e 8 (`vercel-build` só em produção, opt-out "PARAR", exportar/excluir contato, cabeçalhos de segurança); menu de perfil (troca de perfil na sidebar, menu do usuário com Sair, `/contas`, `/sair`, aviso de token vencendo); esperas retomadas a cada webhook e pelo cron diário do `/tick`; erros internos fora da tela; cores só do design system. `tsc` 0 erros, 603 testes, build ok.
+- **DEPLOY:** pendente de autorização do dono. O `vercel-build` aplica a migration de opt-out (BLK-008); `CRON_SECRET` já está na Vercel (conferido com `vercel env ls`).
+- **NÃO INTEGRADO:** retenção LGPD (BLK-010, decisão), Sentry (BLK-011, falta DSN), acessibilidade do item 7 (rascunho), login de cliente (precisa decidir provedor).
+- **DÍVIDA TÉCNICA:** 38 erros de lint, todos `any` no `src/lib/engine/runner.ts` (tipar exige reestruturar o motor e as checagens usadas pelos mocks).
+- **PASSOS DO DONO:** `docs/PASSOS-DO-DONO.md` (deploy, 3 URLs na Meta + testadora, recarregar 2 perfis, 4 decisões rápidas).
 
 ---
 

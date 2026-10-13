@@ -1,4 +1,6 @@
-# Marca InstaChat + Menu de perfil
+# Marca instachat + Menu de perfil
+
+> **Status 12/10/2026:** entregue na pasta oficial com ajustes às decisões abaixo — cor real do logo (`brand` #FB264D, `primary` #DC1A44), nome em minúsculas ("instachat") e fonte Plus Jakarta mantida. Ver `state/CHANGELOG.md`.
 
 ## Goal
 Aplicar a identidade InstaChat (brand book v1.0, `~/Downloads/Instachat_Brand_Book_Completo.pdf`) ao design system e às telas, e entregar o menu de perfil/troca de conta especificado em `menu-perfil-conta.md` (diretório principal).
