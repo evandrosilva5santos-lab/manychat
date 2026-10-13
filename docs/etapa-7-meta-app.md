@@ -106,6 +106,24 @@ O cliente não precisa de conta nem de sessão no Fluxo para conectar o Instagra
 
 > Se a conta do Instagram já estiver ligada a outro cliente, a conexão é recusada com "Esta conta do Instagram já está vinculada a outro cliente."
 
+### 2.5 Desautorização e exclusão de dados (obrigatórios na revisão do app)
+
+Quando alguém remove o Fluxo do Instagram ou do Facebook, a Meta avisa o Fluxo por dois endereços. Cadastre-os **nos dois produtos** (troque `${APP_URL}` pelo domínio de produção, ex.: `https://instachat.startinc.com.br`):
+
+| Campo no painel | Instagram (login do Instagram) | Facebook (Login do Facebook) |
+|---|---|---|
+| **Desautorização** | Instagram › Configuração da API com login do Instagram › Configurar o login comercial › **URL de retorno de chamada para cancelar autorização**: `${APP_URL}/api/meta/deauthorize` | Login do Facebook para Empresas › Configurações › **URL de retorno de chamada para cancelar autorização**: `${APP_URL}/api/meta/deauthorize` |
+| **Exclusão de dados** | Mesma tela › **URL de solicitação de exclusão de dados**: `${APP_URL}/api/meta/data-deletion` | Configurações do app › Básico › **Exclusão de dados do usuário** › URL de retorno de chamada: `${APP_URL}/api/meta/data-deletion` |
+
+O que acontece em cada caso:
+
+- **Desautorização:** o Fluxo confere a assinatura (`signed_request`, HMAC-SHA256 com o secret do produto que mandou), acha os perfis daquela pessoa e os deixa **descarregados** (credencial apagada, automações paradas). Pedido assinado há mais de 24 h, adulterado ou de perfil reconectado depois é ignorado.
+- **Exclusão de dados:** responde na hora com `{ url, confirmation_code }`. A `url` aponta para `${APP_URL}/exclusao-de-dados?codigo=…`, onde a pessoa acompanha o estado. Pelo login do Instagram, a pessoa é a própria conta profissional: o perfil e os dados dele (contatos, conversas, fluxos) são apagados. Pelo login do Facebook, a pessoa é quem administra a Página: o Fluxo apaga os dados dela (credencial e ID da Meta) e descarrega os perfis, e os dados do negócio só saem por **Ajustes › Excluir perfil e dados** ou por e-mail.
+- Em **Configurações do app › Básico**, a **URL de exclusão de dados** pública pode ser `${APP_URL}/exclusao-de-dados`.
+- Antes de enviar para revisão, use o **testador de callback** do painel para conferir os dois endereços (resposta 200).
+
+> Perfis conectados antes desta versão não têm o ID que a Meta manda no aviso do Facebook. Eles passam a ser reconhecidos na próxima vez que forem carregados de novo.
+
 ---
 
 ## 3. Configurando o Webhook da Meta

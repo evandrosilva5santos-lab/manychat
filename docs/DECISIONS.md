@@ -109,3 +109,22 @@
   - Atualiza `docs/etapa-7-meta-app.md` (seção "Login duplo") e `.env.example`.
 - **STATUS:** `ACTIVE` (restringe o ADR-005 ao fluxo do Instagram Login)
 - **SOURCE:** `docs/plans/2026-10-12-login-duplo-facebook-instagram.md` (seções 1 a 4, decisões D1–D6).
+
+---
+
+## ADR-007: Ciclo de vida do perfil conectado e callbacks da Meta ("Perfil seguro")
+- **ID:** `ADR-007`
+- **DATE:** 2026-10-12
+- **CATEGORY:** SECURITY / PRIVACY / META API / UX
+- **CONTEXT:** A auditoria geral mostrou que (1) não havia callback de desautorização nem de exclusão de dados (bloqueia a revisão do app); (2) o motor usava o token global quando o perfil estava desconectado ou expirado; (3) a tela de falhas listava eventos de todos os clientes e o reenvio aceitava mensagem de outro cliente; (4) "descarregar perfil" só apagava o token local; (5) não existia excluir perfil e dados (LGPD); (6) a tela mostrava estado de conexão errado.
+- **DECISION:**
+  1. **Descarregar** = cancelar a inscrição de webhooks na Meta (best-effort), apagar a credencial, marcar `DISCONNECTED`/`REVOKED` e encerrar execuções ativas. Fluxos mantêm o estado e voltam sozinhos ao carregar o perfil de novo; o motor não envia nada por perfil não conectado.
+  2. **Excluir perfil e dados** = pedido rastreável (`DataDeletionRequest`) com exclusão em lotes retomável (cards de carrossel antes do catálogo, por causa do `RESTRICT`).
+  3. **Callbacks** `POST /api/meta/deauthorize` e `POST /api/meta/data-deletion`: assinatura HMAC-SHA256 conferida antes de qualquer acesso ao banco, `issued_at` de até 24 h, perfil reconectado depois do pedido é ignorado, máximo de 20 perfis por pedido. O secret que validou define o provedor. Exclusão via Meta: escopo do negócio no login do Instagram (a pessoa é a conta profissional) e só da pessoa no login do Facebook.
+  4. **Motor**: sem fallback para o token global; perfil descarregado ou desconhecido não grava nada; perfil expirado grava contato e mensagem sem disparar gatilho; estado conferido antes de cada envio.
+  5. **Isolamento**: tela de falhas e reenvio restritos ao perfil ativo; token de verificação do webhook só para SUPERADMIN.
+  6. Novos campos `metaUserId` (ID app-scoped que a Meta manda no `signed_request`) e `connectedAt`.
+- **RATIONALE:** Revisão multiagente (cético, guardião de restrições, defensor do usuário, árbitro) registrada em `docs/plans/2026-10-12-perfil-seguro-design.md`.
+- **IMPACT:** Migração `20261012180000_perfil_seguro` (aditiva). Novas URLs a cadastrar no painel (ver `docs/etapa-7-meta-app.md` §2.5). Texto de `/privacidade` revisado; retenção dos dados do negócio até pedido de exclusão fica pendente de validação do dono/jurídico.
+- **STATUS:** `ACTIVE`
+- **SOURCE:** `docs/plans/2026-10-12-perfil-seguro-design.md`, `perfil-seguro.md`.
