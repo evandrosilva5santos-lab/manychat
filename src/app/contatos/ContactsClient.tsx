@@ -16,11 +16,16 @@ import {
   UserCheck,
   UserX,
   Sparkles,
+  Download,
+  Trash2,
+  Ban,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   addTagToContact,
   removeTagFromContact,
   createContact,
+  deleteContact,
   type ContactListItem,
 } from "./actions";
 
@@ -42,6 +47,26 @@ export function ContactsClient({
 
   // Modal para adicionar etiqueta rápida
   const [tagModalContact, setTagModalContact] = useState<ContactListItem | null>(null);
+
+  // Exclusão de contato (LGPD: direito de eliminação)
+  const [deleteTarget, setDeleteTarget] = useState<ContactListItem | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, startDeleteTransition] = useTransition();
+
+  const handleDeleteContact = (typed: string) => {
+    if (!deleteTarget) return;
+    const contactId = deleteTarget.id;
+    startDeleteTransition(async () => {
+      const res = await deleteContact(contactId, typed);
+      if (res.ok) {
+        setContacts((prev) => prev.filter((c) => c.id !== contactId));
+        setDeleteTarget(null);
+        setDeleteError("");
+      } else {
+        setDeleteError(res.error);
+      }
+    });
+  };
 
   // Modal para criar novo contato de teste
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -309,6 +334,14 @@ export function ContactsClient({
                           <div>
                             <div className="font-bold text-ink flex items-center gap-1.5">
                               <span>{contact.name || contact.username}</span>
+                              {contact.optedOut && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger"
+                                  title="Pediu para parar: não recebe mensagens automáticas"
+                                >
+                                  <Ban size={11} aria-hidden /> Parou
+                                </span>
+                              )}
                               {contact.username && (
                                 <a
                                   href={`https://instagram.com/${contact.username}`}
@@ -395,11 +428,32 @@ export function ContactsClient({
                       <td className="py-4 px-6 text-right whitespace-nowrap">
                         <Link
                           href={`/conversas?contactId=${contact.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-1.5 text-xs font-bold text-ink hover:bg-primary hover:text-white hover:border-primary transition"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-1.5 text-xs font-bold text-ink hover:bg-primary hover:text-on-primary hover:border-primary transition"
                         >
                           <MessageSquare size={13} />
                           <span>Bate-Papo</span>
                         </Link>
+                        <a
+                          href={`/api/contatos/${encodeURIComponent(contact.id)}/exportar`}
+                          download
+                          className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-surface-300 text-ink-muted hover:text-ink transition align-middle"
+                          aria-label={`Exportar dados de @${contact.username || contact.igsid}`}
+                          title="Exportar dados (LGPD)"
+                        >
+                          <Download size={14} aria-hidden />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteError("");
+                            setDeleteTarget(contact);
+                          }}
+                          className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-surface-300 text-ink-muted hover:text-danger hover:border-danger transition align-middle"
+                          aria-label={`Excluir contato @${contact.username || contact.igsid}`}
+                          title="Excluir contato e dados"
+                        >
+                          <Trash2 size={14} aria-hidden />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -409,6 +463,33 @@ export function ContactsClient({
           </div>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir contato e dados"
+        description={
+          <>
+            <p>
+              Apaga para sempre <strong>@{deleteTarget?.username || deleteTarget?.igsid}</strong> no instachat:
+              mensagens, etiquetas e histórico de automações. Não dá para desfazer.
+            </p>
+            <p className="mt-2">As mensagens continuam no Instagram, guardadas pela Meta.</p>
+            {deleteError && (
+              <p role="alert" className="mt-2 font-semibold text-danger">
+                {deleteError}
+              </p>
+            )}
+          </>
+        }
+        confirmLabel="Excluir contato"
+        busyLabel="Excluindo…"
+        tone="danger"
+        busy={isDeleting}
+        requireText="EXCLUIR"
+        requireTextLabel="Digite EXCLUIR para confirmar"
+        onConfirm={handleDeleteContact}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Modal Rápido para Adicionar Etiqueta */}
       {tagModalContact && (

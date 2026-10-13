@@ -92,6 +92,7 @@ export async function listConversations(
         is24hActive,
         remainingHours24h: remainingHours,
         sourceFlowName: c.sourceFlow?.name || null,
+        optedOut: c.optedOut,
         tags: c.tags.map((ct) => ({ id: ct.tag.id, name: ct.tag.name })),
         createdAt: c.createdAt.toISOString(),
       },

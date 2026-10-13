@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
 import { check24hWindow } from "@/lib/meta/window";
+import { deleteContactData } from "@/lib/lgpd/contact-data";
+import { matchesConfirmation } from "@/components/ui/confirm-match";
 
 const CONTACTS_LIMIT = 200;
 
@@ -21,6 +23,8 @@ export type ContactListItem = {
   is24hActive: boolean;
   remainingHours24h: number;
   sourceFlowName: string | null;
+  /** Pediu para parar (opt-out): não recebe envios automáticos. */
+  optedOut: boolean;
   tags: { id: string; name: string }[];
   createdAt: string;
 };
@@ -86,6 +90,7 @@ export async function listContacts(params: {
         is24hActive,
         remainingHours24h: remainingHours,
         sourceFlowName: c.sourceFlow?.name || null,
+        optedOut: c.optedOut,
         tags: c.tags.map((ct) => ({ id: ct.tag.id, name: ct.tag.name })),
         createdAt: c.createdAt.toISOString(),
       };
@@ -192,6 +197,7 @@ export async function createContact(data: {
       is24hActive,
       remainingHours24h: remainingHours,
       sourceFlowName: fullContact.sourceFlow?.name || null,
+      optedOut: fullContact.optedOut,
       tags: fullContact.tags.map((ct) => ({ id: ct.tag.id, name: ct.tag.name })),
       createdAt: fullContact.createdAt.toISOString(),
     };
@@ -266,5 +272,37 @@ export async function removeTagFromContact(
   } catch (err: any) {
     console.error("[contatos] Erro ao remover tag:", err);
     return { ok: false, error: err?.message || "Erro ao remover etiqueta." };
+  }
+}
+
+/** Palavra que a pessoa digita para liberar a exclusão de um contato. */
+const DELETE_CONFIRMATION = "excluir";
+
+/**
+ * Exclui um contato e tudo ligado a ele (LGPD: direito de eliminação).
+ * O servidor confere de novo a palavra digitada no diálogo.
+ */
+export async function deleteContact(
+  contactId: string,
+  typedConfirmation: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAuth();
+  const invalidInput = invalidIdMessage(contactId);
+  if (invalidInput) return { ok: false, error: invalidInput };
+  if (!matchesConfirmation(typedConfirmation, DELETE_CONFIRMATION)) {
+    return { ok: false, error: "Digite EXCLUIR para confirmar." };
+  }
+
+  try {
+    const account = await getCurrentAccount();
+    if (!account) return { ok: false, error: "Nenhuma conta ativa." };
+    const deleted = await deleteContactData(account.id, contactId);
+    if (!deleted) return { ok: false, error: "Contato não encontrado nesta conta." };
+    revalidatePath("/contatos");
+    revalidatePath("/conversas");
+    return { ok: true };
+  } catch (err) {
+    console.error("[contatos] Erro ao excluir contato:", err instanceof Error ? err.name : "erro");
+    return { ok: false, error: "Não foi possível excluir agora. Tente de novo." };
   }
 }
