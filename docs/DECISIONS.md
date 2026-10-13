@@ -128,3 +128,24 @@
 - **IMPACT:** Migração `20261012180000_perfil_seguro` (aditiva). Novas URLs a cadastrar no painel (ver `docs/etapa-7-meta-app.md` §2.5). Texto de `/privacidade` revisado; retenção dos dados do negócio até pedido de exclusão fica pendente de validação do dono/jurídico.
 - **STATUS:** `ACTIVE`
 - **SOURCE:** `docs/plans/2026-10-12-perfil-seguro-design.md`, `perfil-seguro.md`.
+
+---
+
+## ADR-008: Planos, equipe e cobrança (venda do instachat)
+- **ID:** `ADR-008`
+- **DATE:** 2026-10-13
+- **CATEGORY:** PRODUCT / BILLING / SECURITY / TENANCY
+- **CONTEXT:** Para vender o instachat faltavam login de cliente, equipe por workspace, planos, limites e cobrança. O estudo do STARTCRM (`/Volumes/Vol Macbook/App/STARTCRM`) mostrou o que reaproveitar (planos editáveis no banco, plano efetivo = plano + ajustes do cliente, papel da plataforma separado do papel na empresa, empresa interna fora do MRR, auditoria de ações do admin, pagamento que ativa o plano sozinho) e o que evitar (recurso sem decisão liberado por padrão, limites declarados e não aplicados, plano gravado em 3 lugares, papel gravado 2 vezes, suspensão checada só no navegador, auditoria que pode se perder). Plano completo: `docs/plans/2026-10-13-planos-e-cobranca.md`.
+- **DECISION:**
+  1. **Dois níveis de papel:** `User.role` (`SUPERADMIN | CLIENT`) continua sendo o da plataforma; dentro do workspace vale `WorkspaceMember.role` (`OWNER | ADMIN | OPERATOR`). Acesso a dados passa a ser por **membro**, não por `ownerId`.
+  2. **Login de cliente por e-mail e senha** (hash `scrypt` do Node, sem dependência nova). O link mágico foi descartado por enquanto porque o projeto não tem serviço de e-mail. O operador continua entrando com `SITE_USER`/`SITE_PASSWORD`. Convites de equipe são **links para copiar** (token aleatório, só o hash no banco, 7 dias, uso único).
+  3. **Plano no banco** (`Plan`), editável pelo Super Admin; **uma única fonte** do plano e do status por workspace (`Subscription`), com ajustes de limite por cliente (`limitOverrides`). Limite `null` = ilimitado (decisão explícita, não ausência).
+  4. **Fechado por padrão:** recurso fora da lista do plano está bloqueado; workspace sem assinatura não envia mensagens nem ativa fluxos. Workspace `INTERNAL` (operação da Start Inc) não tem limites e fica fora do MRR.
+  5. **Limites aplicados no servidor:** contas do Instagram (conclusão do OAuth, antes de gravar), membros (convite e aceite), fluxos ativos (`updateFlowStatus`), DMs/mês e status da assinatura (motor, antes de cada envio). O webhook da Meta **nunca** deixa de gravar contato e mensagem por causa de plano.
+  6. **Status calculado:** `TRIALING → ACTIVE → PAST_DUE (carência) → SUSPENDED → CANCELED`. Teste vencido e carência vencida são calculados pela data, sem depender de cron.
+  7. **Cobrança pelo Stripe** (cliente e webhook já existiam). Webhook idempotente por ID de evento. Checkout só aparece para plano com `stripePriceId` configurado.
+  8. **Auditoria** das ações do Super Admin gravada na mesma transação da ação.
+- **IMPACT:** Migração `20261013120000_planos_e_equipe` (aditiva, com backfill: dono vira `OWNER`, workspace de Super Admin vira `INTERNAL`, clientes atuais ganham o plano Pro ativo para não pararem no deploy). Novas variáveis: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (já previstas). Preços dos planos ficam a definir pelo dono no `/admin/planos`.
+- **PENDENTE DO DONO:** preços; se no limite deve bloquear ou cobrar excedente (implementado: bloquear); retenção após cancelamento (BLK-010; nada é apagado automaticamente).
+- **STATUS:** `ACTIVE`
+- **SOURCE:** Pedido do dono em 13/10/2026 ("comite o login, depois siga para as outras etapas").

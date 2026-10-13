@@ -1,13 +1,20 @@
 # CURRENT_TASK — Autorização Operacional de Execução
 
 > **Documento:** Autorização Formal de Execução  
-> **Status:** `AWAITING_OWNER` — nenhuma tarefa autorizada no momento  
+> **Status:** `IN_PROGRESS` — `PLANOS-E-COBRANCA` autorizada pelo dono em 13/10/2026  
 > **Framework:** Everything Claude Code (ECC)  
 > **Última revisão:** 12/10/2026 (saneamento de incoerências)  
 
 ---
 
-## Situação
+## Tarefa autorizada: `PLANOS-E-COBRANCA`
+
+- **Pedido do dono (13/10/2026):** "comite o login, depois siga para as outras etapas" (etapas do plano de planos/cobrança).
+- **Decisão:** ADR-008. **Plano:** `docs/plans/2026-10-13-planos-e-cobranca.md`.
+- **Arquivos permitidos:** `prisma/schema.prisma` e nova migration; `src/lib/auth/**`, `src/lib/tenancy.ts`, `src/lib/billing/**`, `src/lib/meta/connect-account.ts`, `src/lib/engine/runner.ts` (só a checagem antes do envio); `src/app/login/**`, `src/app/api/auth/session/**`, `src/app/equipe/**`, `src/app/convite/**`, `src/app/plano/**`, `src/app/precos/**`, `src/app/cadastro/**`, `src/app/admin/**`, `src/app/fluxos/actions.ts` (só ativação), `src/app/api/webhook/stripe/**`, `src/app/api/billing/**`, `src/components/layout/UserMenu.tsx`, `src/proxy.ts`, testes correspondentes e documentos de estado.
+- **Fora do escopo:** o trabalho do autoposter que está sem commit na pasta (não é tocado nem commitado).
+
+## Situação anterior
 
 A esteira NANO de setembro (NANO-001 a NANO-004) está concluída — ver `execution/TASK_QUEUE.md`. A ficha da NANO-002 que ficava aqui foi removida; ela continua no histórico do git.
 
