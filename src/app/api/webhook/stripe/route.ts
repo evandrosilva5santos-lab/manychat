@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getStripeClient } from "@/lib/stripe/client";
+import { applyStripeEvent } from "@/lib/billing/stripe-billing";
 
 export const dynamic = "force-dynamic";
 
@@ -37,19 +38,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed":
-        console.log(`[stripe] checkout concluído (evento ${event.id})`);
-        break;
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted":
-        console.log(`[stripe] assinatura ${event.type} (evento ${event.id})`);
-        break;
-      default:
-        console.log(`[stripe] evento não tratado: ${event.type}`);
-    }
+    const result = await applyStripeEvent(event);
+    console.log(`[stripe] ${event.type} (${event.id}): ${result}`);
   } catch (err) {
-    console.error(`[stripe] Falha ao processar ${event.type}:`, err);
+    // 500 faz o Stripe reenviar o evento; nada foi gravado (transação desfeita).
+    console.error(`[stripe] Falha ao processar ${event.type}:`, err instanceof Error ? err.name : "erro desconhecido");
     return NextResponse.json({ error: "Falha ao processar evento" }, { status: 500 });
   }
 

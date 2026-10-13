@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { getEntitlements, getUsage } from "@/lib/billing/entitlements";
 import { FEATURES, LIMIT_KEYS, LIMIT_LABELS, type Entitlements } from "@/lib/billing/plan-rules";
 import { CARD } from "@/components/ui/styles";
-import { getCurrentWorkspace } from "@/lib/tenancy";
+import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspace, getWorkspaceRole } from "@/lib/tenancy";
+import { ManageBillingButton, SubscribeButton } from "./BillingButtons";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Plano e uso · instachat" };
@@ -44,9 +46,26 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
   );
 }
 
-export default async function PlanoPage() {
-  const { workspace } = await getCurrentWorkspace();
-  const [entitlements, usage] = await Promise.all([getEntitlements(workspace.id), getUsage(workspace.id)]);
+function formatPrice(cents: number): string {
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+export default async function PlanoPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
+  const { actor, workspace } = await getCurrentWorkspace();
+  const [entitlements, usage, role, subscription, plansForSale, { checkout }] = await Promise.all([
+    getEntitlements(workspace.id),
+    getUsage(workspace.id),
+    getWorkspaceRole(actor, workspace.id),
+    prisma.subscription.findUnique({ where: { workspaceId: workspace.id }, select: { stripeCustomerId: true, stripeSubscriptionId: true, status: true } }),
+    prisma.plan.findMany({
+      where: { isActive: true, isPublic: true, stripePriceId: { not: null } },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true, description: true, priceMonthlyCents: true },
+    }),
+    searchParams,
+  ]);
+  const isOwner = role === "OWNER" && workspace.kind === "CUSTOMER";
+  const hasStripeSubscription = Boolean(subscription?.stripeSubscriptionId) && subscription?.status !== "CANCELED";
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 sm:p-8">
@@ -54,6 +73,12 @@ export default async function PlanoPage() {
         <h1 className="text-2xl font-bold tracking-tight text-ink">Plano e uso</h1>
         <p className="mt-1 text-sm text-ink-muted">Workspace {workspace.name}</p>
       </header>
+
+      {checkout === "ok" && (
+        <p role="status" className="rounded-md border border-success bg-success-soft px-4 py-3 text-sm font-medium text-ink">
+          Pagamento recebido pelo Stripe. A assinatura aparece aqui assim que a confirmação chegar (em geral, segundos).
+        </p>
+      )}
 
       {entitlements.blockReason && (
         <p role="alert" className="rounded-md border border-danger bg-danger-soft px-4 py-3 text-sm font-medium text-ink">
@@ -71,6 +96,34 @@ export default async function PlanoPage() {
         <p className="text-xl font-bold text-ink">{entitlements.planName ?? (entitlements.kind === "INTERNAL" ? "Interno" : "Nenhum")}</p>
         <p className="text-sm text-ink-muted">{STATUS_LABEL[entitlements.status]}</p>
       </section>
+
+      {isOwner && subscription?.stripeCustomerId && (
+        <section className={`${CARD} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`} aria-label="Pagamento">
+          <p className="text-sm text-ink-muted">Cartão, faturas, troca de plano e cancelamento ficam no portal seguro do Stripe.</p>
+          <ManageBillingButton />
+        </section>
+      )}
+
+      {isOwner && !hasStripeSubscription && plansForSale.length > 0 && (
+        <section className="flex flex-col gap-3" aria-labelledby="assinar">
+          <h2 id="assinar" className="text-base font-bold text-ink">Assinar</h2>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {plansForSale.map((plan) => (
+              <li key={plan.id} className={`${CARD} flex flex-col gap-3`}>
+                <div>
+                  <p className="text-base font-bold text-ink">{plan.name}</p>
+                  <p className="text-sm text-ink-muted">{formatPrice(plan.priceMonthlyCents)}/mês</p>
+                </div>
+                {plan.description && <p className="text-sm text-ink-muted">{plan.description}</p>}
+                <SubscribeButton planId={plan.id} label={`Assinar ${plan.name}`} />
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-ink-muted">
+            Limites de cada plano em <a href="/precos" className="font-semibold text-primary underline">Preços</a>.
+          </p>
+        </section>
+      )}
 
       <section className={`${CARD} flex flex-col gap-4`} aria-labelledby="uso">
         <h2 id="uso" className="text-base font-bold text-ink">Uso</h2>
