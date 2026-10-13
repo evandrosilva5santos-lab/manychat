@@ -186,3 +186,10 @@
 - **Graph (só leitura):** `me/subscribed_apps` do perfil → inscrito em `comments`, `messages`, `messaging_postbacks`. `GET /{META_APP_ID}/subscriptions` (app do `.env` local) → **lista vazia**.
 - **Produção:** `GET /api/webhook/instagram` com o verify token → 200 com o challenge; token errado → 403.
 - **Conclusão:** falta configurar o webhook no app da Meta (URL + verify token + campos). Não é a lógica de resposta. Passo adicionado em `docs/PASSOS-DO-DONO.md` (1b).
+
+---
+
+### [2026-10-13] — Portão de seguidor e capas dos Reels (relatos do dono)
+- **"JÁ SEGUI" sem resposta** (`d7c6ae0`): o postback do portão não trazia `buttonId` e a saída do portão é `unlock`; `resumeFlowOnClick` não achava a aresta e encerrava o run calado — nem quem já seguia recebia o link. Agora o clique reexecuta o portão: segue → link; não segue → 2ª mensagem ("ainda não segue") e, da 3ª em diante, mensagem final; o botão continua valendo. Campos novos na receita (`retryText`, `finalText`) e no `FOLLOW_GATE` (`finalText`).
+- **Imagens quebradas no seletor** (`fc1c569`): API conferida (só leitura) — todo `VIDEO` vem com `media_url` .mp4 e `thumbnail_url`. Seletor passa a usar a capa; `PostThumbnail` mostra ícone quando a imagem falha; prévia sem foto do Unsplash.
+- **VALIDATION:** `tsc` 0 erros; `npm test` 614/614; build ok; dois deploys de produção sem migrations.
