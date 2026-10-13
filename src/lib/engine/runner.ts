@@ -491,6 +491,11 @@ export async function executeFlow(options: RunnerOptions) {
 
       // 2. Pergunta com Botões (QUESTION)
       case "QUESTION": {
+        // Lembrete: ❤️ na última mensagem do lead antes de enviar (extra; nunca bloqueia).
+        if (data.reactToLastMessage && !sendContext) {
+          const { reactToLastInbound } = await import("./reaction");
+          await reactToLastInbound(client, { accountId, contactId: contact.id, igsid: contact.igsid });
+        }
         const text = interpolateVariables(data.text || "", contact);
         const buttonsRaw = (data.buttons || []) as any[];
 

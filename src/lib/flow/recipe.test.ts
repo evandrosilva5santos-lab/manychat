@@ -223,3 +223,51 @@ describe("sugestões de resposta pública", () => {
     expect(nextPublicReplySuggestion([...PUBLIC_REPLY_SUGGESTIONS])).toBe("");
   });
 });
+
+describe("lembretes: 1º com ❤️ e 2º contado do envio do link", () => {
+  const withReminder = (patch: Partial<Recipe["reminder"]> = {}) => {
+    const base = defaultRecipe();
+    return { ...base, link: { ...base.link, url: "https://exemplo.com" }, reminder: { ...base.reminder, enabled: true, ...patch } };
+  };
+
+  it("padrão novo: 1º em 10 min com reação, 2º em 2 h", () => {
+    const r = defaultRecipe().reminder;
+    expect(r.delaySeconds).toBe(600);
+    expect(r.react).toBe(true);
+    expect(r.second).toMatchObject({ enabled: true, delaySeconds: 7200 });
+  });
+
+  it("compila espera 10 min → abriu? → lembrete com ❤️ → espera 1h50 → abriu? → 2º lembrete", () => {
+    const snap = compileRecipe("cflow00000000000000000000", withReminder());
+    const byId = Object.fromEntries(snap.nodes.map((n) => [n.id.replace("cflow00000000000000000000-", ""), n]));
+    expect(byId.wait.data.config).toEqual({ seconds: 600 });
+    expect(byId.reminder.data.config).toMatchObject({ reactToLastMessage: true });
+    expect(byId.wait2.data.config).toEqual({ seconds: 7200 - 600 });
+    expect(byId.clicked2.data.config).toMatchObject({ rule: "link_clicked" });
+    expect(byId.reminder2.type).toBe("QUESTION");
+    const edge = (s: string, h: string | null) => snap.edges.find((e) => e.source.endsWith(s) && e.sourceHandle === h)?.target;
+    expect(edge("-reminder", null)).toMatch(/-wait2$/);
+    expect(edge("-clicked2", "no")).toMatch(/-reminder2$/);
+    expect(snapshotSchema.safeParse(snap).success).toBe(true);
+  });
+
+  it("sem reação e sem 2º lembrete: só o fluxo antigo", () => {
+    const snap = compileRecipe("cflow00000000000000000000", withReminder({ react: false, second: { enabled: false, delaySeconds: 7200, text: "x" } }));
+    expect(snap.nodes.some((n) => n.id.endsWith("-wait2"))).toBe(false);
+    expect(snap.nodes.find((n) => n.id.endsWith("-reminder"))?.data.config).not.toHaveProperty("reactToLastMessage");
+  });
+
+  it("avisa quando o 2º sairia antes do 1º", () => {
+    const problems = lintRecipe(withReminder({ delaySeconds: 3600, second: { enabled: true, delaySeconds: 600, text: "x" } }));
+    expect(problems.map((p) => p.message)).toContain("O 2º lembrete precisa sair depois do 1º");
+  });
+
+  it("receita antiga sem os campos novos ganha os padrões", () => {
+    const base = defaultRecipe();
+    const old = { ...base, reminder: { enabled: true, delaySeconds: 3600, text: "Antigo", buttonTitle: "ACESSAR" } };
+    const read = readRecipe(old);
+    expect(read.reminder.delaySeconds).toBe(3600);
+    expect(read.reminder.second.enabled).toBe(true);
+    expect(typeof read.reminder.react).toBe("boolean");
+  });
+});

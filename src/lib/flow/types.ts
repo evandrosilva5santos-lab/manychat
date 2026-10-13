@@ -25,7 +25,8 @@ export type CarouselCardRef = { id: string; catalogItemId: string };
 /** Configuração de cada tipo de caixinha. */
 export type NodeConfigMap = {
   MESSAGE: { text: string };
-  QUESTION: { text: string; buttons: DmButton[] };
+  /** reactToLastMessage: reage com ❤️ à última mensagem do lead antes de enviar (lembrete). */
+  QUESTION: { text: string; buttons: DmButton[]; reactToLastMessage?: boolean };
   /** link_clicked: `nodeId` = caixinha cujo botão de link deve ter sido aberto. */
   CONDITION: { rule: ConditionRule; tagId?: string; value?: string; nodeId?: string };
   DELAY: { seconds: number };

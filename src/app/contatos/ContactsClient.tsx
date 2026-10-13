@@ -19,6 +19,7 @@ import {
   Download,
   Trash2,
   Ban,
+  Heart,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -179,7 +180,14 @@ export function ContactsClient({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/contatos/nao-abriram"
+              className="inline-flex items-center gap-2 rounded-xl border border-border-strong bg-surface-200 px-4 py-2.5 text-sm font-semibold text-ink shadow-xs transition hover:bg-surface-300"
+            >
+              <Heart size={16} aria-hidden />
+              Não abriram o conteúdo
+            </Link>
             <button
               type="button"
               onClick={() => {
@@ -193,7 +201,7 @@ export function ContactsClient({
             </button>
             <Link
               href="/conversas"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-primary-hover active:scale-[0.98]"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-xs transition hover:bg-primary-hover active:scale-[0.98]"
             >
               <MessageSquare size={17} />
               Abrir Bate-Papo (Live Inbox)

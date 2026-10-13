@@ -116,6 +116,23 @@ export class InstagramGraphClient {
     }
     return this.send(to, { attachment: { type: "template", payload: { template_type: "generic", elements: cards } } }, context);
   }
+  /** Link público (permalink) de uma publicação do próprio perfil. */
+  async getMediaPermalink(mediaId: string): Promise<string | null> {
+    if (!identifier.safeParse(mediaId).success || this.isMock) return null;
+    const result = await this.request(mediaId, z.object({ permalink: z.string().url() }), undefined, { fields: "permalink" });
+    return result.success && result.value ? result.value.permalink : null;
+  }
+  /** Reage a uma mensagem recebida no Direct (sender_action "react"). Não gera message_id. */
+  async reactToMessage(to: string, messageId: string, reaction = "love"): Promise<GraphResult> {
+    if (!identifier.safeParse(to).success || !messageId.trim() || messageId.length > 500) return failure("Reação inválida.");
+    if (this.isMock) return { success: true, retryable: false };
+    const { value: _value, ...result } = await this.request("me/messages", z.object({ recipient_id: z.string().optional() }), {
+      recipient: { id: to },
+      sender_action: "react",
+      payload: { message_id: messageId, reaction },
+    });
+    return result;
+  }
   async replyToComment(commentId: string, text: string): Promise<GraphResult> {
     if (!identifier.safeParse(commentId).success || !text.trim()) return failure("Comentário ou texto inválido.");
     if (this.isMock) {

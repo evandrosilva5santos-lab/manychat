@@ -35,6 +35,7 @@ export const configSchemas = {
     buttons: z
       .array(dmButtonSchema)
       .max(LIMITS.buttons, `O Instagram aceita no máximo ${LIMITS.buttons} botões por mensagem`),
+    reactToLastMessage: z.boolean().optional(),
   }),
   CONDITION: z.object({
     rule: z.enum(["follows", "has_tag", "reply_contains", "link_clicked"]),

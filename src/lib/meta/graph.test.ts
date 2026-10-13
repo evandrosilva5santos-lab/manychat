@@ -26,6 +26,14 @@ describe("Instagram Login Graph client", () => {
   });
   it("subscribes postbacks and requires an explicit success response", async () => { respond({success:true}); expect((await client.subscribeWebhooks("u")).success).toBe(true); expect(fetchMock.mock.calls[0][0]).toBe(`${GRAPH_API_BASE}/me/subscribed_apps`); expect(JSON.parse(fetchMock.mock.calls[0][1].body).subscribed_fields).toContain("messaging_postbacks"); respond({success:false}); expect((await client.subscribeWebhooks()).success).toBe(false); });
   it("loads Instagram identity without Facebook page fields", async () => { respond({user_id:"u",username:"user"}); expect(await client.validateConnection()).toMatchObject({valid:true,igUserId:"u",username:"user"}); expect(fetchMock.mock.calls[0][0]).toContain("user_id%2Cusername"); });
+  it("reage com ❤️ a uma mensagem pelo sender_action react", async () => {
+    respond({recipient_id:"u"});
+    expect(await client.reactToMessage("u","mid.1")).toMatchObject({success:true});
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${GRAPH_API_BASE}/me/messages`);
+    expect(JSON.parse(init.body)).toEqual({recipient:{id:"u"},sender_action:"react",payload:{message_id:"mid.1",reaction:"love"}});
+  });
+  it("recusa reação sem mid sem chamar a Meta", async () => { expect((await client.reactToMessage("u","  ")).success).toBe(false); expect(fetchMock).not.toHaveBeenCalled(); });
   it("replies publicly", async () => { respond({id:"reply"}); expect(await client.replyToComment("c","oi")).toMatchObject({success:true,id:"reply"}); expect(fetchMock.mock.calls[0][0]).toBe(`${GRAPH_API_BASE}/c/replies`); });
   it.each([190,10,2018278,2534022,4,613,32,100])("maps Meta code %s without raw error leakage", async code => { const expired = vi.fn(); respond({error:{code,error_subcode:123,message:"test-token secret"}},400); const result = await new InstagramGraphClient("test-token",expired).sendTextMessage("u","oi"); expect(result).toMatchObject({success:false,code,subcode:123,retryable:[4,613,32].includes(code)}); expect(result.error).not.toContain("test-token"); expect(expired).toHaveBeenCalledTimes(code===190?1:0); });
   it("rejects malformed success and non-JSON responses", async () => { respond({}); expect((await client.sendTextMessage("u","oi")).success).toBe(false); fetchMock.mockResolvedValue(new Response("<html>error</html>",{status:502})); expect(await client.sendTextMessage("u","oi")).toMatchObject({success:false,retryable:true}); });

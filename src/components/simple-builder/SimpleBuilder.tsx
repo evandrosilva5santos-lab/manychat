@@ -1207,8 +1207,68 @@ export function SimpleBuilder({ flow, initial }: Props) {
                       </span>
                     </div>
                   </div>
+                  <label className="flex items-start gap-2 text-[13px] text-ink">
+                    <input
+                      type="checkbox"
+                      className="accent-primary mt-0.5 h-4 w-4"
+                      checked={recipe.reminder.react}
+                      onChange={(event) => update("reminder", { react: event.target.checked })}
+                    />
+                    <span>
+                      Reagir com ❤️ à última mensagem dele antes do lembrete
+                      <span className="block text-[11px] text-ink-subtle">
+                        Reação oficial do Direct. Se não houver mensagem dele para reagir, o lembrete sai mesmo assim.
+                      </span>
+                    </span>
+                  </label>
+
+                  <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-100 p-3">
+                    <div className="flex items-center justify-between text-[13px] font-medium text-ink">
+                      <span>2º lembrete, se ainda não abriu</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={recipe.reminder.second.enabled}
+                        aria-label="2º lembrete"
+                        onClick={() =>
+                          update("reminder", { second: { ...recipe.reminder.second, enabled: !recipe.reminder.second.enabled } })
+                        }
+                        className={`relative inline-flex h-6 w-11 flex-none cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          recipe.reminder.second.enabled ? "bg-primary" : "bg-surface-300"
+                        }`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            recipe.reminder.second.enabled ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    {recipe.reminder.second.enabled && (
+                      <>
+                        <DelayInput
+                          seconds={recipe.reminder.second.delaySeconds}
+                          onChange={(delaySeconds) => update("reminder", { second: { ...recipe.reminder.second, delaySeconds } })}
+                        />
+                        <textarea
+                          className="fx-textarea min-h-[80px] text-sm leading-relaxed"
+                          value={recipe.reminder.second.text}
+                          maxLength={LIMITS.text}
+                          rows={3}
+                          onChange={(event) => {
+                            update("reminder", { second: { ...recipe.reminder.second, text: event.target.value } });
+                            setPhoneTab("dm");
+                          }}
+                          aria-label="Texto do 2º lembrete"
+                        />
+                      </>
+                    )}
+                  </div>
+
                   <span className="text-[11px] text-ink-subtle">
-                    O botão do lembrete leva pro mesmo link de destino e só dispara se o lead não tiver clicado.
+                    Os dois tempos contam a partir do envio do link. Cada lembrete leva pro mesmo link e só dispara se o lead
+                    ainda não tiver clicado.
                   </span>
                 </div>
               )}

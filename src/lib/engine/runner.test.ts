@@ -6,9 +6,9 @@ const { db, client, record, clicked, link } = vi.hoisted(() => ({
     flowRun: { create: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     instagramAccount: { findUnique: vi.fn() },
     contactTag: { findUnique: vi.fn(), upsert: vi.fn() }, privateReply: { create: vi.fn(), update: vi.fn() },
-    message: { count: vi.fn() },
+    message: { count: vi.fn(), findFirst: vi.fn() },
   },
-  client: { sendTextMessage: vi.fn(), sendButtonMessage: vi.fn(), sendCarouselMessage: vi.fn(), checkUserFollows: vi.fn() },
+  client: { sendTextMessage: vi.fn(), sendButtonMessage: vi.fn(), sendCarouselMessage: vi.fn(), checkUserFollows: vi.fn(), reactToMessage: vi.fn() },
   record: vi.fn(), clicked: vi.fn(), link: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
@@ -268,5 +268,32 @@ describe("Portão de seguidor: \"JÁ SEGUI\" confere de novo e escala a mensagem
     db.message.count.mockResolvedValue(2);
     await resumeFlowOnClick({ accountId: "account", contact, nodeId: "gate", payload: gatePayload() });
     expect(client.sendButtonMessage).toHaveBeenCalledWith("lead", "Final", expect.any(Array), undefined);
+  });
+});
+
+describe("Lembrete com ❤️", () => {
+  it("nó marcado reage à última mensagem do lead antes de enviar o lembrete", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("QUESTION", { text: "Lembrete", reactToLastMessage: true, buttons: [{ id: "b", title: "ACESSAR", type: "web_url", url: "https://exemplo.com" }] }, false));
+    db.message.findFirst.mockResolvedValue({ igMessageId: "mid.ultima" });
+    client.reactToMessage.mockResolvedValue({ success: true });
+    await executeFlow(options);
+    expect(client.reactToMessage).toHaveBeenCalledWith("lead", "mid.ultima", "love");
+    expect(client.sendButtonMessage).toHaveBeenCalled();
+    expect(client.reactToMessage.mock.invocationCallOrder[0]).toBeLessThan(client.sendButtonMessage.mock.invocationCallOrder[0]);
+  });
+
+  it("reação recusada não impede o lembrete", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("QUESTION", { text: "Lembrete", reactToLastMessage: true, buttons: [{ id: "b", title: "ACESSAR", type: "web_url", url: "https://exemplo.com" }] }, false));
+    db.message.findFirst.mockResolvedValue({ igMessageId: "mid.ultima" });
+    client.reactToMessage.mockResolvedValue({ success: false, error: "recusada" });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await executeFlow(options);
+    expect(client.sendButtonMessage).toHaveBeenCalled();
+  });
+
+  it("nó sem a marcação não reage", async () => {
+    db.flow.findFirst.mockResolvedValue(flow("QUESTION", { text: "Pergunta", buttons: [{ id: "b", title: "OK", type: "postback" }] }, false));
+    await executeFlow(options);
+    expect(client.reactToMessage).not.toHaveBeenCalled();
   });
 });

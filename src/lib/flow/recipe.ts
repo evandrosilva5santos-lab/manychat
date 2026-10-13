@@ -36,10 +36,23 @@ export type Recipe = {
     url: string;
     buttons?: RecipeButton[];
   };
-  reminder: { enabled: boolean; delaySeconds: number; text: string; buttonTitle: string };
+  /**
+   * Lembretes para quem não abriu o link: o 1º depois de `delaySeconds` (com ❤️ opcional na
+   * última mensagem do lead) e o 2º em `second.delaySeconds` — ambos contados do envio do link.
+   */
+  reminder: {
+    enabled: boolean;
+    delaySeconds: number;
+    text: string;
+    buttonTitle: string;
+    react: boolean;
+    second: { enabled: boolean; delaySeconds: number; text: string };
+  };
 };
 
 const text = buttonTextSchema;
+/** A Meta só deixa mandar DM até 24 h depois da última mensagem do contato. */
+const MAX_REMINDER_DELAY = 60 * 60 * 23;
 /** Limite de legenda do Instagram. */
 export const MAX_MEDIA_CAPTION = 2200;
 const MAX_MEDIA_URL = 4096;
@@ -88,9 +101,15 @@ export const recipeSchema = z.object({
   }),
   reminder: z.object({
     enabled: z.boolean(),
-    delaySeconds: z.number().int().min(60).max(60 * 60 * 23),
+    delaySeconds: z.number().int().min(60).max(MAX_REMINDER_DELAY),
     text,
     buttonTitle,
+    react: z.boolean(),
+    second: z.object({
+      enabled: z.boolean(),
+      delaySeconds: z.number().int().min(60).max(MAX_REMINDER_DELAY),
+      text,
+    }),
   }),
 }) satisfies z.ZodType<Recipe>;
 
@@ -125,9 +144,15 @@ export function defaultRecipe(): Recipe {
     },
     reminder: {
       enabled: false,
-      delaySeconds: 60 * 60,
+      delaySeconds: 10 * 60,
       text: "Seu acesso está esperando por você 👀 Toca no botão abaixo.",
       buttonTitle: "ACESSAR",
+      react: true,
+      second: {
+        enabled: true,
+        delaySeconds: 2 * 60 * 60,
+        text: "Passando pra lembrar: teu material ainda está aqui 🎁 Toca no botão pra acessar.",
+      },
     },
   };
 }
@@ -159,7 +184,11 @@ export function readRecipe(raw: unknown): Recipe {
             ]
           : undefined,
     },
-    reminder: { ...base.reminder, ...value.reminder },
+    reminder: {
+      ...base.reminder,
+      ...value.reminder,
+      second: { ...base.reminder.second, ...value.reminder?.second },
+    },
   };
   const parsed = recipeSchema.safeParse(merged);
   return parsed.success ? parsed.data : base;
@@ -179,6 +208,10 @@ export function recipeIds(flowId: string) {
     clicked: `${flowId}-clicked`,
     reminder: `${flowId}-reminder`,
     reminderButton: `${flowId}-reminder-btn`,
+    wait2: `${flowId}-wait2`,
+    clicked2: `${flowId}-clicked2`,
+    reminder2: `${flowId}-reminder2`,
+    reminder2Button: `${flowId}-reminder2-btn`,
   };
 }
 
@@ -347,12 +380,47 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
         config: {
           text: recipe.reminder.text,
           buttons: [{ id: id.reminderButton, title: recipe.reminder.buttonTitle, type: "web_url", url: reminderUrl }],
+          ...(recipe.reminder.react ? { reactToLastMessage: true } : {}),
         },
       },
     });
     link(id.link, null, id.wait);
     link(id.wait, null, id.clicked);
     link(id.clicked, "no", id.reminder);
+
+    const second = recipe.reminder.second;
+    if (second.enabled) {
+      // Os dois prazos contam do envio do link: a 2ª espera é só o que falta.
+      const remaining = Math.max(60, second.delaySeconds - recipe.reminder.delaySeconds);
+      nodes.push({
+        id: id.wait2,
+        type: "DELAY",
+        position: { x: col(x + 3), y: 160 },
+        data: { kind: "DELAY", name: null, config: { seconds: remaining } },
+      });
+      nodes.push({
+        id: id.clicked2,
+        type: "CONDITION",
+        position: { x: col(x + 4), y: 160 },
+        data: { kind: "CONDITION", name: "Abriu o link?", config: { rule: "link_clicked", nodeId: id.link } },
+      });
+      nodes.push({
+        id: id.reminder2,
+        type: "QUESTION",
+        position: { x: col(x + 5), y: 320 },
+        data: {
+          kind: "QUESTION",
+          name: "2º lembrete",
+          config: {
+            text: second.text,
+            buttons: [{ id: id.reminder2Button, title: recipe.reminder.buttonTitle, type: "web_url", url: reminderUrl }],
+          },
+        },
+      });
+      link(id.reminder, null, id.wait2);
+      link(id.wait2, null, id.clicked2);
+      link(id.clicked2, "no", id.reminder2);
+    }
   }
 
   return { viewport: null, nodes, edges };
@@ -397,6 +465,12 @@ export function lintRecipe(recipe: Recipe): RecipeProblem[] {
   if (recipe.reminder.enabled) {
     if (!recipe.reminder.text.trim()) add("reminder", "Escreva o lembrete");
     if (!recipe.reminder.buttonTitle.trim()) add("reminder", "Dê um texto ao botão do lembrete");
+    if (recipe.reminder.second.enabled) {
+      if (!recipe.reminder.second.text.trim()) add("reminder", "Escreva o 2º lembrete");
+      if (recipe.reminder.second.delaySeconds <= recipe.reminder.delaySeconds) {
+        add("reminder", "O 2º lembrete precisa sair depois do 1º");
+      }
+    }
     if (recipe.reminder.delaySeconds > 23 * 3600) {
       add("reminder", "O Instagram só deixa mandar DM até 24h depois da última mensagem do contato — use no máximo 23 horas");
     }
