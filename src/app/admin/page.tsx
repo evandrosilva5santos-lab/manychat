@@ -1,5 +1,7 @@
-import { Activity, Bot, CheckCircle2, MessageSquare, ShieldCheck, Users, XCircle } from "lucide-react";
+import Link from "next/link";
+import { Activity, Bot, CheckCircle2, CreditCard, MessageSquare, ShieldCheck, Users, XCircle } from "lucide-react";
 import { AdminAccountActions } from "@/components/admin/AdminAccountActions";
+import { getMrrCents } from "@/lib/billing/admin";
 import { getAdminOverview, requireSuperAdmin } from "@/lib/tenancy";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +27,7 @@ function accountHealthy(status: string, tokenExpiresAt: Date | null): boolean {
 }
 
 export default async function AdminPage() {
-  const [admin, overview] = await Promise.all([requireSuperAdmin(), getAdminOverview()]);
+  const [admin, overview, mrrCents] = await Promise.all([requireSuperAdmin(), getAdminOverview(), getMrrCents()]);
   const { metrics, clients } = overview;
   const cards = [
     { label: "Clientes", value: metrics.clientCount, description: "workspaces cadastrados", icon: Users, tone: "text-primary" },
@@ -45,9 +47,19 @@ export default async function AdminPage() {
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Painel Super Admin</h1>
             <p className="mt-1 text-sm text-ink-muted">Acompanhamento global de clientes, canais conectados e automações.</p>
           </div>
-          <div className="rounded-xl border border-border bg-surface-100 px-4 py-3 text-sm">
-            <p className="font-semibold text-ink">{admin.name}</p>
-            <p className="text-xs text-ink-muted">{admin.email}</p>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <div className="rounded-xl border border-border bg-surface-100 px-4 py-3 text-sm">
+              <p className="font-semibold text-ink">{admin.name}</p>
+              <p className="text-xs text-ink-muted">{admin.email}</p>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-ink-muted">
+                MRR: <strong className="text-ink">{(mrrCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+              </span>
+              <Link href="/admin/planos" className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary hover:underline">
+                <CreditCard size={15} aria-hidden /> Planos
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -115,7 +127,10 @@ export default async function AdminPage() {
                         </td>
                         <td className="px-5 py-5 text-xs text-ink-muted">{formatDate(latestActivity)}</td>
                         <td className="px-5 py-5">
-                          {client.accounts.length ? <AdminAccountActions workspaceId={client.workspaceId} accountId={client.accounts[0].id} username={client.accounts[0].username} /> : <span className="text-xs text-ink-subtle">Aguardando conexão</span>}
+                          <div className="flex flex-col items-start gap-2">
+                            {client.accounts.length ? <AdminAccountActions workspaceId={client.workspaceId} accountId={client.accounts[0].id} username={client.accounts[0].username} /> : <span className="text-xs text-ink-subtle">Aguardando conexão</span>}
+                            <Link href={`/admin/workspaces/${client.workspaceId}`} className="text-xs font-semibold text-primary hover:underline">Plano e cobrança</Link>
+                          </div>
                         </td>
                       </tr>
                     );
