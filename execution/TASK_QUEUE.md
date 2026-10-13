@@ -8,7 +8,19 @@
 
 ## 🟢 READY (Pronta para Execução Imediata)
 
-*(Nenhuma tarefa pendente nesta fila.)*
+Pedidos do dono em 13/10/2026 — **prioridade: Instagram** (nesta ordem):
+
+1. **`AGENDADOR-MINUTOS`** — fazer as esperas de minutos saírem no horário (lembrete de 10 min). Opções: QStash (`docs/agendador-qstash.md`) ou `pg_cron` + `pg_net` no Supabase chamando o `/tick` a cada minuto (sem conta nova; precisa de autorização para alterar o banco de produção).
+2. **`STORY-REPLY`** — automação para quem responde ao story (gatilho `STORY_REPLY` já existe no banco; o webhook já marca `isStoryReply`). Construtor rápido próprio: palavra-chave opcional → DM → link.
+3. **`STORY-MENTION`** — resposta a quem menciona o perfil no story (anexo `story_mention` no Direct).
+4. **`LIVE-COMMENTS`** — automação para quem comenta na live (campo `live_comments` do webhook; inscrever o campo no app e no perfil).
+5. **`MENU-INSTAGRAM`** — menu principal do Direct ("Mais opções", até 20 itens): cada item responde com uma mensagem/automação ou abre um site (Messenger Profile API: `persistent_menu`/`ice_breakers` do Instagram).
+6. **`ICE-BREAKERS`** — iniciadores de conversa (perguntas prontas na primeira conversa).
+7. **`RESPOSTA-PADRAO`** — resposta padrão para DM que não casou com nenhuma palavra-chave (com intervalo mínimo por contato para não repetir).
+8. **`BOAS-VINDAS-SEGUIDORES`** — cumprimentar novos seguidores. **Verificar viabilidade antes:** a API oficial do Instagram não tem webhook de "novo seguidor"; não implementar por meios não oficiais.
+9. **`MENU-MESSENGER`** — menu do Messenger (Facebook): implementar e deixar **bloqueado** (feature flag desligada) até o dono liberar.
+
+Depois da fila: pacotes do plano n8n (`docs/plans/2026-10-13-engenharia-reversa-n8n.md`) — P1 mídia no Direct, P3 funil, P4 agente de IA (decisões do dono).
 
 ---
 

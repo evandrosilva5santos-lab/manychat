@@ -193,3 +193,11 @@
 - **"JÁ SEGUI" sem resposta** (`d7c6ae0`): o postback do portão não trazia `buttonId` e a saída do portão é `unlock`; `resumeFlowOnClick` não achava a aresta e encerrava o run calado — nem quem já seguia recebia o link. Agora o clique reexecuta o portão: segue → link; não segue → 2ª mensagem ("ainda não segue") e, da 3ª em diante, mensagem final; o botão continua valendo. Campos novos na receita (`retryText`, `finalText`) e no `FOLLOW_GATE` (`finalText`).
 - **Imagens quebradas no seletor** (`fc1c569`): API conferida (só leitura) — todo `VIDEO` vem com `media_url` .mp4 e `thumbnail_url`. Seletor passa a usar a capa; `PostThumbnail` mostra ícone quando a imagem falha; prévia sem foto do Unsplash.
 - **VALIDATION:** `tsc` 0 erros; `npm test` 614/614; build ok; dois deploys de produção sem migrations.
+
+---
+
+### [2026-10-13] — Funil "não abriu": 2 lembretes, ❤️ e lista para curtida manual
+- **Commit `559c3f3`** (deploy de produção): lembretes 10 min + 2 h (contados do envio do link, só para quem não abriu, dentro da janela de 24 h); ❤️ oficial (`sender_action: react`) na última mensagem do lead antes do 1º lembrete — extra que nunca bloqueia; página `/contatos/nao-abriram` (link não aberto ou parado no portão, 7 dias) com Abrir perfil, Ver publicação e "Já curti" (etiqueta "Curtida feita").
+- **Política:** curtir comentário/foto do lead não existe na API e curtida automática infringe os Termos do Instagram — a página orienta curtida manual.
+- **Fila** registrada em `execution/TASK_QUEUE.md` (READY 1–9): agendador de minutos, story reply, menção no story, live, menu do Instagram, ice breakers, resposta padrão, novos seguidores (viabilidade), menu do Messenger bloqueado.
+- **VALIDATION:** `tsc` 0 erros; `npm test` 638/638; build ok.
