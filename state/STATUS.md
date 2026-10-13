@@ -1,8 +1,20 @@
 # STATUS — Estado Operacional do Projeto (Fluxo)
 
 > **Documento:** Painel Central de Estado da Esteira  
-> **Última Atualização:** 29/09/2026 02:55 (Horário Local)  
+> **Última Atualização:** 12/10/2026 (Horário Local)  
 > **Governança:** Start Inc. / Orquestrador Antigravity  
+
+---
+
+## Estado atual (12/10/2026)
+- **PRODUTO:** InstaChat (código "Fluxo").
+- **BRANCH DE TRABALHO:** `feat-novas-implementacoes` (pasta `../Manychat-novas-implementacoes`), a partir de `feat-login-duplo`.
+- **CONCLUÍDO NA BRANCH:** pacote "Perfil seguro" (`perfil-seguro.md`, ADR-007) — 517 testes, tipos e build verdes; migração aplicada no banco.
+- **EM ANDAMENTO:** pacote "Marca InstaChat + Menu de perfil" (`marca-e-menu-de-perfil.md`).
+- **BLOQUEIOS EXTERNOS (dono):** cadastrar `https://instachat.startinc.com.br/api/auth/instagram/callback` e as URLs de desautorização/exclusão no painel da Meta; adicionar a conta do Instagram como testadora; recarregar `@movingfestival` e `@loveu.sunset` (descarregadas pela tela em 12/10).
+- **PRÓXIMO:** deploy da branch após a validação do pacote de marca/menu.
+
+> O bloco abaixo é o histórico da esteira NANO (setembro) e está desatualizado.
 
 ---
 

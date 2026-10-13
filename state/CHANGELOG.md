@@ -94,3 +94,28 @@
 - Adicionados painel `/admin`, troca de conta ativa em cookie HTTP-only e impersonação limitada a `SUPERADMIN`.
 - Todas as operações sensíveis de contatos, catálogo e fluxos agora verificam `accountId` da conta ativa; OAuth só vincula perfis ao workspace do ator autenticado.
 - Validação: `npx tsc --noEmit`, 290 testes Vitest e `npm run build` aprovados.
+
+---
+
+### [2026-10-12] — Pacote "Perfil seguro" (descarregar/excluir perfil, callbacks da Meta, isolamento entre clientes)
+- **DATE:** 2026-10-12
+- **AGENT:** `CLAUDE` (Claude Code — líder + agentes A, B, C, D em paralelo; revisão multiagente)
+- **TASK:** `PERFIL-SEGURO` (plano `perfil-seguro.md`, design `docs/plans/2026-10-12-perfil-seguro-design.md`, ADR-007)
+- **BRANCH / PASTA:** `feat-novas-implementacoes` em `../Manychat-novas-implementacoes`
+- **MUDANÇAS PRINCIPAIS:**
+  - Migração aditiva `20261012180000_perfil_seguro` (`metaUserId`, `connectedAt`, índice `WebhookEvent.accountId` com preenchimento, `DataDeletionRequest`) — aplicada no banco.
+  - `src/lib/meta/account-lifecycle.ts`: descarregar (cancela webhooks na Meta, apaga credencial, encerra execuções) e exclusão em lotes retomável.
+  - `POST /api/meta/deauthorize` e `POST /api/meta/data-deletion` (assinatura HMAC conferida antes do banco, `issued_at` ≤ 24 h, idempotente, teto de 8 KB real) + página pública `/exclusao-de-dados`.
+  - Motor sem token global; perfil descarregado não processa; perfil expirado grava sem disparar; estado conferido antes de cada envio; espera não fica presa.
+  - Tela de falhas e reenvio restritos ao perfil ativo; token de verificação do webhook só para SUPERADMIN.
+  - Troca do token longo do Instagram: GET documentado com repetição por POST em "Unsupported request - method type"; log com `code`, `error_subcode`, `fbtrace_id`.
+  - Telas: card "Perfil carregado" com zona de risco, `ConfirmDialog` acessível, faixa de estado (expirado/descarregado), "Pausado" nos fluxos, `/conectar` sem promessas técnicas, renovação manual salvando o token.
+- **VALIDATION:**
+  - Level 1: `npx tsc --noEmit` → 0 erros.
+  - Level 2: `npm test` → 517/517.
+  - Build: `npm run build` → OK.
+  - Lint: nenhum erro novo (erros `no-explicit-any` pré-existentes em `runner.ts`, `page.tsx`, `fluxos/page.tsx`).
+  - Level 3: callbacks em `localhost:3007` — assinatura inválida 400, corpo > 8 KB 400, GET 405, assinatura válida 200 com `{url, confirmation_code}`, repetição devolve o mesmo código, página de status "Nenhum dado encontrado"; pedido de teste apagado.
+  - Revisões: código (0 CRITICAL/HIGH) e segurança (0 CRITICAL/HIGH); médios corrigidos.
+- **RESULT:** `DONE` na branch; deploy pendente.
+- **PENDÊNCIAS DO DONO:** cadastrar `https://instachat.startinc.com.br/api/auth/instagram/callback` e as URLs de desautorização/exclusão no painel da Meta (ver `docs/etapa-7-meta-app.md` §2.5); recarregar `@movingfestival` e `@loveu.sunset` (descarregadas pela tela em 12/10); validar retenção dos dados do negócio (ADR-007).

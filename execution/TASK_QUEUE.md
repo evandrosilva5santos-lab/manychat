@@ -32,6 +32,8 @@
 
 ## ⚪ DONE (Concluídas e Validadas)
 
+- [x] **`PERFIL-SEGURO`** (2026-10-12): descarregar/excluir perfil, callbacks de desautorização e exclusão de dados da Meta, motor sem token global, isolamento da tela de falhas. Plano `perfil-seguro.md`, ADR-007.
+
 - [x] **`ITEM-01`**: Segurança, basic auth no proxy, requireAuth em server actions e links rastreados.
 - [x] **`ITEM-02`**: Banco Postgres real (Supabase), remoção de 100% de dados falsos/mocks/store.ts, páginas dinâmicas, zero falhas silenciosas.
 - [x] **`MULTI-TENANCY-ADMIN`**: Workspaces, isolamento por conta, painel Super Admin e seletor multi-conta.
