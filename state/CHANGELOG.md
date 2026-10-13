@@ -170,3 +170,10 @@
 - **ANTES:** `.vercelignore` novo — worktrees de `.claude/` e `.env` locais não sobem mais.
 - **MIGRATION:** `20261012230000_contact_opt_out` aplicada pelo `vercel-build` (log: "All migrations have been successfully applied").
 - **VERIFICAÇÃO (só leitura):** `/sair`, `/conectar`, `/privacidade`, `/exclusao-de-dados`, `/brand/*`, `/icon.png` → 200; HSTS, `nosniff` e `X-Frame-Options` presentes; `/tick` sem segredo → 401; painel sem senha → 401; `/`, `/contatos`, `/contas`, `/conversas`, `/fluxos` com senha → 200.
+
+---
+
+### [2026-10-13] — Correção: "Ativar" não ativava (relato do dono com @evansantoos)
+- **DIAGNÓSTICO:** banco de produção (consulta só leitura) com `@evansantoos` CONNECTED e **nenhum** fluxo; logs com vários `POST /fluxos/novo` 200 sem erro. Causa: `recipeSchema` recusava legenda > 1.000 caracteres (post escolhido tinha legenda longa) e o botão Ativar mostrava sucesso sem conferir a resposta.
+- **COMMIT:** `aefc870` — limites do Instagram (legenda 2.200, URL 4.096); Ativar salva antes e só muda o estado com confirmação do servidor; erro de salvamento visível no celular; cabeçalho sem sobreposição; sem `@import` do Google Fonts (bloqueado pela CSP).
+- **VALIDATION:** `tsc` 0 erros; `npm test` 605/605 (regressão nova em `recipe.test.ts`); deploy de produção sem migrations pendentes; `/fluxos/novo` 200 e CSS publicado sem `fonts.googleapis`.
