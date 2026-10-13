@@ -26,13 +26,13 @@ Depois da fila: pacotes do plano n8n (`docs/plans/2026-10-13-engenharia-reversa-
 
 ## 🟡 IN_PROGRESS (Em Execução Pelo Agente Autorizado)
 
-- **`PLANOS-E-COBRANCA`** (autorizado pelo dono em 13/10/2026; ADR-008; plano em `docs/plans/2026-10-13-planos-e-cobranca.md`). Fases: 1 login de cliente e equipe · 2 planos e direitos · 3 aplicação dos limites · 4 Super Admin · 5 cobrança Stripe · 6 página de preços e cadastro.
+*(Nenhuma tarefa em andamento no momento)*
 
 ---
 
 ## 🟣 VALIDATION (Em Fase de Validação / Testes)
 
-*(Nenhuma tarefa aguardando validação no momento)*
+- **`PLANOS-E-COBRANCA`** (ADR-008): fases 1 a 6 commitadas em `feat-login-duplo`. Falta o dono: preços, Stripe e deploy (passos em `state/STATUS.md`).
 
 ---
 

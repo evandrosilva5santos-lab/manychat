@@ -201,3 +201,14 @@
 - **Política:** curtir comentário/foto do lead não existe na API e curtida automática infringe os Termos do Instagram — a página orienta curtida manual.
 - **Fila** registrada em `execution/TASK_QUEUE.md` (READY 1–9): agendador de minutos, story reply, menção no story, live, menu do Instagram, ice breakers, resposta padrão, novos seguidores (viabilidade), menu do Messenger bloqueado.
 - **VALIDATION:** `tsc` 0 erros; `npm test` 638/638; build ok.
+
+### [2026-10-13] — Planos, equipe e cobrança (ADR-008)
+- **Commits:** `d07ffc2` login com sessão · `8b4f7c1` governança · `d86894d` modelos e regras · `bfcd91c` login de cliente, equipe e limites · `0c70ed9` Super Admin · `1f48e70` testes scrypt · `1475ee3` Stripe · `00a0060` preços e cadastro.
+- **Equipe:** login por e-mail e senha (scrypt); acesso por membro; papéis OWNER/ADMIN/OPERATOR aplicados em conectar, descarregar e excluir perfil e em automações; convites por link (`/equipe`, `/convite/[token]`).
+- **Planos:** `Plan` e `Subscription` (única fonte), fechado por padrão, workspace `INTERNAL` sem limites. Limites no servidor: contas no OAuth, automações ativas, membros, DMs/mês e status no motor. `/plano` com uso.
+- **Super Admin:** `/admin/planos`, `/admin/workspaces/[id]`, auditoria transacional, MRR.
+- **Cobrança:** Stripe Checkout e Customer Portal; webhook idempotente (`BillingEvent`).
+- **Vendas:** `/precos` e `/cadastro` com teste grátis, fechado até `PUBLIC_SIGNUP=on`.
+- **Migration:** `20261013120000_planos_e_equipe` (aditiva, testada em Postgres descartável com backfill). Não aplicada: o `.env` local aponta para o banco de produção; aplica no deploy.
+- **Validação (cópia isolada do commit, sem o autoposter em andamento):** `tsc` 0 erros, 771 testes, `npm run build` ok.
+- **Fora do commit:** trabalho do autoposter feito em paralelo pelo Antigravity na mesma pasta (schema, `proxy.ts`, `csp.ts` etc.) segue sem commit; a cópia `stash@{0}` é só backup.

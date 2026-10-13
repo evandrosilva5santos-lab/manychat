@@ -1,7 +1,7 @@
 # CURRENT_TASK — Autorização Operacional de Execução
 
 > **Documento:** Autorização Formal de Execução  
-> **Status:** `IN_PROGRESS` — `PLANOS-E-COBRANCA` autorizada pelo dono em 13/10/2026  
+> **Status:** `VALIDATION` — `PLANOS-E-COBRANCA` entregue no branch; aguarda preços, Stripe e deploy do dono  
 > **Framework:** Everything Claude Code (ECC)  
 > **Última revisão:** 12/10/2026 (saneamento de incoerências)  
 
@@ -11,6 +11,7 @@
 
 - **Pedido do dono (13/10/2026):** "comite o login, depois siga para as outras etapas" (etapas do plano de planos/cobrança).
 - **Decisão:** ADR-008. **Plano:** `docs/plans/2026-10-13-planos-e-cobranca.md`.
+- **Arquivos permitidos (também usados):** `src/app/ajustes/actions.ts`, `src/app/contas/actions.ts`, `src/app/api/auth/instagram/login/route.ts` (papéis), `src/components/layout/Sidebar.tsx` (páginas públicas sem barra), `.env.example`.
 - **Arquivos permitidos:** `prisma/schema.prisma` e nova migration; `src/lib/auth/**`, `src/lib/tenancy.ts`, `src/lib/billing/**`, `src/lib/meta/connect-account.ts`, `src/lib/engine/runner.ts` (só a checagem antes do envio); `src/app/login/**`, `src/app/api/auth/session/**`, `src/app/equipe/**`, `src/app/convite/**`, `src/app/plano/**`, `src/app/precos/**`, `src/app/cadastro/**`, `src/app/admin/**`, `src/app/fluxos/actions.ts` (só ativação), `src/app/api/webhook/stripe/**`, `src/app/api/billing/**`, `src/components/layout/UserMenu.tsx`, `src/proxy.ts`, testes correspondentes e documentos de estado.
 - **Fora do escopo:** o trabalho do autoposter que está sem commit na pasta (não é tocado nem commitado).
 

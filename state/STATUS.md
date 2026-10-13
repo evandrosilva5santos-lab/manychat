@@ -6,6 +6,12 @@
 
 ---
 
+## Estado atual (13/10/2026, tarde) — planos, equipe e cobrança
+- **CONCLUÍDO NO BRANCH (sem deploy):** ADR-008 inteiro, fases 1 a 6 — login de cliente, equipe com papéis, planos com limites aplicados no servidor, Super Admin de planos e assinaturas, cobrança Stripe, `/precos` e `/cadastro`. Ver `state/CHANGELOG.md`.
+- **ANTES DO DEPLOY (dono):** definir preços e criar os preços no Stripe; colocar o `price_...` de cada plano em `/admin/planos`; configurar `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e o webhook `${APP_URL}/api/webhook/stripe`; ativar o Customer Portal; só então `PUBLIC_SIGNUP=on`.
+- **EFEITO DO DEPLOY:** a migration dá o plano Pro ativo (sem cobrança) a todo cliente existente e marca o workspace do Super Admin como interno — ninguém para de funcionar.
+- **PENDENTE:** workspace suspenso ainda dispara gatilhos que terminam em "falha" com o motivo do plano (melhor: não iniciar o fluxo); e-mails de cobrança e recuperação de senha dependem de um serviço de e-mail.
+
 ## Estado atual (13/10/2026, madrugada)
 - **PRODUTO:** instachat (código interno "Fluxo"). Nome sempre em minúsculas, como no logotipo.
 - **PASTA OFICIAL:** `/Users/evandro/Downloads/Manychat`, branch `feat-login-duplo` (commits locais, sem push).
