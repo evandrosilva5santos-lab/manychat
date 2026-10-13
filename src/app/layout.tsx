@@ -36,7 +36,6 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="h-screen h-[100dvh] w-screen flex flex-row overflow-hidden bg-surface-100 text-ink">
         <Sidebar
-          isSuperAdmin={menu.actor?.role === "SUPERADMIN"}
           accounts={menu.accounts.map((account) => ({
             id: account.id,
             username: account.username,

@@ -7,10 +7,8 @@ import {
   User,
   MessageSquare,
   Send,
-  Settings,
   LayoutGrid,
   TriangleAlert,
-  Shield,
 } from "lucide-react";
 import { BrandSymbol } from "@/components/brand/BrandLogo";
 import { ActiveAccountMenu, type ActiveMenuAccount } from "./ActiveAccountMenu";
@@ -82,17 +80,15 @@ const NAV_ITEMS = [
   },
   { id: "falhas", label: "Envios com falha", href: "/conversas/falhas", icon: TriangleAlert },
   { id: "direct", label: "Transmissão", href: "/direct", icon: Send },
-  { id: "ajustes", label: "Ajustes", href: "/ajustes", icon: Settings },
 ];
 
 type SidebarProps = {
-  isSuperAdmin?: boolean;
   accounts: ActiveMenuAccount[];
   activeAccountId: string | null;
   user: MenuUser | null;
 };
 
-export function Sidebar({ isSuperAdmin = false, accounts, activeAccountId, user }: SidebarProps) {
+export function Sidebar({ accounts, activeAccountId, user }: SidebarProps) {
   const pathname = usePathname();
 
   // Telas públicas isoladas, sem menu interno do app: conexão do cliente e "Você saiu"
@@ -120,7 +116,8 @@ export function Sidebar({ isSuperAdmin = false, accounts, activeAccountId, user 
 
         {/* Itens de Navegação com ícones exatos */}
         <nav className="flex flex-col items-center gap-2 mt-2 w-full px-2">
-          {(isSuperAdmin ? [...NAV_ITEMS, { id: "admin", label: "Admin", href: "/admin", icon: Shield }] : NAV_ITEMS).map((item) => {
+          {/* Ajustes e Painel Admin ficam só no menu do avatar (sem duplicar aqui). */}
+          {NAV_ITEMS.map((item) => {
             const isActive =
               item.href === "/"
                 ? pathname === "/"
