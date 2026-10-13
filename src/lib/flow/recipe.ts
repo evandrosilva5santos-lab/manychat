@@ -189,6 +189,26 @@ export function recipeIds(flowId: string) {
  *                                          └não→ "SIGA O PERFIL" [JÁ SEGUI] → LINK
  *   LINK → ESPERA → ABRIU O LINK? ─não→ LEMBRETE [mesmo link]
  */
+/** Respostas públicas prontas, na ordem em que o construtor sugere ao adicionar um campo. */
+export const PUBLIC_REPLY_SUGGESTIONS = [
+  "Te mandei no direct! 📩",
+  "Corre lá no direct que já te enviei 👀",
+  "Acabei de te mandar uma mensagem! 💌",
+  "Olha teu direct, já está lá ✨",
+  "Enviado! Confere tua DM 📲",
+  "Te chamei no privado 😉",
+  "Já mandei tudo no direct, aproveita! 🚀",
+  "Chegou no teu direct, dá uma olhadinha 👇",
+  "Mandei por mensagem pra você! 🙌",
+  "Respondi no direct, confere lá 💬",
+] as const;
+
+/** Primeira sugestão que ainda não está na lista (ignora maiúsculas e espaços); "" se todas já foram usadas. */
+export function nextPublicReplySuggestion(current: readonly string[]): string {
+  const used = new Set(current.map((reply) => reply.trim().toLowerCase()));
+  return PUBLIC_REPLY_SUGGESTIONS.find((suggestion) => !used.has(suggestion.toLowerCase())) ?? "";
+}
+
 export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
   if (recipe.trigger.scope === "specific" && !recipe.trigger.mediaId.trim()) {
     throw new UserFacingError("Informe o ID da publicação específica");

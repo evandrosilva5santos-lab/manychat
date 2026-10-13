@@ -47,6 +47,7 @@ import { SaveStatus, useAutosave } from "@/components/ui/useAutosave";
 import { formatDelay } from "@/lib/flow/nodes";
 import {
   lintRecipe,
+  nextPublicReplySuggestion,
   type Recipe,
   type RecipeButton,
   type RecipeProblem,
@@ -854,7 +855,9 @@ export function SimpleBuilder({ flow, initial }: Props) {
                         type="button"
                         onClick={() => {
                           const current = trigger.publicReplies.variations.length > 0 ? trigger.publicReplies.variations : [""];
-                          update("trigger", { publicReplies: { ...trigger.publicReplies, variations: [...current, ""] } });
+                          update("trigger", {
+                            publicReplies: { ...trigger.publicReplies, variations: [...current, nextPublicReplySuggestion(current)] },
+                          });
                           setPhoneTab("comments");
                         }}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-hover"
@@ -869,7 +872,8 @@ export function SimpleBuilder({ flow, initial }: Props) {
                     </span>
                   </div>
                   <p className="text-xs text-ink-subtle">
-                    A cada comentário, uma das respostas é sorteada — variar ajuda a não ser marcado como spam pela Meta.
+                    Cada resposta nova já vem com uma sugestão — edite à vontade. A cada comentário, uma delas é sorteada, o que
+                    ajuda a não ser marcado como spam pela Meta.
                   </p>
                 </div>
               )}

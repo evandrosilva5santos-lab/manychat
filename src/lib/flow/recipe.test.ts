@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { normalizeEdges } from "./convert";
-import { compileRecipe, defaultRecipe, lintRecipe, readRecipe, recipeSchema, type Recipe } from "./recipe";
+import {
+  compileRecipe,
+  defaultRecipe,
+  lintRecipe,
+  nextPublicReplySuggestion,
+  PUBLIC_REPLY_SUGGESTIONS,
+  readRecipe,
+  recipeSchema,
+  type Recipe,
+} from "./recipe";
 import { snapshotSchema } from "./schema";
 
 const FLOW = "cmflow0000000000000000000";
@@ -195,5 +204,22 @@ describe("respostas públicas no comentário", () => {
     expect(recipeSchema.safeParse(recipe).success).toBe(true);
     const trigger = compileRecipe("cflow00000000000000000000", recipe).nodes.find((node) => node.type === "TRIGGER");
     expect((trigger?.data.config as { publicReplies: string[] }).publicReplies).toEqual(["Te mandei no direct!", "Olha tua DM 👀"]);
+  });
+});
+
+describe("sugestões de resposta pública", () => {
+  it("são 10, únicas e cabem no limite de texto", () => {
+    expect(PUBLIC_REPLY_SUGGESTIONS).toHaveLength(10);
+    expect(new Set(PUBLIC_REPLY_SUGGESTIONS).size).toBe(10);
+  });
+
+  it("sugere a próxima que ainda não foi usada, ignorando maiúsculas e espaços", () => {
+    expect(nextPublicReplySuggestion([])).toBe(PUBLIC_REPLY_SUGGESTIONS[0]);
+    expect(nextPublicReplySuggestion([" te mandei no direct! 📩 "])).toBe(PUBLIC_REPLY_SUGGESTIONS[1]);
+    expect(nextPublicReplySuggestion(["Minha frase própria"])).toBe(PUBLIC_REPLY_SUGGESTIONS[0]);
+  });
+
+  it("devolve vazio quando todas já estão na lista", () => {
+    expect(nextPublicReplySuggestion([...PUBLIC_REPLY_SUGGESTIONS])).toBe("");
   });
 });
