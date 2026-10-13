@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap");
+/* Fontes: no app vêm do next/font (src/app/layout.tsx), servidas pelo próprio domínio —
+   a CSP bloqueia fonts.googleapis.com. Fora do app, carregue Plus Jakarta Sans e JetBrains Mono. */
 .fx, .fx * { box-sizing: border-box; }
 .fx { font-family: var(--font-sans); color: var(--ink); font-size: 15px; line-height: 22px; }
 body { background: var(--surface-100); color: var(--ink); font-family: var(--font-sans); margin: 0; }

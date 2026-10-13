@@ -39,6 +39,9 @@ export type Recipe = {
 };
 
 const text = buttonTextSchema;
+/** Limite de legenda do Instagram. */
+export const MAX_MEDIA_CAPTION = 2200;
+const MAX_MEDIA_URL = 4096;
 const buttonTitle = z.string().trim().max(LIMITS.buttonTitle, `Máximo de ${LIMITS.buttonTitle} caracteres no botão`);
 
 export const recipeButtonSchema = z.object({
@@ -56,8 +59,10 @@ export const recipeSchema = z.object({
     cooldownSeconds: z.number().int().min(0).max(2147483647).optional(),
     priority: z.number().int().min(-2147483648).max(2147483647).optional(),
     mediaId: z.string().trim().max(100),
-    mediaUrl: z.string().trim().max(2000).optional(),
-    mediaCaption: z.string().trim().max(1000).optional(),
+    // Só para mostrar o post no construtor. Limites do próprio Instagram:
+    // legenda de até 2.200 caracteres e URLs de CDN que passam de 2.000.
+    mediaUrl: z.string().trim().max(MAX_MEDIA_URL).optional(),
+    mediaCaption: z.string().trim().max(MAX_MEDIA_CAPTION).optional(),
     keywords: z
       .array(z.string().trim().min(1).max(100))
       .max(LIMITS.keywords, `No máximo ${LIMITS.keywords} palavras-chave`),

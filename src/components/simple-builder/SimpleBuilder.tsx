@@ -182,6 +182,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
   const [keywordInput, setKeywordInput] = useState(initial.trigger.keywords.join(", "));
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [isSavingManual, setIsSavingManual] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [collectEmail, setCollectEmail] = useState(false);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -268,12 +269,34 @@ export function SimpleBuilder({ flow, initial }: Props) {
         return;
       }
     }
-    setStatus(nextStatus);
-    showToast(nextStatus === "LIVE" ? "Automação ativada com sucesso!" : "Automação interrompida com sucesso!");
+    setIsToggling(true);
     try {
-      await updateFlowStatus(currentFlowId, nextStatus);
+      // Automação nova ou com alterações não salvas: salva antes, senão não há o que ativar.
+      let flowId = currentFlowId;
+      if (flowId === "novo" || save.status !== "saved") {
+        const saved = await saveRecipe(flowId, recipe);
+        if (!saved.ok) {
+          reportError(saved.error);
+          showToast(`Não foi possível salvar: ${saved.error}`);
+          return;
+        }
+        if (saved.flowId && saved.flowId !== flowId) {
+          flowId = saved.flowId;
+          setCurrentFlowId(saved.flowId);
+          window.history.replaceState(null, "", `/fluxos/${saved.flowId}`);
+        }
+      }
+      const result = await updateFlowStatus(flowId, nextStatus);
+      if (!result.ok) {
+        showToast(`Não foi possível ${nextStatus === "LIVE" ? "ativar" : "interromper"}: ${result.error}`);
+        return;
+      }
+      setStatus(nextStatus);
+      showToast(nextStatus === "LIVE" ? "Automação ativada com sucesso!" : "Automação interrompida com sucesso!");
     } catch {
-      // estado mantido na UI
+      showToast("Sem conexão com o servidor. Tente de novo.");
+    } finally {
+      setIsToggling(false);
     }
   };
 
@@ -291,7 +314,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
         showToast("Automação atualizada e salva com sucesso!");
       }
     } catch {
-      showToast("Automação atualizada com sucesso!");
+      showToast("Sem conexão com o servidor. Tente de novo.");
     } finally {
       setIsSavingManual(false);
     }
@@ -322,9 +345,9 @@ export function SimpleBuilder({ flow, initial }: Props) {
             <ChevronLeft size={20} />
           </Link>
 
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <input
-              className="w-36 sm:w-auto max-w-[170px] sm:max-w-[280px] rounded-md bg-transparent px-2 py-1 text-[15px] sm:text-[17px] font-bold text-ink hover:bg-surface-300/50 focus:bg-surface-300/80 outline-none transition-all truncate"
+              className="min-w-0 flex-1 max-w-[280px] rounded-md bg-transparent px-2 py-1 text-[15px] sm:text-[17px] font-bold text-ink hover:bg-surface-300/50 focus:bg-surface-300/80 outline-none transition-all truncate"
               value={name}
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
@@ -390,10 +413,12 @@ export function SimpleBuilder({ flow, initial }: Props) {
           <button
             type="button"
             onClick={handleToggleStatus}
-            className={`flex items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 sm:px-4 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer ${
+            disabled={isToggling || save.status === "saving"}
+            aria-busy={isToggling}
+            className={`flex items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 sm:px-4 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer disabled:cursor-wait disabled:opacity-60 ${
               status === "LIVE"
                 ? "border border-danger/30 bg-danger-soft text-danger hover:bg-danger-soft"
-                : "bg-primary text-white hover:bg-primary-hover"
+                : "bg-primary text-on-primary hover:bg-primary-hover"
             }`}
           >
             {status === "LIVE" ? (
@@ -473,6 +498,13 @@ export function SimpleBuilder({ flow, initial }: Props) {
           </div>
         </div>
       </header>
+
+      {save.status === "error" && (
+        <div role="alert" className="flex flex-none items-center gap-2 border-b border-danger bg-danger-soft px-3 py-2 text-sm font-medium text-ink sm:px-6">
+          <AlertTriangle size={16} className="flex-none text-danger" aria-hidden />
+          <span className="min-w-0">Não foi possível salvar: {save.error}</span>
+        </div>
+      )}
 
 
 

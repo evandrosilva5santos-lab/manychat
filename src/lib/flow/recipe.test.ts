@@ -144,3 +144,20 @@ describe("trigger persistence and Meta limits", () => {
     expect(recipeSchema.safeParse(recipe((r) => { r.link.text = "x".repeat(641); })).success).toBe(false);
   });
 });
+
+describe("recipeSchema × dados reais do post escolhido", () => {
+  const withPost = (caption: string, url = "https://scontent.cdninstagram.com/v/t51.2885-15/foto.jpg") => {
+    const base = defaultRecipe();
+    return { ...base, trigger: { ...base.trigger, scope: "specific" as const, mediaId: "17900000000000001", mediaUrl: url, mediaCaption: caption } };
+  };
+
+  it("aceita legenda longa até o limite do Instagram (2.200) — antes, acima de 1.000 nada salvava", () => {
+    expect(recipeSchema.safeParse(withPost("a".repeat(1500))).success).toBe(true);
+    expect(recipeSchema.safeParse(withPost("a".repeat(2200))).success).toBe(true);
+    expect(recipeSchema.safeParse(withPost("a".repeat(2201))).success).toBe(false);
+  });
+
+  it("aceita URL de CDN maior que 2.000 caracteres", () => {
+    expect(recipeSchema.safeParse(withPost("legenda", `https://scontent.cdninstagram.com/${"x".repeat(2500)}`)).success).toBe(true);
+  });
+});

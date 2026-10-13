@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import type { InstagramMediaItem } from "@/lib/meta/graph";
+import { MAX_MEDIA_CAPTION } from "@/lib/flow/recipe";
 
 export type InstagramPost = {
   id: string;
@@ -69,7 +70,7 @@ export function PostPicker({
                 ? "REEL"
                 : "POST";
 
-            const caption = item.caption || "Sem legenda";
+            const caption = (item.caption || "Sem legenda").slice(0, MAX_MEDIA_CAPTION);
             const shortTitle = caption.length > 24 ? `${caption.slice(0, 24)}...` : caption;
 
             return {
