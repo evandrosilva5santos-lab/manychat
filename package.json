@@ -12,7 +12,7 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "verify": "vitest run && tsc --noEmit",
-    "vercel-build": "prisma generate && node -e \"const url=process.env.DIRECT_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL||process.env.POSTGRES_URL_NON_POOLING; if(url && !url.includes('HOST')){ console.log('Executando prisma migrate deploy...'); require('child_process').execSync('npx prisma migrate deploy', {stdio:'inherit'}); } else { console.log('Sem banco configurado: pulando migrate deploy.'); }\" && next build"
+    "vercel-build": "prisma generate && node scripts/vercel-migrate.mjs && next build"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
