@@ -191,13 +191,18 @@ function FollowGateForm({ data, setConfig }: FormProps<"FOLLOW_GATE">) {
         <ButtonTitle value={config.buttonTitle} onChange={(buttonTitle) => setConfig({ ...config, buttonTitle })} />
       </Field>
       <TextArea
-        label="Se ainda não segue"
+        label="Tocou no botão e ainda não segue"
         value={config.notFollowingText}
         onChange={(notFollowingText) => setConfig({ ...config, notFollowingText })}
       />
+      <TextArea
+        label="Insistiu de novo sem seguir (3ª vez em diante)"
+        value={config.finalText ?? ""}
+        onChange={(finalText) => setConfig({ ...config, finalText })}
+      />
       <p className="text-xs text-ink-subtle">
         Quem toca no botão e já segue o perfil vai pela saída “{config.buttonTitle || "DESBLOQUEAR"}”. Quem não segue
-        recebe a mensagem acima e pode tocar de novo.
+        recebe a próxima mensagem da sequência e pode tocar de novo.
       </p>
     </>
   );

@@ -961,6 +961,36 @@ export function SimpleBuilder({ flow, initial }: Props) {
                       {LIMITS.text - recipe.followGate.text.length}
                     </span>
                   </div>
+
+                  {(
+                    [
+                      { key: "retryText", label: `Se tocar em “${recipe.followGate.buttonTitle || "JÁ SEGUI"}” e ainda não seguir` },
+                      { key: "finalText", label: "Se insistir de novo sem seguir (3ª vez em diante)" },
+                    ] as const
+                  ).map(({ key, label }) => (
+                    <label key={key} className="flex flex-col gap-1.5">
+                      <span className="text-xs font-semibold text-ink-muted">{label}</span>
+                      <span className="relative">
+                        <textarea
+                          className="fx-textarea min-h-[80px] w-full text-sm leading-relaxed"
+                          value={recipe.followGate[key]}
+                          maxLength={LIMITS.text}
+                          rows={3}
+                          onChange={(event) => {
+                            update("followGate", { [key]: event.target.value });
+                            setPhoneTab("dm");
+                          }}
+                        />
+                        <span className="absolute bottom-2.5 right-3 text-[11px] font-mono text-ink-subtle pointer-events-none bg-surface-200/90 px-1 rounded">
+                          {LIMITS.text - recipe.followGate[key].length}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                  <p className="text-xs text-ink-subtle">
+                    Quem já segue e toca no botão recebe o link na hora. O botão continua na mensagem, então a pessoa pode
+                    tentar quantas vezes quiser.
+                  </p>
                 </div>
               )}
             </div>

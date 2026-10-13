@@ -57,6 +57,7 @@ export const configSchemas = {
     text: buttonTextSchema,
     buttonTitle,
     notFollowingText: buttonTextSchema,
+    finalText: buttonTextSchema.optional(),
   }),
   NOTE: z.object({ text: z.string().max(2000) }),
   TRIGGER: z.object({

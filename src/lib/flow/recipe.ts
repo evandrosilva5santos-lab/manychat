@@ -28,7 +28,8 @@ export type Recipe = {
     publicReplies: { enabled: boolean; variations: string[] };
   };
   welcome: { enabled?: boolean; text: string; buttonTitle: string };
-  followGate: { enabled: boolean; text: string; buttonTitle: string };
+  /** text = 1º pedido · retryText = tocou e ainda não segue · finalText = insistiu de novo (3ª vez em diante). */
+  followGate: { enabled: boolean; text: string; buttonTitle: string; retryText: string; finalText: string };
   link: {
     text: string;
     buttonTitle: string;
@@ -78,7 +79,7 @@ export const recipeSchema = z.object({
     text,
     buttonTitle,
   }),
-  followGate: z.object({ enabled: z.boolean(), text, buttonTitle }),
+  followGate: z.object({ enabled: z.boolean(), text, buttonTitle, retryText: text, finalText: text }),
   link: z.object({
     text,
     buttonTitle,
@@ -113,6 +114,9 @@ export function defaultRecipe(): Recipe {
       enabled: true,
       text: "Você ainda não está seguindo o perfil 👀\n\nSegue a gente e toca no botão de novo pra receber.",
       buttonTitle: "JÁ SEGUI",
+      retryText: "Hmm, ainda não apareceu aqui que você segue 🤔\n\nConfere se tocou em Seguir no perfil e toca no botão de novo.",
+      finalText:
+        "Ainda não consegui confirmar 😕 Às vezes o Instagram demora uns minutinhos pra atualizar.\n\nSegue o perfil, espera um pouquinho e toca no botão de novo.",
     },
     link: {
       text: "Aqui está! Toca no botão pra acessar 👇",
@@ -277,7 +281,8 @@ export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
         config: {
           text: recipe.followGate.text,
           buttonTitle: recipe.followGate.buttonTitle,
-          notFollowingText: recipe.followGate.text,
+          notFollowingText: recipe.followGate.retryText || recipe.followGate.text,
+          finalText: recipe.followGate.finalText || recipe.followGate.retryText || recipe.followGate.text,
         },
       },
     });

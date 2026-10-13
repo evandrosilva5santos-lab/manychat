@@ -31,7 +31,8 @@ export type NodeConfigMap = {
   DELAY: { seconds: number };
   ADD_TAG: { tagId?: string };
   CAROUSEL: { cards: CarouselCardRef[] };
-  FOLLOW_GATE: { text: string; buttonTitle: string; notFollowingText: string };
+  /** text = 1º pedido · notFollowingText = tocou no botão e ainda não segue · finalText = 3ª vez em diante. */
+  FOLLOW_GATE: { text: string; buttonTitle: string; notFollowingText: string; finalText?: string };
   NOTE: { text: string };
   TRIGGER: {
     type: TriggerType;

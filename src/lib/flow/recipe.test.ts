@@ -161,3 +161,20 @@ describe("recipeSchema × dados reais do post escolhido", () => {
     expect(recipeSchema.safeParse(withPost("legenda", `https://scontent.cdninstagram.com/${"x".repeat(2500)}`)).success).toBe(true);
   });
 });
+
+describe("portão de seguidor com sequência de mensagens", () => {
+  it("compila pedido, 'ainda não segue' e mensagem final no FOLLOW_GATE", () => {
+    const base = defaultRecipe();
+    const recipe = { ...base, followGate: { ...base.followGate, text: "1º", retryText: "2º", finalText: "3º" } };
+    const gate = compileRecipe("cflow00000000000000000000", recipe).nodes.find((node) => node.type === "FOLLOW_GATE");
+    expect(gate?.data.config).toMatchObject({ text: "1º", notFollowingText: "2º", finalText: "3º" });
+  });
+
+  it("receita antiga sem os textos novos ganha os padrões ao ser lida", () => {
+    const old = { ...defaultRecipe(), followGate: { enabled: true, text: "Segue a gente", buttonTitle: "JÁ SEGUI" } };
+    const read = readRecipe(old);
+    expect(read.followGate.text).toBe("Segue a gente");
+    expect(read.followGate.retryText.length).toBeGreaterThan(0);
+    expect(read.followGate.finalText.length).toBeGreaterThan(0);
+  });
+});

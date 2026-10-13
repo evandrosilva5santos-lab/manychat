@@ -112,6 +112,25 @@ async function handleSendFailure(
   return "stop";
 }
 
+/** Quantas vezes o portão já pediu para seguir nesta execução. */
+async function countGateAsks(runId: string, nodeId: string): Promise<number> {
+  try {
+    return await prisma.message.count({ where: { runId, nodeId, direction: "OUT" } });
+  } catch {
+    return 0;
+  }
+}
+
+/** Texto do portão conforme a tentativa: 0 = pedido, 1 = ainda não segue, 2+ = final. */
+export function gateText(
+  data: { text?: string; notFollowingText?: string; finalText?: string },
+  previousAsks: number,
+): string {
+  if (previousAsks <= 0) return data.text || data.notFollowingText || "";
+  if (previousAsks === 1) return data.notFollowingText || data.text || "";
+  return data.finalText || data.notFollowingText || data.text || "";
+}
+
 export async function executeFlow(options: RunnerOptions) {
   const { accountId, contact, flowId, triggerId } = options;
 
@@ -699,10 +718,10 @@ export async function executeFlow(options: RunnerOptions) {
           );
           nextNodeId = unlockEdge ? unlockEdge.targetNodeId : null;
         } else {
+          // 1ª vez: pedido para seguir · 2ª: tocou e ainda não segue · 3ª em diante: mensagem final.
+          const previousAsks = await countGateAsks(run.id, node.id);
           const text = interpolateVariables(
-            data.notFollowingText ||
-              data.text ||
-              "Siga nosso perfil e toque no botão abaixo:",
+            gateText(data, previousAsks) || "Siga nosso perfil e toque no botão abaixo:",
             contact,
           );
           const buttonTitle = (data.buttonTitle || "JÁ SEGUI")
@@ -926,6 +945,18 @@ export async function resumeFlowOnClick(params: {
 
   if (!flow) {
     return { success: false, error: "Fluxo não encontrado" };
+  }
+
+  // "JÁ SEGUI": volta ao próprio portão, que confere de novo se a pessoa segue
+  // (segue → link; não segue → próxima mensagem da sequência).
+  if (decoded?.kind === "gate" && flow.nodes.some((n: { id: string }) => n.id === targetNodeId)) {
+    return executeFlow({
+      accountId,
+      contact,
+      flowId: flow.id,
+      startNodeId: targetNodeId,
+      runId: waiting.id,
+    });
   }
 
   let nextEdge = targetButtonId

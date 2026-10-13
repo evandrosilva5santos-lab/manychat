@@ -6,6 +6,7 @@ const { db, client, record, clicked, link } = vi.hoisted(() => ({
     flowRun: { create: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     instagramAccount: { findUnique: vi.fn() },
     contactTag: { findUnique: vi.fn(), upsert: vi.fn() }, privateReply: { create: vi.fn(), update: vi.fn() },
+    message: { count: vi.fn() },
   },
   client: { sendTextMessage: vi.fn(), sendButtonMessage: vi.fn(), sendCarouselMessage: vi.fn(), checkUserFollows: vi.fn() },
   record: vi.fn(), clicked: vi.fn(), link: vi.fn(),
@@ -14,7 +15,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount: vi.fn(async () => client) }));
 vi.mock("./contacts", () => ({ recordOutgoingMessage: record }));
 vi.mock("./tracked-links", () => ({ trackedUrl: link, hasClickedLink: clicked }));
-import { executeFlow, resumeFlowOnClick, resumeFlowOnMessage } from "./runner";
+import { executeFlow, gateText, resumeFlowOnClick, resumeFlowOnMessage } from "./runner";
 import { encodePostback } from "../meta/postback";
 
 const contact: Contact = {
@@ -212,5 +213,60 @@ describe("Perfil seguro: run FAILED não ressuscita", () => {
     db.flowRun.findUnique.mockResolvedValue({ id: "run", status: "RUNNING", currentNodeId: "first" });
     expect((await executeFlow({ ...options, runId: "run" })).success).toBe(true);
     expect(client.sendTextMessage).toHaveBeenCalledWith("lead", "Olá", undefined);
+  });
+});
+
+describe("Portão de seguidor: \"JÁ SEGUI\" confere de novo e escala a mensagem", () => {
+  const gateData = { text: "Pedido", buttonTitle: "JÁ SEGUI", notFollowingText: "Ainda não", finalText: "Final" };
+  function gateFlow() {
+    return {
+      id: "flow", accountId: "account", status: "LIVE",
+      nodes: [
+        { id: "gate", type: "FOLLOW_GATE", data: gateData, carouselCards: [] },
+        { id: "link", type: "MESSAGE", data: { text: "Aqui está o link" }, carouselCards: [] },
+      ],
+      edges: [{ sourceNodeId: "gate", targetNodeId: "link", sourceHandle: "unlock" }],
+    };
+  }
+  const gatePayload = () => encodePostback({ kind: "gate", nodeId: "gate", runId: "run" });
+  function waitingAtGate() {
+    const fixture = gateFlow();
+    db.flow.findFirst.mockResolvedValue(fixture);
+    db.flowRun.findFirst.mockResolvedValue({ id: "run", flowId: "flow", currentNodeId: "gate", status: "WAITING_CLICK", triggerContext: null, flow: fixture });
+  }
+
+  it("gateText escolhe pedido, 'ainda não' e final pela tentativa", () => {
+    expect(gateText(gateData, 0)).toBe("Pedido");
+    expect(gateText(gateData, 1)).toBe("Ainda não");
+    expect(gateText(gateData, 2)).toBe("Final");
+    expect(gateText(gateData, 7)).toBe("Final");
+    expect(gateText({ text: "Só um" }, 3)).toBe("Só um");
+  });
+
+  it("tocou em JÁ SEGUI e agora segue: recebe o link (antes a execução terminava calada)", async () => {
+    waitingAtGate();
+    client.checkUserFollows.mockResolvedValue(true);
+    const result = await resumeFlowOnClick({ accountId: "account", contact, nodeId: "gate", payload: gatePayload() });
+    expect(result.success).toBe(true);
+    expect(client.sendTextMessage).toHaveBeenCalledWith("lead", "Aqui está o link", undefined);
+  });
+
+  it("tocou em JÁ SEGUI e ainda não segue: manda a 2ª mensagem e continua esperando o botão", async () => {
+    waitingAtGate();
+    client.checkUserFollows.mockResolvedValue(false);
+    db.message.count.mockResolvedValue(1);
+    await resumeFlowOnClick({ accountId: "account", contact, nodeId: "gate", payload: gatePayload() });
+    expect(client.sendButtonMessage).toHaveBeenCalledWith("lead", "Ainda não", [expect.objectContaining({ title: "JÁ SEGUI", type: "postback" })], undefined);
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+    const statuses = db.flowRun.updateMany.mock.calls.map((call) => (call[0] as { data?: { status?: string } }).data?.status);
+    expect(statuses).toContain("WAITING_CLICK");
+  });
+
+  it("insistiu de novo sem seguir: manda a mensagem final", async () => {
+    waitingAtGate();
+    client.checkUserFollows.mockResolvedValue(false);
+    db.message.count.mockResolvedValue(2);
+    await resumeFlowOnClick({ accountId: "account", contact, nodeId: "gate", payload: gatePayload() });
+    expect(client.sendButtonMessage).toHaveBeenCalledWith("lead", "Final", expect.any(Array), undefined);
   });
 });
