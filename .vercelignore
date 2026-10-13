@@ -1,0 +1,9 @@
+# Nada local que não seja código do app vai para a Vercel.
+.claude
+.env
+.env.*
+!.env.example
+.next
+node_modules
+.data
+*.tsbuildinfo
