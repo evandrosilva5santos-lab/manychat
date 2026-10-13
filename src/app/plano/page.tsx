@@ -95,6 +95,13 @@ export default async function PlanoPage({ searchParams }: { searchParams: Promis
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Plano atual</p>
         <p className="text-xl font-bold text-ink">{entitlements.planName ?? (entitlements.kind === "INTERNAL" ? "Interno" : "Nenhum")}</p>
         <p className="text-sm text-ink-muted">{STATUS_LABEL[entitlements.status]}</p>
+        {entitlements.complimentary && entitlements.canOperate && (
+          <p className="text-sm font-semibold text-success">
+            {entitlements.complimentary.until
+              ? `Cortesia até ${entitlements.complimentary.until.toLocaleDateString("pt-BR")}`
+              : "Cortesia por tempo indeterminado"}
+          </p>
+        )}
       </section>
 
       {isOwner && subscription?.stripeCustomerId && (

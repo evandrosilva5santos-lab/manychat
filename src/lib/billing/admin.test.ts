@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/tenancy", () => ({ requireSuperAdmin }));
 vi.mock("./entitlements", () => ({ getEntitlements: vi.fn(), getUsage: vi.fn() }));
 
-import { diffFields, getMrrCents, savePlan, setWorkspaceSubscription } from "./admin";
+import { addMonths, complimentaryFields, diffFields, getMrrCents, savePlan, setWorkspaceSubscription } from "./admin";
 
 const admin = { id: "sa", email: "sa@x", name: "SA", role: "SUPERADMIN" };
 const validPlan = {
@@ -98,12 +98,57 @@ describe("relatórios", () => {
     db.subscription.findMany.mockResolvedValue([{ plan: { priceMonthlyCents: 19700 } }, { plan: { priceMonthlyCents: 9700 } }]);
     await expect(getMrrCents()).resolves.toBe(29400);
     expect(db.subscription.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: { in: ["ACTIVE", "PAST_DUE"] }, workspace: { kind: "CUSTOMER" } } }),
+      expect.objectContaining({ where: { status: { in: ["ACTIVE", "PAST_DUE"] }, isComplimentary: false, workspace: { kind: "CUSTOMER" } } }),
     );
   });
 
   it("diffFields ignora o que não mudou", () => {
     expect(diffFields({ a: 1, b: 2 }, { a: 1, b: 3 })).toEqual({ b: { de: 2, para: 3 } });
     expect(diffFields(null, { a: 1 })).toEqual({ a: { de: null, para: 1 } });
+  });
+});
+
+describe("cortesia (cliente grátis)", () => {
+  const NOW = new Date("2026-01-31T12:00:00Z");
+  const base = { planId: "p1", status: "SUSPENDED", trialEndsAt: null, limitOverrides: {} };
+
+  beforeEach(() => {
+    db.workspace.findUnique.mockResolvedValue({ id: "w1", kind: "CUSTOMER", subscription: null });
+    db.plan.findUnique.mockResolvedValue({ id: "p1" });
+  });
+
+  it.each([
+    ["1", "2026-02-28T12:00:00.000Z"],
+    ["3", "2026-04-30T12:00:00.000Z"],
+    ["6", "2026-07-31T12:00:00.000Z"],
+    ["9", "2026-10-31T12:00:00.000Z"],
+  ])("%s mês(es) a partir de hoje", (option, until) => {
+    expect(complimentaryFields(option as "1", NOW)).toEqual({ isComplimentary: true, complimentaryUntil: new Date(until) });
+  });
+
+  it("indeterminado não tem data; 'manter' não mexe; 'encerrar' desliga", () => {
+    expect(complimentaryFields("indefinite", NOW)).toEqual({ isComplimentary: true, complimentaryUntil: null });
+    expect(complimentaryFields("keep", NOW)).toBeNull();
+    expect(complimentaryFields("none", NOW)).toEqual({ isComplimentary: false, complimentaryUntil: null });
+  });
+
+  it("dar cortesia grava ativo, a data e audita", async () => {
+    await setWorkspaceSubscription("w1", { ...base, complimentary: "3" }, NOW);
+    const update = db.subscription.upsert.mock.calls[0][0].update;
+    expect(update).toMatchObject({ status: "ACTIVE", isComplimentary: true, complimentaryUntil: new Date("2026-04-30T12:00:00.000Z") });
+    expect(db.auditLog.create.mock.calls[0][0].data.changes).toHaveProperty("isComplimentary");
+  });
+
+  it("sem escolher cortesia, os campos dela não são tocados", async () => {
+    await setWorkspaceSubscription("w1", base, NOW);
+    expect(db.subscription.upsert.mock.calls[0][0].update).not.toHaveProperty("isComplimentary");
+  });
+
+  it("opção inventada é recusada", async () => {
+    await expect(setWorkspaceSubscription("w1", { ...base, complimentary: "12" }, NOW)).rejects.toThrow();
+  });
+
+  it("addMonths respeita o fim do mês", () => {
+    expect(addMonths(new Date("2026-03-31T00:00:00Z"), 1).toISOString()).toBe("2026-04-30T00:00:00.000Z");
   });
 });

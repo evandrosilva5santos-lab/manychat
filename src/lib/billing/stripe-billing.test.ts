@@ -114,6 +114,8 @@ describe("applyStripeEvent", () => {
           stripeCustomerId: "cus_1",
           currentPeriodEnd: new Date(1_793_000_000 * 1000),
           graceEndsAt: null,
+          isComplimentary: false,
+          complimentaryUntil: null,
         }),
       }),
     );

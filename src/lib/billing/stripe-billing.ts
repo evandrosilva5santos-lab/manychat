@@ -96,6 +96,8 @@ type SyncData = {
   cancelAtPeriodEnd: boolean;
   trialEndsAt: Date | null;
   graceEndsAt: Date | null;
+  isComplimentary: boolean;
+  complimentaryUntil: Date | null;
 };
 type SyncPlan = { workspaceId: string; data: SyncData };
 
@@ -133,6 +135,9 @@ async function planSync(sub: Stripe.Subscription, now: Date): Promise<SyncPlan |
       cancelAtPeriodEnd: sub.cancel_at_period_end,
       trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
       graceEndsAt,
+      // Assinou pelo Stripe: a cortesia acaba e vale o que o Stripe diz.
+      isComplimentary: false,
+      complimentaryUntil: null,
     },
   };
 }

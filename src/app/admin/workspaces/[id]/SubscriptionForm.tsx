@@ -12,7 +12,17 @@ const STATUS_OPTIONS = [
   ["CANCELED", "Cancelado"],
 ] as const;
 
-type Initial = { planId: string; status: string; trialEndsAt: string; limitOverrides: string };
+const COMPLIMENTARY_OPTIONS = [
+  ["keep", "Manter como está"],
+  ["none", "Sem cortesia (cobrar normalmente)"],
+  ["1", "Grátis por 1 mês"],
+  ["3", "Grátis por 3 meses"],
+  ["6", "Grátis por 6 meses"],
+  ["9", "Grátis por 9 meses"],
+  ["indefinite", "Grátis por tempo indeterminado"],
+] as const;
+
+type Initial = { planId: string; status: string; trialEndsAt: string; limitOverrides: string; complimentaryLabel: string | null };
 
 export function SubscriptionForm(props: { workspaceId: string; plans: { id: string; name: string; isActive: boolean }[]; initial: Initial }) {
   const [isPending, startTransition] = useTransition();
@@ -36,6 +46,7 @@ export function SubscriptionForm(props: { workspaceId: string; plans: { id: stri
           status: String(data.get("status")),
           trialEndsAt: trialEndsAt ? `${trialEndsAt}T23:59:59.000Z` : null,
           limitOverrides,
+          complimentary: String(data.get("complimentary") || "keep"),
         }),
       );
     });
@@ -64,6 +75,15 @@ export function SubscriptionForm(props: { workspaceId: string; plans: { id: stri
           <input name="trialEndsAt" type="date" defaultValue={props.initial.trialEndsAt} className={INPUT} />
         </label>
       </div>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold text-ink">Cortesia (cliente grátis, fora do MRR)</span>
+        <select name="complimentary" defaultValue="keep" className={INPUT}>
+          {COMPLIMENTARY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <span className="text-xs text-ink-muted">
+          {props.initial.complimentaryLabel ?? "Sem cortesia hoje."} O prazo conta a partir de hoje; ao vencer, as automações pausam até o cliente assinar.
+        </span>
+      </label>
       <label className="flex flex-col gap-1.5">
         <span className="text-xs font-semibold text-ink">Ajustes de limite deste cliente (JSON; null = ilimitado)</span>
         <textarea

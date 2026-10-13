@@ -727,6 +727,10 @@ model Subscription {
   stripeSubscriptionId String?            @unique
   /// Ajustes negociados com este cliente, ex.: { "maxInstagramAccounts": 5 }.
   limitOverrides       Json               @default("{}")
+  /// Cortesia: cliente grátis, sem cobrança e fora do MRR. Ao vencer, suspende.
+  isComplimentary      Boolean            @default(false)
+  /// Fim da cortesia; vazio = por tempo indeterminado.
+  complimentaryUntil   DateTime?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 

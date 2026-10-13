@@ -10,6 +10,11 @@ import { SubscriptionForm } from "./SubscriptionForm";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Workspace · Administração · instachat" };
 
+function complimentaryLabel(complimentary: { until: Date | null } | null): string | null {
+  if (!complimentary) return null;
+  return complimentary.until ? `Cortesia até ${complimentary.until.toLocaleDateString("pt-BR")}.` : "Cortesia por tempo indeterminado.";
+}
+
 export default async function AdminWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const data = await getWorkspaceBilling(id);
@@ -34,6 +39,9 @@ export default async function AdminWorkspacePage({ params }: { params: Promise<{
         <p className="text-sm text-ink">
           {entitlements.kind === "INTERNAL" ? "Operação interna: sem plano e sem limites." : `${entitlements.planName ?? "Sem plano"} · ${entitlements.status}`}
         </p>
+        {complimentaryLabel(entitlements.complimentary) && (
+          <p className="text-sm font-semibold text-success">{complimentaryLabel(entitlements.complimentary)}</p>
+        )}
         {entitlements.blockReason && <p className="text-sm font-medium text-danger">{entitlements.blockReason}</p>}
         <ul className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           {LIMIT_KEYS.map((key) => (
@@ -59,6 +67,7 @@ export default async function AdminWorkspacePage({ params }: { params: Promise<{
             status: sub?.status ?? "ACTIVE",
             trialEndsAt: sub?.trialEndsAt ? sub.trialEndsAt.toISOString().slice(0, 10) : "",
             limitOverrides: JSON.stringify(sub?.limitOverrides ?? {}),
+            complimentaryLabel: complimentaryLabel(entitlements.complimentary),
           }}
         />
       )}

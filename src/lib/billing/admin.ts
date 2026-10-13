@@ -31,12 +31,36 @@ export type PlanInput = z.infer<typeof planInputSchema>;
 
 const STATUSES = ["TRIALING", "ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELED"] as const;
 
+/** Cortesia: manter a atual, encerrar, por N meses ou por tempo indeterminado. */
+export const COMPLIMENTARY_OPTIONS = ["keep", "none", "1", "3", "6", "9", "indefinite"] as const;
+export type ComplimentaryOption = (typeof COMPLIMENTARY_OPTIONS)[number];
+
 export const subscriptionInputSchema = z.object({
   planId: z.string().min(1).max(40),
   status: z.enum(STATUSES),
   trialEndsAt: z.coerce.date().nullable(),
   limitOverrides: z.record(z.string(), z.unknown()),
+  complimentary: z.enum(COMPLIMENTARY_OPTIONS).default("keep"),
 });
+
+/** Soma meses de calendário (31/01 + 1 mês = último dia de fevereiro). */
+export function addMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  const day = result.getUTCDate();
+  result.setUTCDate(1);
+  result.setUTCMonth(result.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
+  result.setUTCDate(Math.min(day, lastDay));
+  return result;
+}
+
+/** Campos de cortesia a gravar, ou `null` para manter os atuais. */
+export function complimentaryFields(option: ComplimentaryOption, now: Date) {
+  if (option === "keep") return null;
+  if (option === "none") return { isComplimentary: false, complimentaryUntil: null };
+  if (option === "indefinite") return { isComplimentary: true, complimentaryUntil: null };
+  return { isComplimentary: true, complimentaryUntil: addMonths(now, Number(option)) };
+}
 export type SubscriptionInput = z.infer<typeof subscriptionInputSchema>;
 
 /** Só os campos que mudaram, no formato { campo: { de, para } }. */
@@ -125,7 +149,7 @@ export async function getWorkspaceBilling(workspaceId: string) {
 }
 
 /** Troca plano, status, fim do teste e ajustes de limite de um workspace. */
-export async function setWorkspaceSubscription(workspaceId: string, input: unknown) {
+export async function setWorkspaceSubscription(workspaceId: string, input: unknown, now = new Date()) {
   const actor = await requireSuperAdmin();
   const data = parseOrThrow(subscriptionInputSchema, input);
   const overrides = readLimitOverrides(data.limitOverrides);
@@ -137,9 +161,24 @@ export async function setWorkspaceSubscription(workspaceId: string, input: unkno
   if (workspace.kind === "INTERNAL") throw new UserFacingError("Workspace interno não tem plano.");
   if (!plan) throw new UserFacingError("Plano não encontrado.");
 
-  const next = { planId: data.planId, status: data.status, trialEndsAt: data.trialEndsAt, limitOverrides: overrides };
-  const before = workspace.subscription
-    ? { planId: workspace.subscription.planId, status: workspace.subscription.status, trialEndsAt: workspace.subscription.trialEndsAt, limitOverrides: workspace.subscription.limitOverrides }
+  const complimentary = complimentaryFields(data.complimentary, now);
+  const next = {
+    planId: data.planId,
+    // Cortesia vale como ativa: o status gravado acompanha para relatórios e filtros.
+    status: complimentary?.isComplimentary ? ("ACTIVE" as const) : data.status,
+    trialEndsAt: data.trialEndsAt,
+    limitOverrides: overrides,
+    ...(complimentary ?? {}),
+  };
+  const current = workspace.subscription;
+  const before = current
+    ? {
+        planId: current.planId,
+        status: current.status,
+        trialEndsAt: current.trialEndsAt,
+        limitOverrides: current.limitOverrides,
+        ...(complimentary ? { isComplimentary: current.isComplimentary, complimentaryUntil: current.complimentaryUntil } : {}),
+      }
     : null;
   const writeData = { ...next, limitOverrides: overrides as Prisma.InputJsonValue };
   await prisma.$transaction([
@@ -156,11 +195,11 @@ export async function setWorkspaceSubscription(workspaceId: string, input: unkno
   ]);
 }
 
-/** MRR em centavos: assinaturas ativas ou em carência de clientes (interno fica fora). */
+/** MRR em centavos: assinaturas pagas ativas ou em carência (interno e cortesia ficam fora). */
 export async function getMrrCents(): Promise<number> {
   await requireSuperAdmin();
   const active = await prisma.subscription.findMany({
-    where: { status: { in: ["ACTIVE", "PAST_DUE"] }, workspace: { kind: "CUSTOMER" } },
+    where: { status: { in: ["ACTIVE", "PAST_DUE"] }, isComplimentary: false, workspace: { kind: "CUSTOMER" } },
     select: { plan: { select: { priceMonthlyCents: true } } },
   });
   return active.reduce((sum, row) => sum + row.plan.priceMonthlyCents, 0);

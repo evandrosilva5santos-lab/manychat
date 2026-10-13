@@ -97,3 +97,25 @@ describe("checkLimit", () => {
     expect(() => checkLimit(customer(null), "maxActiveFlows", 0)).toThrow(/ainda não tem um plano/);
   });
 });
+
+describe("cortesia", () => {
+  it("vale como ativa até a data, mesmo com status gravado diferente", () => {
+    const ent = customer(sub({ status: "SUSPENDED", isComplimentary: true, complimentaryUntil: future }));
+    expect(ent.canOperate).toBe(true);
+    expect(ent.status).toBe("ACTIVE");
+    expect(ent.complimentary).toEqual({ until: future });
+  });
+
+  it("sem data é por tempo indeterminado", () => {
+    const ent = customer(sub({ isComplimentary: true, complimentaryUntil: null }));
+    expect(ent.canOperate).toBe(true);
+    expect(ent.complimentary).toEqual({ until: null });
+  });
+
+  it("ao vencer suspende com a mensagem da cortesia", () => {
+    const ent = customer(sub({ isComplimentary: true, complimentaryUntil: past }));
+    expect(ent.canOperate).toBe(false);
+    expect(ent.status).toBe("SUSPENDED");
+    expect(ent.blockReason).toMatch(/cortesia terminou/);
+  });
+});

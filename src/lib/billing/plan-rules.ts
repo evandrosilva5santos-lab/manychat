@@ -30,6 +30,8 @@ export type SubscriptionLike = {
   trialEndsAt: Date | null;
   graceEndsAt: Date | null;
   limitOverrides: unknown;
+  isComplimentary?: boolean;
+  complimentaryUntil?: Date | null;
   plan: PlanLike;
 };
 
@@ -44,6 +46,8 @@ export type Entitlements = {
   blockReason: string | null;
   /** Aviso sem bloqueio (ex.: pagamento pendente dentro da carência). */
   warning: string | null;
+  /** Cortesia ativa ou vencida: `until` nulo = por tempo indeterminado. */
+  complimentary: { until: Date | null } | null;
   limits: Limits;
   features: FeatureKey[];
 };
@@ -72,13 +76,21 @@ export function readLimitOverrides(raw: unknown): Partial<Limits> {
   return out;
 }
 
+function complimentaryExpired(sub: SubscriptionLike, now: Date): boolean {
+  return Boolean(sub.isComplimentary && sub.complimentaryUntil && sub.complimentaryUntil <= now);
+}
+
 function effectiveStatus(sub: SubscriptionLike, now: Date): SubscriptionStatus {
+  // Cortesia manda no status: vale ativa até a data (ou para sempre) e suspende ao vencer.
+  if (sub.isComplimentary) return complimentaryExpired(sub, now) ? "SUSPENDED" : "ACTIVE";
   if (sub.status === "TRIALING" && sub.trialEndsAt && sub.trialEndsAt <= now) return "SUSPENDED";
   if (sub.status === "PAST_DUE" && sub.graceEndsAt && sub.graceEndsAt <= now) return "SUSPENDED";
   return sub.status;
 }
 
-function blockReasonFor(original: SubscriptionStatus, status: SubscriptionStatus): string | null {
+function blockReasonFor(sub: SubscriptionLike, status: SubscriptionStatus, now: Date): string | null {
+  const original = sub.status;
+  if (complimentaryExpired(sub, now)) return "O período de cortesia terminou. Escolha um plano para continuar com as automações.";
   if (status === "CANCELED") return "A assinatura foi cancelada. Escolha um plano para voltar a usar as automações.";
   if (status !== "SUSPENDED") return null;
   if (original === "TRIALING") return "O teste grátis terminou. Escolha um plano para continuar com as automações.";
@@ -93,18 +105,18 @@ export function computeEntitlements(
   if (workspace.kind === "INTERNAL") {
     return {
       kind: "INTERNAL", planName: null, planSlug: null, status: "INTERNAL", canOperate: true,
-      blockReason: null, warning: null, limits: UNLIMITED, features: ALL_FEATURES,
+      blockReason: null, warning: null, complimentary: null, limits: UNLIMITED, features: ALL_FEATURES,
     };
   }
   const sub = workspace.subscription;
   if (!sub) {
     return {
       kind: "CUSTOMER", planName: null, planSlug: null, status: "NONE", canOperate: false,
-      blockReason: NO_PLAN_REASON, warning: null, limits: NOTHING, features: [],
+      blockReason: NO_PLAN_REASON, warning: null, complimentary: null, limits: NOTHING, features: [],
     };
   }
   const status = effectiveStatus(sub, now);
-  const blockReason = blockReasonFor(sub.status, status);
+  const blockReason = blockReasonFor(sub, status, now);
   const planLimits = Object.fromEntries(LIMIT_KEYS.map((key) => [key, sub.plan[key]])) as Limits;
   return {
     kind: "CUSTOMER",
@@ -114,6 +126,7 @@ export function computeEntitlements(
     canOperate: blockReason === null,
     blockReason,
     warning: status === "PAST_DUE" ? "Pagamento pendente. Atualize a forma de pagamento para não ter as automações pausadas." : null,
+    complimentary: sub.isComplimentary ? { until: sub.complimentaryUntil ?? null } : null,
     limits: { ...planLimits, ...readLimitOverrides(sub.limitOverrides) },
     features: sub.plan.features.filter((key): key is FeatureKey => key in FEATURES),
   };
