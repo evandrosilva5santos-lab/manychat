@@ -23,6 +23,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import type { Recipe } from "@/lib/flow/recipe";
+import { PostThumbnail } from "./PostThumbnail";
 
 type Props = {
   recipe: Recipe;
@@ -108,14 +109,7 @@ export function DmPreview({
                     key={recipe.trigger.mediaId || recipe.trigger.mediaUrl}
                     className="relative h-full w-full animate-in fade-in zoom-in-95 duration-300 ease-out"
                   >
-                    <img
-                      src={
-                        recipe.trigger.mediaUrl ||
-                        "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&auto=format&fit=crop&q=80"
-                      }
-                      alt="Postagem selecionada"
-                      className="h-full w-full object-cover"
-                    />
+                    <PostThumbnail url={recipe.trigger.mediaUrl} alt="Postagem selecionada" iconSize={36} />
                     <div className="absolute top-2.5 right-2.5 rounded-md bg-black/60 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-white border border-white/20">
                       POST
                     </div>

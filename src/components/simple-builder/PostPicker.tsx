@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { InstagramMediaItem } from "@/lib/meta/graph";
 import { MAX_MEDIA_CAPTION } from "@/lib/flow/recipe";
+import { PostThumbnail, pickThumbnailUrl } from "./PostThumbnail";
 
 export type InstagramPost = {
   id: string;
@@ -76,7 +77,7 @@ export function PostPicker({
             return {
               id: item.id,
               type: postType,
-              url: item.mediaUrl || item.thumbnailUrl || "",
+              url: pickThumbnailUrl(item),
               caption,
               shortTitle,
               relativeTime: item.timestamp
@@ -177,17 +178,12 @@ export function PostPicker({
                 }`}
                 title={post.caption}
               >
-                {post.url ? (
-                  <img
-                    src={post.url}
-                    alt={post.shortTitle}
-                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="h-full w-full bg-surface-300 flex items-center justify-center text-ink-muted">
-                    <ImageIcon size={20} />
-                  </div>
-                )}
+                <PostThumbnail
+                  url={post.url}
+                  alt={post.shortTitle}
+                  video={post.type === "REEL"}
+                  className="group-hover:scale-105 transition-transform duration-300"
+                />
                 {/* Ícone no topo direito */}
                 <div className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded bg-black/60 text-white">
                   {post.type === "CAROUSEL" ? (
@@ -275,17 +271,13 @@ export function PostPicker({
                         }`}
                       >
                         <div className="relative aspect-square w-full overflow-hidden bg-surface-300">
-                          {post.url ? (
-                            <img
-                              src={post.url}
-                              alt={post.shortTitle}
-                              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center text-ink-muted">
-                              <ImageIcon size={24} />
-                            </div>
-                          )}
+                          <PostThumbnail
+                            url={post.url}
+                            alt={post.shortTitle}
+                            video={post.type === "REEL"}
+                            iconSize={24}
+                            className="group-hover:scale-105 transition-transform duration-300"
+                          />
                           <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded bg-black/70 text-white backdrop-blur-xs">
                             {post.type === "CAROUSEL" ? (
                               <Copy size={13} />
