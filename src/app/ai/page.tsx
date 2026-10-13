@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Bot, Sparkles, ArrowLeft, Zap, MessageSquare, ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: "Agentes de IA · Fluxo",
+  title: "Agentes de IA · instachat",
   description: "Crie agentes de IA inteligentes para atender e qualificar leads 24h no Instagram Direct.",
 };
 
@@ -23,7 +23,7 @@ export default function AiAgentsPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-ink">Agentes de IA</h1>
-              <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-bold text-accent">
+              <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-bold text-primary">
                 Em breve
               </span>
             </div>

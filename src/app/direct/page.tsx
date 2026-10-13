@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Send, Users, ArrowLeft, Radio, Clock, ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: "Transmissão · Fluxo",
+  title: "Transmissão · instachat",
   description: "Dispare mensagens e comunicados segmentados para seus contatos dentro da política da Meta.",
 };
 
@@ -17,13 +17,13 @@ export default function DirectBroadcastPage() {
           <ArrowLeft size={14} /> Voltar para Automações
         </Link>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent border border-accent/20">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary border border-primary/20">
             <Send size={26} />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-ink">Transmissão & Broadcast</h1>
-              <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-bold text-accent">
+              <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-bold text-primary">
                 Em breve
               </span>
             </div>

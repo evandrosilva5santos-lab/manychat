@@ -25,7 +25,7 @@
 - **TYPE:** `AMBIGUITY`
 - **IMPACT:** Se o usuário comentar em um post com fluxo específico, o fluxo genérico ("qualquer post") poderia disparar incorretamente.
 - **EVIDENCE:** `src/lib/engine/matcher.ts` filtrava apenas por palavra-chave sem checar `trigger.mediaId`.
-- **STATUS:** `OPEN`
+- **STATUS:** `RESOLVED` (NANO-004 em `DONE`; `matcher.ts` filtra por `mediaId`)
 - **REQUIRED DECISION:** Definir regra estrita no matcher: fluxos com `scope: "specific"` e `mediaId` correspondente têm precedência absoluta sobre fluxos com `scope: "any"`.
 
 ---
@@ -37,5 +37,38 @@
 - **TYPE:** `DEPENDENCY`
 - **IMPACT:** Automações param de funcionar silenciosamente após 60 dias caso não haja renovação.
 - **EVIDENCE:** Método `refreshLongLivedToken` existe em `src/lib/meta/graph.ts`, mas não há cron job agendado para execução periódica.
-- **STATUS:** `PENDING`
+- **STATUS:** `RESOLVED` (cron diário `/api/cron/refresh-tokens` em `vercel.json`)
 - **REQUIRED DECISION:** Mapear a criação de job de verificação de expiração no Roadmap da Fase 6.
+
+---
+
+## Saneamento de 12/10/2026 (PRD imutável — divergências registradas aqui)
+
+### ISSUE-004: PRD pede Facebook Login; o produto usa Instagram Login + Facebook Login
+- **PRD REFERENCE:** Seção 3, Módulo 1 · **TYPE:** `OUTDATED_REQUIREMENT`
+- **EVIDENCE:** ADR-005 (Instagram Login) e ADR-006 (login duplo).
+- **STATUS:** `OPEN` — dono decide se publica uma v1.1 do PRD.
+
+### ISSUE-005: Nome do produto
+- **ISSUE:** O PRD chama o produto de "Fluxo"; a marca agora é **instachat** (minúsculo), com logos em `design-system/assets/brand/`.
+- **STATUS:** `OPEN` — dono decide se publica uma v1.1 do PRD.
+
+### ISSUE-006: Caixas do PRD desmarcadas para itens já entregues
+- **ISSUE:** Módulos 1, 3, 4, 5 e 6 aparecem `[ ]`, mas webhook com HMAC, roteador, runner, links rastreados, contatos, etiquetas, proteção de rotas e criptografia de token estão implementados e testados (ver `PRD_TRACEABILITY.md`).
+- **STATUS:** `OPEN` — só o dono pode marcar o PRD.
+
+### ISSUE-007: REG-API-002 (fallback mock) contradiz a regra "zero dados falsos"
+- **EVIDENCE:** REG-API-002 e ADR-004 pedem posts de demonstração; `docs/prompts-execucao/00-PROMPT-MESTRE.md` §3.1 proíbe dados fictícios em produção, e o código mostra estado de erro honesto.
+- **STATUS:** `OPEN` — dono decide qual regra vale; o código segue "zero dados falsos".
+
+### ISSUE-008: Cobrança — PRD/REG-SCOPE-001 proíbem, prompt 08 pede
+- **EVIDENCE:** PRD §4 e REG-SCOPE-001 × `08-saas-pronto-para-vender.md` §8d. Hoje há só um stub `/api/webhook/stripe` (+ `src/lib/stripe`, dependência `stripe`) que registra eventos no log e não faz nada.
+- **STATUS:** `OPEN` — remover o stub ou abrir o escopo de cobrança.
+
+### ISSUE-009: Páginas fora do escopo no menu
+- **EVIDENCE:** `/ai` ("Agentes de IA") e `/direct` ("Transmissão") são vitrines "Em breve"; PRD §4 exclui IA generativa e broadcast.
+- **STATUS:** `OPEN` — dono decide se saem do menu.
+
+### ISSUE-010: REG-SCOPE-002 e a esteira NANO
+- **ISSUE:** REG-SCOPE-002 só autoriza a NANO de `CURRENT_TASK.md`; desde 10/10 o dono autoriza pacotes inteiros (itens 1–8, login duplo, Perfil seguro, marca).
+- **STATUS:** `OPEN` — a regra segue válida; `CURRENT_TASK.md` registra o pacote autorizado.

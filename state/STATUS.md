@@ -6,38 +6,16 @@
 
 ---
 
-## Estado atual (12/10/2026)
-- **PRODUTO:** InstaChat (código "Fluxo").
-- **BRANCH DE TRABALHO:** `feat-novas-implementacoes` (pasta `../Manychat-novas-implementacoes`), a partir de `feat-login-duplo`.
-- **CONCLUÍDO NA BRANCH:** pacote "Perfil seguro" (`perfil-seguro.md`, ADR-007) — 517 testes, tipos e build verdes; migração aplicada no banco.
-- **EM ANDAMENTO:** pacote "Marca InstaChat + Menu de perfil" (`marca-e-menu-de-perfil.md`).
+## Estado atual (12/10/2026, 23h)
+- **PRODUTO:** instachat (código interno "Fluxo"). Nome sempre em minúsculas, como no logotipo.
+- **PASTA OFICIAL:** `/Users/evandro/Downloads/Manychat`, branch `feat-login-duplo` — já contém o pacote "Perfil seguro" (fast-forward de `feat-novas-implementacoes` em 12/10).
+- **CONCLUÍDO:** login duplo Instagram/Facebook (ADR-006); pacote "Perfil seguro" (ADR-007); marca instachat aplicada (logos, favicon, `primary` vermelho, token `brand`) — sem commit.
+- **NÃO INTEGRADO (trabalho pronto em branches):** itens 5, 6, 7 e 8 dos prompts de execução — ver `execution/CURRENT_TASK.md`.
+- **LACUNAS CONHECIDAS:** esperas (DELAY) dependem de alguém chamar `/api/webhook/instagram/tick` (não agendado); cliente não tem login próprio; páginas "Agentes de IA" e "Transmissão" são vitrines "Em breve" (fora do escopo do PRD); 82 erros de lint (`no-explicit-any` antigos).
 - **BLOQUEIOS EXTERNOS (dono):** cadastrar `https://instachat.startinc.com.br/api/auth/instagram/callback` e as URLs de desautorização/exclusão no painel da Meta; adicionar a conta do Instagram como testadora; recarregar `@movingfestival` e `@loveu.sunset` (descarregadas pela tela em 12/10).
-- **PRÓXIMO:** deploy da branch após a validação do pacote de marca/menu.
-
-> O bloco abaixo é o histórico da esteira NANO (setembro) e está desatualizado.
+- **PRÓXIMO:** dono escolhe a próxima tarefa em `execution/CURRENT_TASK.md`; depois, deploy.
 
 ---
-
-- **PROJECT:** Fluxo (Instagram Automation Platform)
-- **GLOBAL STATUS:** `READY_FOR_EXECUTION` (NANO-001 validada e aprovada; NANO-002 autorizada)
-- **CURRENT PHASE:** `FASE 2` (Editor Visual & Seletor de Mídia)
-- **CURRENT EPIC:** `EPIC-001` (Seletor Visual de Publicações do Instagram)
-- **CURRENT TASK:** `TASK-001` (Implementação Ponta a Ponta do Seletor de Posts)
-- **CURRENT MICRO TASK:** `MICRO-001.01` (Backend Graph API e Rota de Mídia)
-- **CURRENT NANO TASK:** `NANO-002` (Criar suíte de testes unitários para `getUserMedia` e rota `/api/instagram/media` no Vitest)
-- **RESPONSIBLE AGENT:** `CLAUDE` (Claude Code)
-- **PROGRESS:** 
-  - FASE 1: 100% Concluída
-  - FASE 2: 75% Concluída (`NANO-001` [DONE], `NANO-002` [READY], `NANO-003` [BLOCKED], `NANO-004` [BLOCKED])
-  - FASES 3 a 6: Fichas detalhadas e mapeadas
-- **BLOCKERS:** Nenhum (BLK-001, BLK-002 e BLK-003 estão `RESOLVED`).
-- **PENDING DECISIONS:** Nenhuma.
-- **LAST VALIDATION:**
-  - `NANO-001`: Level 1 TSC (0 erros), Level 2 Vitest (51/51 testes passando), Level 3 Runtime (HTTP 200 com payload `{ success: true, data: [...] }`).
-- **LAST CHANGE:** `NANO-001` concluída e movida para `DONE` em `execution/TASK_QUEUE.md`.
-- **NEXT ACTION:** Execução da `NANO-002` (`src/lib/meta/graph.test.ts`) pelo Claude Code.
-- **LAST HANDOFF:** `HANDOFF-002-ECC` (Antigravity $\rightarrow$ Claude Code).
-
 
 ## Atualização 2026-10-11 — Item 03 (Instagram Business Login OAuth Oficial & Multi-Conta)
 - **STATUS:** ✅ `DONE` (100% Concluído e Validado)

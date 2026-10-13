@@ -2,18 +2,17 @@ import crypto from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const graph = vi.hoisted(() => ({
-  getUserMedia: vi.fn(),
-  validateConnection: vi.fn(),
-}));
+const graph = vi.hoisted(() => ({ getUserMedia: vi.fn() }));
+const graphClientForAccount = vi.hoisted(() => vi.fn());
+const getCurrentAccount = vi.hoisted(() => vi.fn());
 const db = vi.hoisted(() => ({
   findUnique: vi.fn(),
   update: vi.fn(),
 }));
 
-vi.mock("@/lib/meta/graph", () => ({ defaultGraphClient: graph }));
+vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount }));
 vi.mock("@/lib/prisma", () => ({ prisma: { trackedLink: db } }));
-vi.mock("@/lib/account", () => ({ getCurrentAccount: vi.fn(async () => ({ id: "acc_1", igUserId: "178" })) }));
+vi.mock("@/lib/account", () => ({ getCurrentAccount }));
 vi.mock("@/lib/engine/contacts", () => ({
   getOrCreateContact: vi.fn(),
   recordIncomingMessage: vi.fn(),
@@ -50,7 +49,8 @@ describe("GET /api/instagram/media", () => {
     );
 
   beforeEach(() => {
-    graph.validateConnection.mockResolvedValue({ valid: true, igUserId: "178_conta_conectada" });
+    getCurrentAccount.mockResolvedValue({ id: "acc_1", igUserId: "178_conta_conectada", status: "CONNECTED" });
+    graphClientForAccount.mockResolvedValue(graph);
     graph.getUserMedia.mockResolvedValue({ success: true, data: [] });
   });
 
@@ -60,8 +60,9 @@ describe("GET /api/instagram/media", () => {
     expect(graph.getUserMedia).not.toHaveBeenCalled();
   });
 
-  it("ignores the userId query param and uses the connected account", async () => {
+  it("ignora userId da URL e usa a conta ativa", async () => {
     await call("?userId=conta_de_outra_pessoa");
+    expect(graphClientForAccount).toHaveBeenCalledWith("acc_1");
     expect(graph.getUserMedia).toHaveBeenCalledWith("178_conta_conectada", 25);
   });
 
@@ -74,6 +75,15 @@ describe("GET /api/instagram/media", () => {
   ])("clamps %s to %i", async (query, expected) => {
     await call(query);
     expect(graph.getUserMedia).toHaveBeenCalledWith("178_conta_conectada", expected);
+  });
+
+  it("informa quando nenhum perfil conectado está selecionado", async () => {
+    getCurrentAccount.mockResolvedValue(null);
+    const res = await call();
+
+    expect(res.status).toBe(409);
+    expect(graphClientForAccount).not.toHaveBeenCalled();
+    expect((await res.json()).error).toMatch(/perfil.*conectado/i);
   });
 
   it("returns a generic error when the Graph API fails (no internal details)", async () => {

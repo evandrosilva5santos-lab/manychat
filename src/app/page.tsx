@@ -18,7 +18,7 @@ import { isAccountConnected, pausedFlowLabel } from "@/components/layout/account
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Painel · Fluxo",
+  title: "Painel · instachat",
   description: "Visão geral e métricas das suas automações do Instagram",
 };
 

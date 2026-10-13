@@ -3,7 +3,7 @@ import { ConectarClient } from "./ConectarClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Conectar Instagram · Fluxo",
+  title: "Conectar Instagram · instachat",
   description: "Conecte sua conta do Instagram para ativar automações de direct e comentários com segurança oficial Meta.",
 };
 

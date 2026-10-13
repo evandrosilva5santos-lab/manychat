@@ -1,4 +1,4 @@
-Fluxo é a interface de uma ferramenta de automação de conversas para Instagram (comentário → DM → botão → tag), feita para agências e negócios B2B. O sistema é neutro e calmo por fora — off-white, cinza-escuro, um único azul — para que a cor fique reservada ao que importa: o estado das automações e os tipos de caixinha no editor de fluxos.
+instachat é a interface de uma ferramenta de automação de conversas para Instagram (comentário → DM → botão → tag), feita para agências e negócios B2B. O sistema é neutro e calmo por fora — off-white, cinza-escuro, um único vermelho da marca — para que a cor fique reservada ao que importa: o estado das automações e os tipos de caixinha no editor de fluxos.
 
 ## Conteúdo e voz
 
@@ -6,14 +6,15 @@ Fluxo é a interface de uma ferramenta de automação de conversas para Instagra
 - Rótulos da interface em *sentence case* ("Minhas automações", "Próximo passo"). Caixa alta só em dois lugares: badges de status (via CSS, estilo `caption`) e botões **dentro da DM** ("QUERO ME INSCREVER", "DESBLOQUEAR").
 - Descreva gatilhos como uma frase completa que o cliente entende: "O usuário deixa um comentário em uma publicação ou Reel que inclui “casamento”".
 - Datas relativas ("há 5 minutos"), números no padrão pt-BR (`1.234`, `67%`). Sem dado ainda: "—", nunca "N/D".
-- Emoji é permitido **no conteúdo das mensagens** que o cliente escreve (é a voz da marca dele), nunca na interface do Fluxo.
+- Emoji é permitido **no conteúdo das mensagens** que o cliente escreve (é a voz da marca dele), nunca na interface do instachat.
 - Erros dizem o que aconteceu, a consequência e a saída: "Token de acesso da Meta expirou — as automações estão pausadas. Reconectar".
 
 ## Cor
 
 - Fundo do app: `surface-100`. Cards, nós, inputs e painéis: `surface-200`. Hover, item ativo e áreas rebaixadas: `surface-300`. Canvas do editor: `canvas` com grade de pontos `canvas-dot` a cada 16px.
 - Texto: `ink` (principal), `ink-muted` (labels, descrições), `ink-subtle` (metadados e contadores). Todos passam 4,5:1 em `surface-100/200` nos dois temas.
-- `primary` é o único azul: ação primária, link, aba ativa, foco, seleção e nó de Mensagem. Um botão primário por área. Texto sobre ele sempre `on-primary`.
+- `primary` é o único vermelho de ação: ação primária, link, aba ativa, foco, seleção e nó de Mensagem. Um botão primário por área. Texto sobre ele sempre `on-primary`. `primary` (#DC1A44 claro / #FF5C7A escuro) é uma versão do vermelho da marca ajustada para passar 4,5:1 — não use `brand` em botão ou texto.
+- `brand` (#FB264D) é o vermelho exato do logo e só aparece em logo, símbolo e ícone do app. `danger` continua tijolo (#B83A2C), puxado para o laranja para não se confundir com a marca — e sempre com palavra ou ícone.
 - Divisórias: `border` (decorativo). Contorno de qualquer controle (input, toggle, botão secundário): `border-strong` (≥3:1).
 - Status: `success` (Ao vivo), `danger` (Parado, erro, destrutivo), `warning` (atenção). Sempre com palavra ou ícone junto — nunca só cor. Fundos de badge/banner: as variantes `-soft`.
 - Categorias do editor: `node-trigger` (Gatilho), `node-message` (Mensagem), `node-condition` (Condição), `node-delay` (Espera), `node-action` (Ação). A cor aparece só no quadrado do ícone e no rótulo do tipo; o corpo do nó é sempre `surface-200`. Linhas: `node-edge`; selecionada/em execução: `node-edge-active`.
@@ -47,7 +48,17 @@ Fluxo é a interface de uma ferramenta de automação de conversas para Instagra
 
 ## Marca
 
-- Ainda não há logo: escreva "Fluxo" em `sans` 700. Não use marcas, cores ou ícones de ferramentas concorrentes; ícones de rede (Instagram, WhatsApp) só nas telas de conexão de canal, no formato oficial fornecido pela Meta.
+- Nome: **instachat**, sempre em minúsculas, numa palavra só. O "c" de *chat* é um balão de conversa com reticências.
+- Arquivos-fonte em `design-system/assets/brand/` (PNG transparente, recortado):
+  - `instachat-logo-light.png` — logotipo diurno ("insta" em `#131517`, "chat" em `brand`), para fundos claros.
+  - `instachat-logo-dark.png` — logotipo noturno ("insta" em branco), para fundos escuros.
+  - `instachat-symbol.png` — só o balão, em `brand`, para espaços pequenos (sidebar, avatar da marca).
+  - `instachat-app-icon.png` — balão branco em quadrado arredondado `brand` (ícone de app, favicon, PWA).
+- Na web: cópias leves em `public/brand/`; favicon e ícones em `src/app/favicon.ico`, `src/app/icon.png` e `src/app/apple-icon.png` (convenção de arquivos do Next).
+- No código, use `BrandWordmark` e `BrandSymbol` de `@/components/brand/BrandLogo` — o logotipo troca sozinho de versão pelo `data-theme`.
+- Área de respiro mínima: a altura do balão em volta do logotipo. Tamanho mínimo: logotipo com 20px de altura, símbolo com 16px.
+- Não recolorir, não aplicar sombra, gradiente ou contorno, não esticar, não usar o logotipo diurno sobre fundo escuro (nem o contrário).
+- Não use marcas, cores ou ícones de ferramentas concorrentes; ícones de rede (Instagram, WhatsApp) só nas telas de conexão de canal, no formato oficial fornecido pela Meta.
 
 ## Implementação (Next.js + Tailwind + React Flow)
 

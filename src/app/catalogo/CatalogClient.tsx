@@ -215,7 +215,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
                 <LayoutGrid size={20} />
               </div>
               <h1 className="text-xl font-bold tracking-tight text-ink">Catálogo de Cards</h1>
-              <span className="rounded-full bg-accent-muted/20 px-2 py-0.5 text-xs font-semibold text-accent">
+              <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">
                 Cards Reutilizáveis
               </span>
             </div>
@@ -274,7 +274,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
           <div className="rounded-2xl border border-border bg-surface-200 p-4">
             <span className="text-xs font-medium text-ink-subtle">Em Uso nos Fluxos</span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-accent">{inUseCount}</span>
+              <span className="text-2xl font-bold text-primary">{inUseCount}</span>
               <span className="text-xs text-ink-muted">ativos em carrosséis</span>
             </div>
           </div>
@@ -390,7 +390,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
 
                   {item.usageCount > 0 && (
                     <div
-                      className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-surface-200/90 backdrop-blur-md px-2.5 py-0.5 text-[11px] font-semibold text-accent shadow-xs"
+                      className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-surface-200/90 backdrop-blur-md px-2.5 py-0.5 text-[11px] font-semibold text-primary shadow-xs"
                       title={item.usages.map((u) => u.flowName).join(", ")}
                     >
                       <span>Usado em {item.usageCount} {item.usageCount === 1 ? "fluxo" : "fluxos"}</span>
@@ -551,7 +551,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
                   {/* Atalhos com fotos de casamento */}
                   <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
                     <span className="text-[11px] text-ink-subtle whitespace-nowrap flex items-center gap-1">
-                      <Sparkles size={12} className="text-accent" /> Sugestões:
+                      <Sparkles size={12} className="text-primary" /> Sugestões:
                     </span>
                     {PRESET_IMAGES.map((preset, idx) => (
                       <button
@@ -649,7 +649,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
                             "https://wa.me/5551994044194?text=Oi%21%20Vim%20pelo%20Instagram%20e%20quero%20saber%20mais"
                           )
                         }
-                        className="text-[11px] text-accent hover:underline flex items-center gap-1"
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
                       >
                         <Plus size={11} /> Usar WhatsApp da Moving
                       </button>

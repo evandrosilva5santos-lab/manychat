@@ -6,7 +6,7 @@ import { parseDeletionCode } from "./DeletionNotice";
 export const maxDuration = 60;
 
 export const metadata = {
-  title: "Ajustes & Conexão Meta · Fluxo",
+  title: "Ajustes & Conexão Meta · instachat",
   description: "Configuração do app no Meta for Developers, tokens de acesso, webhooks e revisão de permissões.",
 };
 

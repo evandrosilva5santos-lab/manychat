@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Como apagar seus dados · Fluxo",
+  title: "Como apagar seus dados · instachat",
   robots: { index: false, follow: false },
 };
 
@@ -53,9 +53,9 @@ export default async function ExclusaoDeDadosPage({ searchParams }: Props) {
         </div>
 
         <header className="space-y-4">
-          <h1 className="text-3xl font-extrabold tracking-tight">Como apagar seus dados do Fluxo</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Como apagar seus dados do instachat</h1>
           <p className="text-sm sm:text-base text-ink-muted leading-relaxed">
-            Se você removeu o Fluxo do seu Instagram ou do Facebook, apagamos seus dados de acesso em alguns minutos
+            Se você removeu o instachat do seu Instagram ou do Facebook, apagamos seus dados de acesso em alguns minutos
             (no máximo 24 horas) e deixamos de acessar sua conta. Os dados do negócio (contatos e conversas) são
             apagados quando a conta profissional pede a exclusão, no app ou por e-mail em{" "}
             <a href="mailto:privacidade@fluxo.app" className="text-primary underline">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRequestAuthorized } from "@/lib/auth/requireAuth";
-import { defaultGraphClient } from "@/lib/meta/graph";
+import { getCurrentAccount } from "@/lib/account";
+import { graphClientForAccount } from "@/lib/meta/account-client";
 
 const DEFAULT_LIMIT = 25;
 const MIN_LIMIT = 1;
@@ -24,10 +25,15 @@ export async function GET(req: Request) {
 
   try {
     const limit = parseLimit(new URL(req.url).searchParams.get("limit"));
-    const connection = await defaultGraphClient.validateConnection();
-    const igUserId = connection.valid ? connection.igUserId : undefined;
+    const account = await getCurrentAccount();
+    if (!account || account.status !== "CONNECTED") {
+      return NextResponse.json(
+        { success: false, data: [], error: "Nenhum perfil conectado está selecionado." },
+        { status: 409 }
+      );
+    }
 
-    const result = await defaultGraphClient.getUserMedia(igUserId, limit);
+    const result = await (await graphClientForAccount(account.id)).getUserMedia(account.igUserId, limit);
     if (!result.success) {
       console.error("[media] Graph API recusou a listagem de mídia:", result.error);
       return NextResponse.json({ success: false, data: [], error: GENERIC_ERROR }, { status: 502 });

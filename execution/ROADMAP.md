@@ -1,7 +1,7 @@
 # ROADMAP — Linha do Tempo e Fases do Projeto (Fluxo)
 
 > **Documento:** Visão Estratégica de Entrega do MVP  
-> **Status:** Ativo  
+> **Status:** HISTÓRICO (setembro). Fases 1–5 foram entregues pelos itens 1–4, login duplo e Perfil seguro; ver `state/STATUS.md`.  
 > **Orquestrador:** Start Inc. / Antigravity  
 
 ---

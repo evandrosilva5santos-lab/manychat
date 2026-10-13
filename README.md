@@ -1,11 +1,14 @@
-# Fluxo — automação de conversas para Instagram (ManyChat próprio — Start Inc.)
+# instachat — automação de conversas para Instagram (ManyChat próprio — Start Inc.)
 
-Sistema próprio de automação de conversas para Instagram (comentário → DM → botão → etiqueta), inspirado no ManyChat, feito para agências e negócios B2B.
+Sistema próprio de automação de conversas para Instagram (comentário → DM → botão → etiqueta), inspirado no ManyChat, feito para agências e negócios B2B. "Fluxo" é o nome interno do código (cookies, realm do Basic Auth, pastas).
+
+Estado atual e próxima tarefa: `state/STATUS.md` e `execution/CURRENT_TASK.md`.
 
 ## Estrutura
 
-- `design-system/` — design system **Fluxo**
-  - `README.md` — guia de marca (voz, cores, tipografia, layout, implementação)
+- `design-system/` — design system **instachat**
+  - `README.md` — guia de marca (voz, cores, tipografia, layout, logos e favicon, implementação)
+  - `assets/brand/` — logotipos (diurno e noturno), símbolo e ícone do app
   - `tokens.json` — tokens (tema claro e escuro)
   - `tokens.css` — tokens como variáveis CSS, prontos pra importar no Next.js/Tailwind
   - `design-system.json` — metadados do projeto de design system
@@ -82,7 +85,7 @@ cp .env.example .env   # preencha DATABASE_URL e DIRECT_URL
 npm install
 npx prisma migrate dev          # cria as tabelas
 npx prisma db seed              # exemplos: automação rápida e fluxo avançado
-npm run dev                     # abra http://localhost:3000/fluxos
+npm run dev                     # abra http://localhost:3007/fluxos
 ```
 
 Testes e checagens: `npm test` · `npm run lint` · `npm run build`

@@ -5,7 +5,7 @@ import { getAdminOverview, requireSuperAdmin } from "@/lib/tenancy";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Administração · Fluxo",
+  title: "Administração · instachat",
   description: "Visão operacional de clientes e contas conectadas.",
 };
 
@@ -40,7 +40,7 @@ export default async function AdminPage() {
         <header className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-surface-200 p-5 shadow-xs sm:flex-row sm:items-center sm:p-6">
           <div>
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              <ShieldCheck size={15} aria-hidden /> Operação Fluxo
+              <ShieldCheck size={15} aria-hidden /> Operação instachat
             </div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Painel Super Admin</h1>
             <p className="mt-1 text-sm text-ink-muted">Acompanhamento global de clientes, canais conectados e automações.</p>

@@ -21,7 +21,7 @@ import { AccountStatusBanner } from "@/components/layout/AccountStatusBanner";
 import { getTenantContext, listAccessibleAccounts } from "@/lib/tenancy";
 
 export const metadata: Metadata = {
-  title: "Fluxo · Automação de conversas",
+  title: "instachat · Automação de conversas",
   description: "Automação de conversas para Instagram",
 };
 

@@ -6,7 +6,7 @@ import { describeTrigger, STATUS_BADGE, timeAgo } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Automações · Fluxo" };
+export const metadata = { title: "Automações · instachat" };
 
 export default async function FlowsPage() {
   let accountStatus: string | null = null;

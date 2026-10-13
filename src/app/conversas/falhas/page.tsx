@@ -1,7 +1,7 @@
 import { listDeadEvents, listFailedSends, retryFailedSendForm } from "./actions";
 
 export const metadata = {
-  title: "Envios com falha · Fluxo",
+  title: "Envios com falha · instachat",
   description: "Envios recusados pela Meta e eventos mortos na fila, com motivo legível e reenvio quando permitido.",
 };
 

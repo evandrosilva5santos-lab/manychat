@@ -412,7 +412,7 @@ export function InboxClient({
                       </span>
                     )}
                     {msg.kind === "POSTBACK" && (
-                      <span className="text-[10px] font-semibold text-accent mb-1">
+                      <span className="text-[10px] font-semibold text-primary mb-1">
                         👆 Tocou num botão interativo
                       </span>
                     )}

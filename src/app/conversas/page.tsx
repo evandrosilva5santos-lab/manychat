@@ -3,7 +3,7 @@ import { listAllTags } from "@/app/contatos/actions";
 import { InboxClient } from "./InboxClient";
 
 export const metadata = {
-  title: "Conversas (Live Inbox) · Fluxo",
+  title: "Conversas (Live Inbox) · instachat",
   description: "Bate-papo ao vivo e histórico de conversas no Direct do Instagram com janela de 24 horas da Meta.",
 };
 

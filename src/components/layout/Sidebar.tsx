@@ -14,8 +14,9 @@ import {
   TriangleAlert,
   Shield,
 } from "lucide-react";
+import { BrandSymbol } from "@/components/brand/BrandLogo";
 
-/** Ícone de Trevo / Automação característico do Fluxo */
+/** Ícone de Trevo / Automação característico do instachat */
 function FlowAutomationIcon({
   size = 20,
   className = "",
@@ -47,7 +48,7 @@ function FlowAutomationIcon({
   );
 }
 
-/** Ícone AI em caixinha estilizada do Fluxo */
+/** Ícone AI em caixinha estilizada do instachat */
 function FlowAiIcon({ className = "" }: { className?: string }) {
   return (
     <div
@@ -55,28 +56,6 @@ function FlowAiIcon({ className = "" }: { className?: string }) {
     >
       AI
     </div>
-  );
-}
-
-/** Logo estilizado do Fluxo */
-function FluxoLogo() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 32 32"
-      fill="none"
-      className="text-primary"
-    >
-      <rect width="32" height="32" rx="8" fill="currentColor" fillOpacity="0.1" />
-      <path
-        d="M17.5 7L9 18H16L14.5 25L23 14H16L17.5 7Z"
-        fill="currentColor"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
@@ -117,15 +96,15 @@ export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
       style={{ width: "68px" }}
       aria-label="Menu principal"
     >
-      {/* Top: Logo Fluxo e Badge PRO */}
+      {/* Top: símbolo instachat e Badge PRO */}
       <div className="flex flex-col items-center gap-3 w-full">
         <Link
           href="/"
           className="flex flex-col items-center justify-center group transition-transform hover:scale-105"
-          title="Fluxo"
+          title="instachat"
         >
           <div className="flex h-9 w-9 items-center justify-center">
-            <FluxoLogo />
+            <BrandSymbol size={30} />
           </div>
           {/* Badge PRO idêntico ao print com gradiente arco-íris */}
           <div className="mt-1 flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-amber-400 p-[1.5px] shadow-xs">

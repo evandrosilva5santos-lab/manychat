@@ -119,3 +119,14 @@
   - Revisões: código (0 CRITICAL/HIGH) e segurança (0 CRITICAL/HIGH); médios corrigidos.
 - **RESULT:** `DONE` na branch; deploy pendente.
 - **PENDÊNCIAS DO DONO:** cadastrar `https://instachat.startinc.com.br/api/auth/instagram/callback` e as URLs de desautorização/exclusão no painel da Meta (ver `docs/etapa-7-meta-app.md` §2.5); recarregar `@movingfestival` e `@loveu.sunset` (descarregadas pela tela em 12/10); validar retenção dos dados do negócio (ADR-007).
+
+---
+
+### [2026-10-12] — Marca instachat + saneamento de incoerências
+- **AGENT:** `CLAUDE` (Claude Code) · **PASTA:** `/Users/evandro/Downloads/Manychat` (oficial), branch `feat-login-duplo`
+- **INTEGRAÇÃO:** fast-forward de `feat-novas-implementacoes` (pacote Perfil seguro) para a pasta oficial; backup do estado anterior em `git stash` ("backup antes de trazer feat-novas-implementacoes").
+- **MARCA:** logos diurno/noturno, símbolo e ícone em `design-system/assets/brand/` e `public/brand/`; `favicon.ico`, `icon.png`, `apple-icon.png`; `primary` vermelho (#DC1A44 claro / #FF5C7A escuro, 4,5:1) e token novo `brand` (#FB264D, só logo); componente `BrandWordmark`/`BrandSymbol`; "Fluxo" → "instachat" nos textos de marca; `proxy.ts` deixa `/brand/*` e ícones fora do Basic Auth (logo do `/conectar` público).
+- **CORREÇÕES:** token inexistente `accent` trocado por `primary` em 6 telas (o botão de `ContactsClient` estava com texto branco sem fundo).
+- **DOCUMENTOS:** `CLAUDE.md` e `execution/CURRENT_TASK.md` deixam de mandar refazer a NANO-002; `state/HANDOFF.md` e `state/STATUS.md` atualizados; `MASTER_PLAN`/`ROADMAP` marcados como históricos; `docs/DESIGN.md` com a paleta real do `tokens.css`, fonte e tema corretos; `README` com porta 3007; `PRD_TRACEABILITY` (REQ-001, 002, 018, 019) e `PRD_ISSUES` (002 e 003 resolvidas, 004–010 novas). PRD intocado (REG-DOC-002).
+- **VALIDATION:** `npx tsc --noEmit` 0 erros; `npm test` 517/517; `npx eslint src` 82 erros / 36 avisos (pré-existentes).
+- **PENDENTE DE APROVAÇÃO DO DONO:** remover worktrees já integrados e o stub do Stripe (bloqueado pelo modo de permissões).

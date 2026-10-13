@@ -1,16 +1,16 @@
-# DESIGN — Contrato Visual, Tokens e Design System (Fluxo)
+# DESIGN — Contrato Visual, Tokens e Design System (instachat)
 
 > **Documento:** Contrato Estético e de UX/UI Universal  
 > **Status:** Ativo / Inviolável  
-> **Design System:** Fluxo UI (`design-system/` & `src/app/globals.css`)  
+> **Design System:** instachat UI (`design-system/` & `src/app/globals.css`)  
 
 ---
 
 ## 1. Identidade & Direção Visual
 
-O **Fluxo** adota uma estética moderna, profissional e de alta fidelidade voltada para infoprodutores e agências.
+O **instachat** adota uma estética moderna, profissional e de alta fidelidade voltada para infoprodutores e agências.
 - **Personalidade:** Confiável, ágil, premium, com contraste acentuado e feedback visual imediato.
-- **Tema:** Suporte nativo a Dark Mode (padrão preferencial) e Light Mode com transições suaves e sem flashes visuais.
+- **Tema:** Claro é o padrão (`data-theme="light"` no `<html>`); o escuro existe nos tokens via `data-theme="dark"`.
 
 ---
 
@@ -18,26 +18,30 @@ O **Fluxo** adota uma estética moderna, profissional e de alta fidelidade volta
 
 | Nome do Token | HEX | Descrição / Uso |
 | :--- | :--- | :--- |
-| `primary` | `#2563eb` | Cor principal da marca, botões de ação e estados ativos |
-| `primary-hover` | `#1d4ed8` | Estado hover de botões primários |
-| `primary-light` | `#3b82f6` | Destaques suaves e seleções ativas |
-| `surface-100` | `#09090b` | Background geral da aplicação (Dark) / `#f8fafc` (Light) |
-| `surface-200` | `#18181b` | Cards, painéis laterais e modais (Dark) / `#ffffff` (Light) |
-| `surface-300` | `#27272a` | Inputs, dropdowns e superfícies elevadas (Dark) / `#e2e8f0` (Light) |
-| `surface-400` | `#3f3f46` | Separadores e bordas destacadas |
-| `ink` | `#f4f4f5` | Texto principal com alta legibilidade (Dark) / `#0f172a` (Light) |
-| `ink-muted` | `#a1a1aa` | Texto secundário, legendas e rótulos auxiliares |
-| `border` | `#27272a` (Dark) / `#e2e8f0` (Light) | Divisores e contornos de cards |
-| `success` | `#16a34a` | Indicador de fluxo ativo, conexões válidas e status live |
-| `warning` | `#eab308` | Alertas de limites da Meta ou campos opcionais pendentes |
-| `danger` | `#dc2626` | Erros, ações destrutivas (excluir fluxo) ou tokens expirados |
+| `brand` | `#fb264d` | Vermelho exato do logo — só em logo, símbolo e ícone do app (ver `design-system/README.md` › Marca) |
+| `primary` | `#dc1a44` (Light) / `#ff5c7a` (Dark) | Botões de ação e estados ativos (vermelho da marca ajustado para 4,5:1) |
+| `primary-hover` | `#c8143b` (Light) / `#ff7a92` (Dark) | Estado hover de botões primários |
+| `primary-soft` | `#fde8ec` (Light) / `#3a1520` (Dark) | Destaques suaves e seleções ativas |
+| `surface-100` | `#f7f6f3` (Light) / `#141619` (Dark) | Background geral da aplicação |
+| `surface-200` | `#ffffff` (Light) / `#1c1f23` (Dark) | Cards, nós, inputs, painéis e modais |
+| `surface-300` | `#efede8` (Light) / `#24282d` (Dark) | Hover, item ativo e áreas rebaixadas |
+| `ink` | `#1f2226` (Light) / `#eceae6` (Dark) | Texto principal |
+| `ink-muted` | `#565a61` (Light) / `#a7abb2` (Dark) | Labels, descrições e legendas |
+| `ink-subtle` | `#6b6f76` (Light) / `#8d929a` (Dark) | Metadados e contadores |
+| `border` | `#e3e0d9` (Light) / `#2d3137` (Dark) | Divisores decorativos |
+| `border-strong` | `#848077` (Light) / `#6b717a` (Dark) | Contorno de controles (≥ 3:1) |
+| `success` | `#17774a` (Light) / `#4fc58a` (Dark) | Fluxo ao vivo, conexões válidas |
+| `warning` | `#8f5a06` (Light) / `#e7b053` (Dark) | Alertas de limites da Meta e atenção |
+| `danger` | `#b83a2c` (Light) / `#f08a7c` (Dark) | Erros, ações destrutivas e tokens expirados (tijolo, distinto do vermelho da marca) |
+
+> Fonte da verdade: `design-system/tokens.json` → `design-system/tokens.css`. Se esta tabela divergir, vale o `tokens.css`. Não existe token `accent` nem `surface-400`.
 
 ---
 
 ## 3. Tipografia
 
-- **Fonte Principal:** `Inter`, `-apple-system`, `BlinkMacSystemFont`, `"Segoe UI"`, `sans-serif`.
-- **Fonte Monospaçada:** `ui-monospace`, `SFMono-Regular`, `Menlo`, `Monaco`, `monospace` (para IDs, códigos e tokens).
+- **Fonte Principal:** `Plus Jakarta Sans` (via `next/font`), com `system-ui` de reserva.
+- **Fonte Monospaçada:** `JetBrains Mono` (via `next/font`), só para variáveis, IDs, tokens e URLs.
 - **Escala Tipográfica:**
   - `h1`: `text-2xl font-bold tracking-tight` (24px, line-height 32px)
   - `h2`: `text-xl font-bold` (20px, line-height 28px)

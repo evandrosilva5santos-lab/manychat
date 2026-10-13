@@ -210,13 +210,13 @@ export function ProfileCard({ settings }: { settings: MetaSettingsData }) {
             >
               Descarregar perfil
             </button>
-            <p className="text-sm text-ink-muted">Desconecta o Instagram do Fluxo</p>
+            <p className="text-sm text-ink-muted">Desconecta o Instagram do instachat</p>
           </div>
           <div className="space-y-1.5">
             <button type="button" onClick={() => setDialog("delete")} disabled={isPending} className="fx-btn fx-btn-danger">
               Excluir perfil e dados
             </button>
-            <p className="text-sm text-ink-muted">Apaga para sempre os dados deste perfil no Fluxo</p>
+            <p className="text-sm text-ink-muted">Apaga para sempre os dados deste perfil no instachat</p>
           </div>
         </div>
       </div>
@@ -228,7 +228,7 @@ export function ProfileCard({ settings }: { settings: MetaSettingsData }) {
         description={
           <>
             <p>
-              Isto desconecta o Instagram do Fluxo. Enquanto o perfil estiver descarregado, as automações ficam paradas: ninguém recebe
+              Isto desconecta o Instagram do instachat. Enquanto o perfil estiver descarregado, as automações ficam paradas: ninguém recebe
               respostas nem mensagens. Execuções em andamento são encerradas. Seus fluxos, contatos e conversas continuam guardados.
             </p>
             <p>

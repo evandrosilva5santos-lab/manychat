@@ -103,7 +103,7 @@ export async function getOrCreateWorkspaceForActor(actor: TenantActor) {
   return prisma.workspace.create({
     data: {
       ownerId: actor.id,
-      name: actor.role === "SUPERADMIN" ? "Operação Fluxo" : `Workspace de ${actor.name}`,
+      name: actor.role === "SUPERADMIN" ? "Operação instachat" : `Workspace de ${actor.name}`,
     },
   });
 }

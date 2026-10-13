@@ -145,7 +145,7 @@ export function ContactsClient({
                 <Users size={20} />
               </div>
               <h1 className="text-xl font-bold tracking-tight text-ink">Contatos & Leads</h1>
-              <span className="rounded-full bg-accent-muted/20 px-2 py-0.5 text-xs font-semibold text-accent">
+              <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">
                 CRM Instagram
               </span>
             </div>
@@ -161,7 +161,7 @@ export function ContactsClient({
                 setCreateError("");
                 setCreateModalOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-accent/90 active:scale-[0.98] cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-xs transition hover:bg-primary-hover active:scale-[0.98] cursor-pointer"
             >
               <Plus size={17} />
               + Novo Contato

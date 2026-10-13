@@ -1,6 +1,7 @@
 # CLAUDE.md — Guia de Inicialização Rápida para Claude Code
 
-> **Projeto:** Fluxo (Instagram Automation Platform)  
+> **Projeto:** instachat (código interno "Fluxo") — Instagram Automation Platform  
+> **Pasta oficial:** `/Users/evandro/Downloads/Manychat` (os worktrees em `.claude/worktrees/` e `../Manychat-novas-implementacoes` não são a fonte da verdade)  
 > **Porta de Dev:** `3007` (`http://localhost:3007`)  
 > **Comando de Testes:** `npm test`  
 > **Comando de Tipos:** `npx tsc --noEmit`  
@@ -10,34 +11,25 @@
 ## 🎯 Instrução Imediata de Execução
 
 Você é o agente executor designado para este repositório.
-O projeto já foi integralmente auditado, mapeado e fatiado pelo Antigravity e está no estado **`READY_FOR_EXECUTION`**.
 
-### Passo 1: Leia a Tarefa Autorizada
-Abra e leia imediatamente o arquivo:
-- `execution/CURRENT_TASK.md`
+### Passo 1: Leia o estado e a tarefa autorizada
+1. `state/STATUS.md` — estado atual, bloqueios do dono e próximo passo.
+2. `execution/CURRENT_TASK.md` — a tarefa autorizada agora (se estiver vazia, pergunte ao dono antes de codar).
+3. `execution/TASK_QUEUE.md` — fila por estado.
 
-A tarefa atual autorizada é: **`NANO-002`** (Criar suíte de testes unitários para `getUserMedia` e a rota `GET /api/instagram/media` no Vitest em `src/lib/meta/graph.test.ts`).
+A esteira NANO de setembro (NANO-001 a NANO-004) está concluída; não a reexecute.
 
-### Passo 2: Verifique os Arquivos Permitidos
-Na `NANO-002`, você SOMENTE tem autorização para modificar/criar:
-- `src/lib/meta/graph.test.ts`
+### Passo 2: Respeite os arquivos permitidos
+Altere somente os arquivos que a tarefa autorizada permite. Se precisar mexer em outro, registre em `state/BLOCKERS.md` e pare.
 
-NÃO altere `PRD.md`, `PostPicker.tsx` ou qualquer outro arquivo nesta etapa.
+### Passo 3: Valide
+- `npx tsc --noEmit`
+- `npm test`
+- `npm run build` antes de qualquer entrega para produção.
 
-### Passo 3: Execute a Ação
-1. Em `src/lib/meta/graph.test.ts`:
-   - Importe `InstagramGraphClient`, `defaultGraphClient` e `GET` de `src/app/api/instagram/media/route`.
-   - Cubra cenários sem token (mock inteligente), cenários com fetch simulado (headers e query params) e tratamento defensivo de erro HTTP.
-   - Teste a rota `GET` simulando requisições com status HTTP 200.
-
-### Passo 4: Valide
-- Execute `npx tsc --noEmit`.
-- Execute `npm test`.
-
-### Passo 5: Atualize o Estado
+### Passo 4: Atualize o estado
 - Registre o que fez em `state/CHANGELOG.md`.
-- Mova `NANO-002` para `DONE` em `execution/TASK_QUEUE.md`.
-- Atualize `state/STATUS.md`.
-- Prepare o próximo passo autorizando `NANO-003` em `execution/CURRENT_TASK.md`.
+- Atualize `execution/TASK_QUEUE.md` e `state/STATUS.md`.
+- Prepare a próxima tarefa em `execution/CURRENT_TASK.md`.
 
-Para regras detalhadas de governança, consulte `AGENTS.md` e `execution/EXECUTION_RULES.md`.
+Para regras detalhadas de governança, consulte `AGENTS.md`, `execution/EXECUTION_RULES.md` e `docs/RULES.md`. Marca e cores: `design-system/README.md` (seção Marca) e `design-system/tokens.css`.

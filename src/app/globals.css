@@ -82,6 +82,17 @@ body {
   background: var(--ink-subtle);
 }
 
+/* ── Marca: logotipo diurno/noturno conforme o data-theme ─────────────── */
+.brand-only-dark {
+  display: none;
+}
+[data-theme="dark"] .brand-only-light {
+  display: none;
+}
+[data-theme="dark"] .brand-only-dark {
+  display: inline-block;
+}
+
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;

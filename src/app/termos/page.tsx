@@ -16,9 +16,9 @@ import {
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Termos de Uso · Fluxo",
+  title: "Termos de Uso · instachat",
   description:
-    "Termos de Uso e Condições de Serviço da plataforma Fluxo. Leia sobre os direitos, obrigações e diretrizes de conformidade com a Meta para uso das automações do Instagram.",
+    "Termos de Uso e Condições de Serviço da plataforma instachat. Leia sobre os direitos, obrigações e diretrizes de conformidade com a Meta para uso das automações do Instagram.",
 };
 
 export default function TermosDeUsoPage() {
@@ -63,9 +63,9 @@ export default function TermosDeUsoPage() {
             Última atualização: <strong>{dataAtualizacao}</strong> · Versão 1.1
           </p>
           <p className="text-sm sm:text-base text-ink-muted leading-relaxed">
-            Bem-vindo ao <strong>Fluxo</strong>. Estes Termos de Uso (&quot;Termos&quot;) regulam o acesso e a utilização
+            Bem-vindo ao <strong>instachat</strong>. Estes Termos de Uso (&quot;Termos&quot;) regulam o acesso e a utilização
             da plataforma de software como serviço (SaaS) fornecida pela Start Inc. Tecnologia (&quot;Start Inc.&quot;,
-            &quot;nós&quot; ou &quot;Plataforma&quot;). Ao acessar, cadastrar-se ou conectar sua conta do Instagram ao Fluxo,
+            &quot;nós&quot; ou &quot;Plataforma&quot;). Ao acessar, cadastrar-se ou conectar sua conta do Instagram ao instachat,
             você (&quot;Usuário&quot; ou &quot;Assinante&quot;) concorda expressa e integralmente com as disposições aqui estabelecidas.
           </p>
         </header>
@@ -77,7 +77,7 @@ export default function TermosDeUsoPage() {
             Diretriz Inegociável: Respeito às Regras da Meta
           </h2>
           <p className="text-xs text-ink-muted leading-relaxed">
-            O Fluxo opera exclusivamente por meio das APIs oficiais da Meta (Instagram Graph API). O uso da
+            O instachat opera exclusivamente por meio das APIs oficiais da Meta (Instagram Graph API). O uso da
             plataforma para envio de mensagens invasivas, práticas de spam ou descumprimento das regras de
             atendimento da Meta é estritamente proibido e resultará na suspensão imediata da conta.
           </p>
@@ -108,7 +108,7 @@ export default function TermosDeUsoPage() {
               1. Objeto e Escopo dos Serviços
             </h2>
             <p>
-              O Fluxo é uma solução tecnológica que disponibiliza ferramentas para criação visual e execução
+              O instachat é uma solução tecnológica que disponibiliza ferramentas para criação visual e execução
               automatizada de fluxos de interação no Instagram, incluindo:
             </p>
             <ul className="list-disc pl-5 space-y-1.5">
@@ -170,7 +170,7 @@ export default function TermosDeUsoPage() {
             <p>
               O Usuário é o único e exclusivo responsável pelo conteúdo, veracidade, conformidade e legalidade das
               mensagens, imagens, ofertas e links veiculados através dos fluxos de automação configurados por ele.
-              O Fluxo não exerce moderação prévia sobre as mensagens configuradas pelo Usuário.
+              O instachat não exerce moderação prévia sobre as mensagens configuradas pelo Usuário.
             </p>
           </section>
 
@@ -181,7 +181,7 @@ export default function TermosDeUsoPage() {
               5. Disponibilidade e Limitação de Responsabilidade
             </h2>
             <p>
-              A operação do Fluxo depende diretamente da infraestrutura da internet e, em particular, da disponibilidade
+              A operação do instachat depende diretamente da infraestrutura da internet e, em particular, da disponibilidade
               dos servidores da Meta Platforms, Inc. Em razão disso:
             </p>
             <ul className="list-disc pl-5 space-y-1.5">
@@ -191,7 +191,7 @@ export default function TermosDeUsoPage() {
                 alterações unilaterais nas políticas de terceiros;
               </li>
               <li>
-                Em nenhuma circunstância o Fluxo será responsável por lucros cessantes, perdas financeiras indiretas ou danos morais
+                Em nenhuma circunstância o instachat será responsável por lucros cessantes, perdas financeiras indiretas ou danos morais
                 decorrentes do uso ou da impossibilidade de uso da Plataforma;
               </li>
               <li>
@@ -208,7 +208,7 @@ export default function TermosDeUsoPage() {
               6. Propriedade Intelectual
             </h2>
             <p>
-              Todos os direitos de propriedade intelectual relativos ao software Fluxo — incluindo código-fonte, arquitetura,
+              Todos os direitos de propriedade intelectual relativos ao software instachat — incluindo código-fonte, arquitetura,
               interfaces visuais, componentes de design, algoritmos, logotipos e marcas — pertencem com exclusividade à
               Start Inc. Tecnologia. É concedida ao Usuário uma licença limitada, revogável, não exclusiva e intransferível
               para utilizar a ferramenta durante a vigência de seu acesso.
@@ -245,7 +245,7 @@ export default function TermosDeUsoPage() {
 
         {/* ── Rodapé da Página ── */}
         <footer className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between text-xs text-ink-muted gap-3">
-          <span>Fluxo © 2026 Start Inc. Tecnologia · Todos os direitos reservados.</span>
+          <span>instachat © 2026 Start Inc. Tecnologia · Todos os direitos reservados.</span>
           <div className="flex gap-4">
             <Link href="/privacidade" className="hover:text-ink transition underline underline-offset-4">
               Política de Privacidade

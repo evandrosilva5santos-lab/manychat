@@ -12,6 +12,7 @@ import {
   HelpCircle,
   RefreshCw,
 } from "lucide-react";
+import { BrandWordmark } from "@/components/brand/BrandLogo";
 import { friendlyConnectError } from "./messages";
 
 function InstagramIcon({ size = 24, className = "" }: { size?: number; className?: string }) {
@@ -60,11 +61,8 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-between p-4 sm:p-8">
       {/* ── Top Bar: página pública, sem links para o painel protegido ── */}
       <header className="max-w-4xl w-full mx-auto flex items-center justify-between pb-6 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold shadow-xs" aria-hidden>
-            F
-          </div>
-          <span className="font-bold text-lg tracking-tight">Fluxo</span>
+        <div className="flex items-center">
+          <BrandWordmark height={28} />
         </div>
       </header>
 
@@ -206,7 +204,7 @@ export function ConectarClient({ connected, username, error, invite }: ConectarC
 
       {/* ── Footer ── */}
       <footer className="max-w-4xl w-full mx-auto text-center pt-6 border-t border-border text-xs text-ink-muted flex flex-col sm:flex-row items-center justify-between gap-2">
-        <span>Fluxo · Automação de conversas para Instagram</span>
+        <span>instachat · Automação de conversas para Instagram</span>
         <div className="flex flex-wrap justify-center gap-4">
           <Link href="/privacidade" className="hover:text-ink transition">Privacidade</Link>
           <Link href="/termos" className="hover:text-ink transition">Termos</Link>

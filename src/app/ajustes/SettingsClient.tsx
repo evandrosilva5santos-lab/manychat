@@ -108,7 +108,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
                 <Settings size={20} />
               </div>
               <h1 className="text-xl font-bold tracking-tight text-ink">Ajustes & Conexão Meta</h1>
-              <span className="rounded-full bg-accent-muted/20 px-2 py-0.5 text-xs font-semibold text-accent">
+              <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">
                 Meta for Developers
               </span>
               <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-semibold text-primary">

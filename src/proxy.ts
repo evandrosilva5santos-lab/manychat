@@ -38,8 +38,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Tudo, menos os arquivos estáticos do Next e o ícone.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Tudo, menos os arquivos estáticos do Next, os ícones e a marca (usada em /conectar, que é pública).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|brand/).*)"],
 };
 
 export default proxy;

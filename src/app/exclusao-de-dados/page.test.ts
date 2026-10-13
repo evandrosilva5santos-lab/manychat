@@ -17,7 +17,7 @@ describe("/exclusao-de-dados", () => {
   it("não é indexada e mostra as instruções sem código", async () => {
     expect(metadata.robots).toEqual({ index: false, follow: false });
     const html = await render();
-    expect(html).toContain("Como apagar seus dados do Fluxo");
+    expect(html).toContain("Como apagar seus dados do instachat");
     expect(db.dataDeletionRequest.findUnique).not.toHaveBeenCalled();
   });
   it.each([

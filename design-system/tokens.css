@@ -1,4 +1,4 @@
-/* Fluxo — tokens gerados de tokens.json */
+/* instachat — tokens gerados de tokens.json */
 :root, [data-theme="light"] {
   --surface-100: #f7f6f3;
   --surface-200: #ffffff;
@@ -10,11 +10,13 @@
   --ink: #1f2226;
   --ink-muted: #565a61;
   --ink-subtle: #6b6f76;
-  --primary: #1f5fd6;
-  --primary-hover: #184cb0;
-  --primary-soft: #e7eefc;
+  --primary: #dc1a44;
+  --primary-hover: #c8143b;
+  --primary-soft: #fde8ec;
   --on-primary: #ffffff;
-  --focus: #1f5fd6;
+  --brand: #fb264d;
+  --brand-ink: #131517;
+  --focus: #dc1a44;
   --success: #17774a;
   --success-soft: #e3f3ea;
   --danger: #b83a2c;
@@ -43,11 +45,13 @@
   --ink: #eceae6;
   --ink-muted: #a7abb2;
   --ink-subtle: #8d929a;
-  --primary: #6b9bf2;
-  --primary-hover: #8ab0f5;
-  --primary-soft: #1b2a47;
-  --on-primary: #0b1428;
-  --focus: #8ab0f5;
+  --primary: #ff5c7a;
+  --primary-hover: #ff7a92;
+  --primary-soft: #3a1520;
+  --on-primary: #1a0b0f;
+  --brand: #fb264d;
+  --brand-ink: #ffffff;
+  --focus: #ff7a92;
   --success: #4fc58a;
   --success-soft: #12301f;
   --danger: #f08a7c;

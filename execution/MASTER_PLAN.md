@@ -1,7 +1,7 @@
 # MASTER_PLAN — Plano Mestre de Execução Hierárquica (ECC Powered)
 
 > **Documento:** Árvore de Execução Determinística com Matriz de Risco ECC  
-> **Status:** Ativo  
+> **Status:** HISTÓRICO (esteira NANO de setembro, concluída). O estado atual está em `state/STATUS.md` e a tarefa autorizada em `execution/CURRENT_TASK.md`.  
 > **Framework:** Everything Claude Code (ECC)  
 > **Orquestrador:** Start Inc. / Antigravity  
 

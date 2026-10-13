@@ -16,9 +16,9 @@ import {
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidade · Fluxo",
+  title: "Política de Privacidade · instachat",
   description:
-    "Política de Privacidade da plataforma Fluxo. Saiba como tratamos, protegemos e armazenamos seus dados e os dados de interações do Instagram em conformidade com a LGPD e políticas da Meta.",
+    "Política de Privacidade da plataforma instachat. Saiba como tratamos, protegemos e armazenamos seus dados e os dados de interações do Instagram em conformidade com a LGPD e políticas da Meta.",
 };
 
 export default function PoliticaPrivacidadePage() {
@@ -63,7 +63,7 @@ export default function PoliticaPrivacidadePage() {
             Última atualização: <strong>{dataAtualizacao}</strong> · Versão 1.1
           </p>
           <p className="text-sm sm:text-base text-ink-muted leading-relaxed">
-            A plataforma <strong>Fluxo</strong> (&quot;nós&quot;, &quot;nosso&quot; ou &quot;Plataforma&quot;), desenvolvida e operada
+            A plataforma <strong>instachat</strong> (&quot;nós&quot;, &quot;nosso&quot; ou &quot;Plataforma&quot;), desenvolvida e operada
             pela Start Inc. Tecnologia, valoriza a sua privacidade e assume o compromisso
             inegociável de proteger os seus dados pessoais e as informações dos usuários que
             interagem com suas contas do Instagram, em estrita conformidade com a Lei Geral de
@@ -142,7 +142,7 @@ export default function PoliticaPrivacidadePage() {
               <Database size={18} className="text-primary" />
               2. Finalidade e Base Legal do Tratamento
             </h2>
-            <p>O tratamento de dados pessoais no Fluxo é realizado com respaldo nas seguintes bases legais da LGPD:</p>
+            <p>O tratamento de dados pessoais no instachat é realizado com respaldo nas seguintes bases legais da LGPD:</p>
             <ul className="list-disc pl-5 space-y-2">
               <li>
                 <strong className="text-ink">Execução de Contrato (Art. 7º, V):</strong> Permitir que o assinante crie,
@@ -201,12 +201,12 @@ export default function PoliticaPrivacidadePage() {
               <h3 className="font-semibold text-ink">Como solicitar a exclusão de seus dados:</h3>
               <ol className="list-decimal pl-5 space-y-1.5">
                 <li>
-                  <strong>Revogação pelo Instagram/Facebook:</strong> O titular pode revogar o acesso do Fluxo a qualquer
+                  <strong>Revogação pelo Instagram/Facebook:</strong> O titular pode revogar o acesso do instachat a qualquer
                   momento acessando as Configurações de Aplicativos e Sites em sua conta do Facebook ou Instagram.
                 </li>
                 <li>
-                  <strong>Exclusão via Painel do Fluxo:</strong> Acessando a página de <strong>Ajustes</strong> e
-                  clicando em &quot;Descarregar perfil&quot;, a credencial é removida do Fluxo e a assinatura de
+                  <strong>Exclusão via Painel do instachat:</strong> Acessando a página de <strong>Ajustes</strong> e
+                  clicando em &quot;Descarregar perfil&quot;, a credencial é removida do instachat e a assinatura de
                   webhooks é cancelada na Meta. Os dados do negócio (contatos, conversas e fluxos) permanecem até que
                   você use &quot;Excluir perfil e dados&quot; em Ajustes ou peça a exclusão por e-mail. Veja também{" "}
                   <Link href="/exclusao-de-dados" className="text-primary underline">
@@ -233,7 +233,7 @@ export default function PoliticaPrivacidadePage() {
               5. Compartilhamento com Terceiros
             </h2>
             <p>
-              O Fluxo não compartilha dados pessoais com corretores de dados, parceiros de marketing ou redes de anúncios.
+              O instachat não compartilha dados pessoais com corretores de dados, parceiros de marketing ou redes de anúncios.
               O compartilhamento ocorre estritamente com os provedores de infraestrutura necessários para a operação do sistema:
             </p>
             <ul className="list-disc pl-5 space-y-2">
@@ -269,7 +269,7 @@ export default function PoliticaPrivacidadePage() {
 
         {/* ── Rodapé da Página ── */}
         <footer className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between text-xs text-ink-muted gap-3">
-          <span>Fluxo © 2026 Start Inc. Tecnologia · Todos os direitos reservados.</span>
+          <span>instachat © 2026 Start Inc. Tecnologia · Todos os direitos reservados.</span>
           <div className="flex gap-4">
             <Link href="/termos" className="hover:text-ink transition underline underline-offset-4">
               Termos de Uso

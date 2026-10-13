@@ -66,7 +66,7 @@ export async function getReconnectWhatsAppLink(
     const connectLink = new URL("/conectar", appOrigin);
     connectLink.searchParams.set("convite", createConnectInvite(workspaceId));
     const connectUrl = connectLink.toString();
-    const text = `Olá! Reconecte a conta @${username.replace(/^@/, "")} ao Fluxo por este link seguro: ${connectUrl}`;
+    const text = `Olá! Reconecte a conta @${username.replace(/^@/, "")} ao instachat por este link seguro: ${connectUrl}`;
     url.searchParams.set("text", text);
     return { ok: true, url: url.toString() };
   } catch (error) {

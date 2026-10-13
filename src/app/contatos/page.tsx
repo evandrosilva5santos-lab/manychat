@@ -4,7 +4,7 @@ import { ContactsClient } from "./ContactsClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Contatos · Fluxo",
+  title: "Contatos · instachat",
   description: "Gerencie todos os leads e contatos capturados no Instagram com filtros e etiquetas.",
 };
 
