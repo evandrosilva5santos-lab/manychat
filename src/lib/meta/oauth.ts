@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { errorCode } from "@/lib/log-safe";
 import { z } from "zod";
 import { GRAPH_API_VERSION } from "./graph";
 
@@ -564,7 +565,7 @@ export async function fetchFacebookUserId(userAccessToken: string): Promise<stri
     }
     return raw.id;
   } catch (error) {
-    console.warn("[oauth] Falha ao obter o ID do usuário do Facebook", (error as Error).message);
+    console.warn(`[oauth] Falha ao obter o ID do usuário do Facebook (${errorCode(error)})`);
     return null;
   }
 }

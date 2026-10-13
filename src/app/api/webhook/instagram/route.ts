@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errorCode } from "@/lib/log-safe";
 import { after } from "next/server";
 import {
   allowUnsignedWebhooks,
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       });
       id = account?.id ?? null;
     } catch (error) {
-      console.warn("[webhook] Falha ao resolver conta do evento; enfileirando sem accountId:", error);
+      console.warn(`[webhook] Falha ao resolver conta do evento; enfileirando sem accountId (${errorCode(error)})`);
     }
     accountIdCache.set(igUserId, id);
     return id;
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     // Banco fora do ar no recebimento: 500 para a Meta reentregar.
-    console.error("[webhook] Falha ao gravar evento na fila:", error);
+    console.error(`[webhook] Falha ao gravar evento na fila (${errorCode(error)})`);
     return NextResponse.json({ error: "Falha ao enfileirar evento" }, { status: 500 });
   }
 
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
       try {
         await processDueEvents(10);
       } catch (error) {
-        console.error("[webhook] Worker pós-resposta falhou:", error);
+        console.error(`[webhook] Worker pós-resposta falhou (${errorCode(error)})`);
       }
     });
   }

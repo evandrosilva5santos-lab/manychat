@@ -75,7 +75,7 @@ beforeEach(() => {
 
 describe("disconnectCurrentInstagramProfile", () => {
   it("descarrega o perfil ativo avisando a Meta e limpa a seleção quando não há outro conectado", async () => {
-    await expect(disconnectCurrentInstagramProfile()).resolves.toEqual({ ok: true, nextAccountId: null });
+    await expect(disconnectCurrentInstagramProfile("acc_1")).resolves.toEqual({ ok: true, nextAccountId: null });
 
     expect(m.requireAuth).toHaveBeenCalledOnce();
     expect(m.disconnectAccount).toHaveBeenCalledWith("acc_1", { reason: "USER", notifyMeta: true });
@@ -89,16 +89,32 @@ describe("disconnectCurrentInstagramProfile", () => {
   it("troca para outro perfil CONECTADO do mesmo workspace", async () => {
     m.findNextConnectedAccount.mockResolvedValue({ id: "acc_2" });
 
-    await expect(disconnectCurrentInstagramProfile()).resolves.toEqual({ ok: true, nextAccountId: "acc_2" });
+    await expect(disconnectCurrentInstagramProfile("acc_1")).resolves.toEqual({ ok: true, nextAccountId: "acc_2" });
 
     expect(m.setActiveAccount).toHaveBeenCalledWith("acc_2");
     expect(m.clearActiveAccount).not.toHaveBeenCalled();
   });
 
+  it("perfil ativo mudou: recusa e não faz nada", async () => {
+    await expect(disconnectCurrentInstagramProfile("acc_antigo")).resolves.toEqual({
+      ok: false,
+      error: "O perfil ativo mudou. Recarregue a página e tente de novo.",
+    });
+    expect(m.disconnectAccount).not.toHaveBeenCalled();
+    expect(m.clearActiveAccount).not.toHaveBeenCalled();
+    expect(m.setActiveAccount).not.toHaveBeenCalled();
+  });
+
+  it("id que não é texto também é recusado", async () => {
+    const res = await disconnectCurrentInstagramProfile(undefined as unknown as string);
+    expect(res.ok).toBe(false);
+    expect(m.disconnectAccount).not.toHaveBeenCalled();
+  });
+
   it("não chama o ciclo de vida sem perfil ativo", async () => {
     m.getCurrentAccount.mockResolvedValue(null);
 
-    await expect(disconnectCurrentInstagramProfile()).resolves.toEqual({ ok: false, error: "Nenhum perfil do Instagram está carregado." });
+    await expect(disconnectCurrentInstagramProfile("acc_1")).resolves.toEqual({ ok: false, error: "Nenhum perfil do Instagram está carregado." });
     expect(m.disconnectAccount).not.toHaveBeenCalled();
   });
 
@@ -106,7 +122,7 @@ describe("disconnectCurrentInstagramProfile", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     m.disconnectAccount.mockRejectedValue(new Error("connection refused 10.0.0.1"));
 
-    const res = await disconnectCurrentInstagramProfile();
+    const res = await disconnectCurrentInstagramProfile("acc_1");
 
     expect(res.ok).toBe(false);
     expect(res.error).toBe("Não foi possível descarregar o perfil agora. Tente novamente em instantes.");

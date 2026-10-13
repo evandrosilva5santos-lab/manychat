@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import crypto from "crypto";
-import { verifySignedRequest } from "./signed-request";
+import { parseCallbackRequest, verifySignedRequest } from "./signed-request";
 
 const NOW = new Date("2026-10-12T12:00:00Z");
 const nowSec = Math.floor(NOW.getTime() / 1000);
@@ -59,5 +59,39 @@ describe("verifySignedRequest", () => {
     expect(verifySignedRequest(sign("não é json", "ig-secret"), NOW)).toBeNull();
     expect(verifySignedRequest("", NOW)).toBeNull();
     expect(verifySignedRequest("abc.def", NOW)).toBeNull();
+  });
+});
+
+describe("parseCallbackRequest", () => {
+  const streamReq = (text: string, chunk = 1024) =>
+    new Request("https://app.test/x", {
+      method: "POST",
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          const bytes = new TextEncoder().encode(text);
+          for (let i = 0; i < bytes.length; i += chunk) controller.enqueue(bytes.slice(i, i + chunk));
+          controller.close();
+        },
+      }),
+      // @ts-expect-error duplex é exigido pelo Node para corpo em stream
+      duplex: "half",
+    });
+
+  it("corpo em stream acima de 8192 bytes sem content-length vira too_large", async () => {
+    const r = streamReq("signed_request=" + "a".repeat(9000));
+    expect(r.headers.get("content-length")).toBeNull();
+    expect(await parseCallbackRequest(r)).toEqual({ ok: false, reason: "too_large" });
+  });
+
+  it("corpo pequeno em stream é lido e validado", async () => {
+    process.env.IG_APP_SECRET = "ig-secret";
+    const sr = sign({ ...base, issued_at: Math.floor(Date.now() / 1000) }, "ig-secret");
+    const r = await parseCallbackRequest(streamReq(new URLSearchParams({ signed_request: sr }).toString()));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.data.userId).toBe("123");
+  });
+
+  it("corpo sem signed_request é missing", async () => {
+    expect(await parseCallbackRequest(streamReq("x=1"))).toEqual({ ok: false, reason: "missing" });
   });
 });

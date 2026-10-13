@@ -95,7 +95,7 @@ export function ProfileCard({ settings }: { settings: MetaSettingsData }) {
 
   const confirmDisconnect = () =>
     startTransition(async () => {
-      const res = await disconnectCurrentInstagramProfile();
+      const res = await disconnectCurrentInstagramProfile(account.id);
       closeDialog();
       if (res.ok) {
         setNotice({ ok: true, message: `@${username} foi descarregado. As automações estão paradas.` });
@@ -113,13 +113,12 @@ export function ProfileCard({ settings }: { settings: MetaSettingsData }) {
         setNotice({ ok: false, message: res.error ?? "Não foi possível excluir o perfil." });
         return;
       }
-      setNotice({
-        ok: true,
-        message:
-          res.status === "PENDING"
-            ? "Excluindo… pode levar alguns minutos."
-            : `@${username} e seus dados foram excluídos.`,
-      });
+      // O card some junto com o perfil: o aviso vai para o topo de Ajustes via URL.
+      if (res.code) {
+        router.push(`/ajustes?excluido=${encodeURIComponent(res.code)}`);
+        return;
+      }
+      setNotice({ ok: true, message: `@${username} e seus dados foram excluídos.` });
       router.refresh();
     });
 

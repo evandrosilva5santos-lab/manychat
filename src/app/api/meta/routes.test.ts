@@ -95,6 +95,22 @@ describe("data-deletion", () => {
     expect(db.dataDeletionRequest.create).not.toHaveBeenCalled();
     expect(life.runDeletion).not.toHaveBeenCalled();
   });
+  it("corrida P2002 no create: relê por requestKey e devolve o código vencedor", async () => {
+    db.dataDeletionRequest.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ code: "CODIGO_VENCEDOR" });
+    db.dataDeletionRequest.create.mockRejectedValue({ code: "P2002" });
+    const res = await dataDeletion(req(signed()));
+    expect(res.status).toBe(200);
+    expect((await res.json()).confirmation_code).toBe("CODIGO_VENCEDOR");
+    expect(db.dataDeletionRequest.findUnique).toHaveBeenCalledTimes(2);
+    expect(db.dataDeletionRequest.findUnique.mock.calls[1][0].where).toEqual({ requestKey: expect.any(String) });
+    expect(life.runDeletion).not.toHaveBeenCalled();
+  });
+  it("erro de create que não é P2002 propaga", async () => {
+    db.dataDeletionRequest.create.mockRejectedValue(new Error("boom"));
+    await expect(dataDeletion(req(signed()))).rejects.toThrow("boom");
+  });
   it("zero contas: cria o pedido já concluído", async () => {
     life.findAccountsForCallback.mockResolvedValue([]);
     const res = await dataDeletion(req(signed()));

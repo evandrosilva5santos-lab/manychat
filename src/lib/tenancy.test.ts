@@ -11,6 +11,7 @@ const { cookieStore, headerStore, db } = vi.hoisted(() => ({
     workspace: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
     message: { count: vi.fn() },
     flowRun: { count: vi.fn() },
+    dataDeletionRequest: { findMany: vi.fn() },
   },
 }));
 
@@ -39,6 +40,7 @@ beforeEach(() => {
   db.instagramAccount.count.mockResolvedValue(0);
   db.message.count.mockResolvedValue(0);
   db.flowRun.count.mockResolvedValue(0);
+  db.dataDeletionRequest.findMany.mockResolvedValue([]);
 });
 
 describe("multi-tenancy", () => {
@@ -121,6 +123,28 @@ describe("multi-tenancy", () => {
       db.instagramAccount.findMany.mockResolvedValue([accounts[0]]);
       const { account } = await getTenantContext();
       expect(account?.id).toBe("a");
+    });
+
+    it("sem cookie, não escolhe perfil com exclusão PENDING", async () => {
+      cookieStore.get.mockImplementation((name: string) => (name === "fluxo_session" ? { value: "s" } : undefined));
+      session();
+      db.instagramAccount.findMany.mockResolvedValue(accounts);
+      db.dataDeletionRequest.findMany.mockResolvedValue([{ accountIds: ["b"] }]);
+      const { account } = await getTenantContext();
+      expect(account?.id).toBe("c");
+      expect(db.dataDeletionRequest.findMany).toHaveBeenCalledWith({
+        where: { status: "PENDING" },
+        select: { accountIds: true },
+      });
+    });
+
+    it("se todos os perfis estão em exclusão, não há perfil padrão", async () => {
+      cookieStore.get.mockImplementation((name: string) => (name === "fluxo_session" ? { value: "s" } : undefined));
+      session();
+      db.instagramAccount.findMany.mockResolvedValue([accounts[1]]);
+      db.dataDeletionRequest.findMany.mockResolvedValue([{ accountIds: ["b", "zzz"] }]);
+      const { account } = await getTenantContext();
+      expect(account).toBeNull();
     });
 
     it("respeita o cookie mesmo que o perfil escolhido esteja descarregado", async () => {

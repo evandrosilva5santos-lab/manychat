@@ -22,15 +22,18 @@ import {
 } from "lucide-react";
 import { revealWebhookVerifyToken, type MetaSettingsData } from "./actions";
 import { ProfileCard, StatusIcon } from "./ProfileCard";
+import { DeletionNotice } from "./DeletionNotice";
 import { accountStatusLabel, describeValidity, type AccountTone } from "@/components/layout/account-status";
 
 interface SettingsClientProps {
   initialSettings: MetaSettingsData;
   oauthSuccess?: string | boolean | false;
   oauthError?: string | null;
+  /** Código do pedido de exclusão recém-criado (validado na página). */
+  deletionCode?: string | null;
 }
 
-export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: SettingsClientProps) {
+export function SettingsClient({ initialSettings, oauthSuccess, oauthError, deletionCode }: SettingsClientProps) {
   // Lê direto das props: depois de descarregar/excluir, router.refresh() traz o estado novo.
   const settings = initialSettings;
   // Domínio público do navegador (vazio na renderização do servidor).
@@ -42,7 +45,8 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
   if (!settings.account) {
     return (
       <main className="fx flex min-h-full items-center justify-center bg-surface-100 p-6 text-ink">
-        <section className="max-w-lg rounded-xl border border-border bg-surface-200 p-8 text-center shadow-card">
+        <section className="max-w-lg space-y-4 rounded-xl border border-border bg-surface-200 p-8 text-center shadow-card">
+          {deletionCode && <DeletionNotice code={deletionCode} />}
           <h1 className="text-2xl font-bold">Nenhum perfil carregado</h1>
           <p className="mt-3 text-sm text-ink-muted">Carregue uma conta profissional do Instagram para ativar contatos, conversas e automações.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -132,6 +136,8 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError }: Se
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-8 py-8 space-y-8">
+        {deletionCode && <DeletionNotice code={deletionCode} />}
+
         {/* Banner de Sucesso OAuth */}
         {oauthSuccess && (
           <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-emerald-400 text-sm font-semibold">

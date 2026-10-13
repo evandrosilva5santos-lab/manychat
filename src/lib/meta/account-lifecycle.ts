@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { decryptToken } from "@/lib/security/token";
+import { errorCode } from "@/lib/log-safe";
 import { GRAPH_API_VERSION } from "./graph";
 
 export type DisconnectReason = "USER" | "META_DEAUTHORIZE" | "META_DATA_DELETION";
@@ -24,8 +25,11 @@ async function cancelMetaSubscription(account: AccountForMeta): Promise<void> {
     let res: Response;
     if (account.authProvider === "FACEBOOK_LOGIN") {
       if (!account.fbPageId) return;
-      const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${account.fbPageId}/subscribed_apps?access_token=${encodeURIComponent(token)}`;
-      res = await fetch(url, { method: "DELETE", signal });
+      res = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${account.fbPageId}/subscribed_apps`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+        signal,
+      });
     } else {
       res = await fetch(`https://graph.instagram.com/${GRAPH_API_VERSION}/me/subscribed_apps`, {
         method: "DELETE",
@@ -37,16 +41,6 @@ async function cancelMetaSubscription(account: AccountForMeta): Promise<void> {
   } catch (err) {
     console.warn(`[lifecycle] cancelar assinatura na Meta falhou (${errorCode(err)}) conta=${account.id}`);
   }
-}
-
-function errorCode(err: unknown): string {
-  if (err && typeof err === "object") {
-    const code = (err as { code?: unknown }).code;
-    if (typeof code === "string") return code;
-    const name = (err as { name?: unknown }).name;
-    if (typeof name === "string") return name;
-  }
-  return "UnknownError";
 }
 
 /** Descarrega o perfil: remove a credencial e encerra execuções ativas. Idempotente. */
@@ -164,9 +158,17 @@ export async function runDeletion(
     for (const accountId of request.accountIds) {
       const account = await prisma.instagramAccount.findUnique({
         where: { id: accountId },
-        select: { id: true, igUserId: true },
+        select: { id: true, igUserId: true, connectedAt: true },
       });
       if (!account) continue;
+      // Quem reconectou depois de pedir a exclusão não perde a nova conexão.
+      if (
+        request.source === "META_CALLBACK" &&
+        account.connectedAt &&
+        account.connectedAt.getTime() > request.createdAt.getTime()
+      ) {
+        continue;
+      }
       found += 1;
       if (request.scope === "PERSON") {
         await disconnectAccount(accountId, { reason: "META_DATA_DELETION", notifyMeta: false });
@@ -176,13 +178,8 @@ export async function runDeletion(
         break;
       }
     }
-    if (!finished) {
-      await prisma.dataDeletionRequest.update({
-        where: { id: requestId },
-        data: { attempts: { increment: 1 } },
-      });
-      return "PENDING";
-    }
+    // Orçamento esgotado é progresso, não falha: não soma tentativa.
+    if (!finished) return "PENDING";
     await prisma.dataDeletionRequest.update({
       where: { id: requestId },
       data: { status: "COMPLETED", accountsAffected: found, completedAt: new Date() },

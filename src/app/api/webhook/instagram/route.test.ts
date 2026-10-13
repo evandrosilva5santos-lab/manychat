@@ -56,13 +56,16 @@ describe("POST /api/webhook/instagram: accountId no enqueue", () => {
     expect(res.status).toBe(200);
     expect(enqueue.mock.calls[0][0].accountId).toBeNull();
     expect(warn).toHaveBeenCalled();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("db fora");
   });
 
   it("falha ao gravar na fila continua devolvendo 500", async () => {
     parse.mockReturnValue([ev("IG_1", "c1")]);
     db.findUnique.mockResolvedValue({ id: "a" });
-    enqueue.mockRejectedValue(new Error("db"));
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    enqueue.mockRejectedValue(Object.assign(new Error("INSERT INTO ... texto da consulta"), { code: "P1001" }));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await POST(request())).status).toBe(500);
+    expect(JSON.stringify(error.mock.calls)).not.toContain("INSERT");
+    expect(JSON.stringify(error.mock.calls)).toContain("P1001");
   });
 });

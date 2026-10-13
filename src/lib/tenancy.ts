@@ -108,6 +108,16 @@ export async function getOrCreateWorkspaceForActor(actor: TenantActor) {
   });
 }
 
+async function withoutPendingDeletion<T extends { id: string }>(accounts: T[]): Promise<T[]> {
+  if (accounts.length === 0) return accounts;
+  const pending = await prisma.dataDeletionRequest.findMany({
+    where: { status: "PENDING" },
+    select: { accountIds: true },
+  });
+  const deleting = new Set(pending.flatMap((request) => request.accountIds));
+  return accounts.filter((account) => !deleting.has(account.id));
+}
+
 export async function getTenantContext() {
   const [actor, store] = await Promise.all([getCurrentActor(), cookies()]);
   if (!actor) return { actor: null, account: null, impersonatedWorkspaceId: null };
@@ -118,7 +128,9 @@ export async function getTenantContext() {
   const requested = requestedId ? narrowed.find((account) => account.id === requestedId) : undefined;
   // Sem seleção válida, prefere um perfil conectado: abrir o painel num perfil
   // descarregado esconderia perfis que funcionam.
-  const selected = requested ?? narrowed.find((account) => account.status === "CONNECTED") ?? narrowed[0];
+  // Perfil com exclusão em andamento nunca vira o padrão (a tabela de pendentes é minúscula).
+  const candidates = requested ? narrowed : await withoutPendingDeletion(narrowed);
+  const selected = requested ?? candidates.find((account) => account.status === "CONNECTED") ?? candidates[0];
   return { actor, account: selected ?? null, impersonatedWorkspaceId };
 }
 

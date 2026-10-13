@@ -97,6 +97,7 @@ const META_UNAVAILABLE = "Não foi possível falar com a Meta agora. Tente novam
 const NO_PROFILE = "Nenhum perfil do Instagram está carregado.";
 const DISCONNECT_FAILED = "Não foi possível descarregar o perfil agora. Tente novamente em instantes.";
 const DELETE_FAILED = "Não foi possível excluir o perfil agora. Tente novamente em instantes.";
+const PROFILE_CHANGED = "O perfil ativo mudou. Recarregue a página e tente de novo.";
 const NAME_MISMATCH = "O nome digitado não confere com o perfil.";
 
 /**
@@ -117,10 +118,12 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 /**
- * Descarrega o perfil ativo (nunca recebe id do navegador). A Meta é avisada
- * em best-effort; histórico, fluxos e contatos continuam guardados.
+ * Descarrega o perfil ativo. O id vindo do navegador só é COMPARADO com o perfil
+ * ativo (nunca usado como alvo): evita descarregar o perfil errado se a seleção
+ * mudou em outra aba. A Meta é avisada em best-effort; histórico, fluxos e
+ * contatos continuam guardados.
  */
-export async function disconnectCurrentInstagramProfile(): Promise<{
+export async function disconnectCurrentInstagramProfile(expectedAccountId: string): Promise<{
   ok: boolean;
   error?: string;
   nextAccountId?: string | null;
@@ -128,6 +131,9 @@ export async function disconnectCurrentInstagramProfile(): Promise<{
   await requireAuth();
   const account = await getCurrentAccount();
   if (!account) return { ok: false, error: NO_PROFILE };
+  if (typeof expectedAccountId !== "string" || expectedAccountId !== account.id) {
+    return { ok: false, error: PROFILE_CHANGED };
+  }
 
   try {
     await disconnectAccount(account.id, { reason: "USER", notifyMeta: true });

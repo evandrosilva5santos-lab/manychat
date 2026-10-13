@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAppBaseUrl } from "@/lib/meta/oauth";
 import { parseCallbackRequest } from "@/lib/meta/signed-request";
 import { findAccountsForCallback, runDeletion } from "@/lib/meta/account-lifecycle";
+import { isUniqueViolation } from "@/lib/queue/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -35,18 +36,29 @@ export async function POST(request: Request) {
   }
 
   const code = randomBytes(16).toString("base64url");
-  const created = await prisma.dataDeletionRequest.create({
-    data: {
-      code,
-      requestKey,
-      source: "META_CALLBACK",
-      provider: data.provider,
-      metaUserIdHash: sha256(data.userId),
-      scope: data.provider === "INSTAGRAM_LOGIN" ? "BUSINESS" : "PERSON",
-      accountIds,
-      ...(accountIds.length === 0 ? { status: "COMPLETED" as const, accountsAffected: 0, completedAt: new Date() } : {}),
-    },
-  });
+  let created: { id: string };
+  try {
+    created = await prisma.dataDeletionRequest.create({
+      data: {
+        code,
+        requestKey,
+        source: "META_CALLBACK",
+        provider: data.provider,
+        metaUserIdHash: sha256(data.userId),
+        scope: data.provider === "INSTAGRAM_LOGIN" ? "BUSINESS" : "PERSON",
+        accountIds,
+        ...(accountIds.length === 0 ? { status: "COMPLETED" as const, accountsAffected: 0, completedAt: new Date() } : {}),
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    // Duas entregas iguais ao mesmo tempo: a segunda devolve o código da primeira.
+    if (isUniqueViolation(error)) {
+      const winner = await prisma.dataDeletionRequest.findUnique({ where: { requestKey }, select: { code: true } });
+      if (winner) return respond(winner.code);
+    }
+    throw error;
+  }
 
   if (accountIds.length > 0) {
     after(async () => {

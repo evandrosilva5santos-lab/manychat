@@ -69,8 +69,12 @@ describe("disconnectAccount", () => {
   it("usa a Página no Facebook Login", async () => {
     p.instagramAccount.findUnique.mockResolvedValue(fbAccount);
     await disconnectAccount("a2", { reason: "USER", notifyMeta: true });
-    expect(fetchMock.mock.calls[0][0]).toBe("https://graph.facebook.com/v21.0/page9/subscribed_apps?access_token=plain(ptok)");
-    expect(fetchMock.mock.calls[0][1].method).toBe("DELETE");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://graph.facebook.com/v21.0/page9/subscribed_apps");
+    expect(String(url)).not.toContain("?");
+    expect(String(url)).not.toContain("access_token");
+    expect(init.method).toBe("DELETE");
+    expect(init.headers.Authorization).toBe("Bearer plain(ptok)");
   });
 
   it("não chama a Meta com notifyMeta false, mas limpa a conta", async () => {
@@ -154,14 +158,39 @@ describe("runDeletion", () => {
     expect(p.dataDeletionRequest.update.mock.calls[0][0].data.accountsAffected).toBe(0);
   });
 
-  it("orçamento esgotado mantém PENDING e soma tentativa", async () => {
+  it("orçamento esgotado mantém PENDING sem somar tentativa", async () => {
     p.dataDeletionRequest.findUnique.mockResolvedValue(request());
     p.instagramAccount.findUnique.mockResolvedValue({ id: "a1", igUserId: "178" });
     expect(await runDeletion("r1", { budgetMs: 0 })).toBe("PENDING");
-    expect(p.dataDeletionRequest.update).toHaveBeenCalledWith({
-      where: { id: "r1" }, data: { attempts: { increment: 1 } },
-    });
+    expect(p.dataDeletionRequest.update).not.toHaveBeenCalled();
     expect(tx.instagramAccount.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("META_CALLBACK pula conta reconectada depois do pedido e apaga a antiga", async () => {
+    const createdAt = new Date("2026-10-12T12:00:00Z");
+    p.dataDeletionRequest.findUnique.mockResolvedValue(
+      request({ source: "META_CALLBACK", createdAt, accountIds: ["new", "old"] }),
+    );
+    p.instagramAccount.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
+      where.id === "new"
+        ? { id: "new", igUserId: "1", connectedAt: new Date("2026-10-12T12:00:01Z") }
+        : { id: "old", igUserId: "2", connectedAt: new Date("2026-10-01T00:00:00Z") },
+    );
+    expect(await runDeletion("r1")).toBe("COMPLETED");
+    expect(tx.instagramAccount.deleteMany).toHaveBeenCalledTimes(1);
+    expect(tx.instagramAccount.deleteMany).toHaveBeenCalledWith({ where: { id: "old" } });
+    expect(p.dataDeletionRequest.update.mock.calls[0][0].data.accountsAffected).toBe(1);
+  });
+
+  it("pedido APP não pula conta por connectedAt", async () => {
+    p.dataDeletionRequest.findUnique.mockResolvedValue(
+      request({ source: "APP", createdAt: new Date("2026-10-12T12:00:00Z") }),
+    );
+    p.instagramAccount.findUnique.mockResolvedValue({
+      id: "a1", igUserId: "178", connectedAt: new Date("2026-10-13T00:00:00Z"),
+    });
+    expect(await runDeletion("r1")).toBe("COMPLETED");
+    expect(tx.instagramAccount.deleteMany).toHaveBeenCalledWith({ where: { id: "a1" } });
   });
 
   it("erro soma tentativa e vira FAILED só na quinta", async () => {

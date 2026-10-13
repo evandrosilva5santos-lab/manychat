@@ -206,7 +206,9 @@ export async function executeFlow(options: RunnerOptions) {
       return { success: false, error: "Comentário expirado (mais de 7 dias)" };
     }
 
-    if (prisma.privateReply) {
+    // Só reivindica o comentário se o envio for possível: cliente e conta já resolvidos.
+    const claimable = client ? (await accountBlockReason(accountId)) === null : false;
+    if (claimable && prisma.privateReply) {
       try {
         await prisma.privateReply.create({
           data: { accountId, commentId: options.triggerContext!.commentId! },

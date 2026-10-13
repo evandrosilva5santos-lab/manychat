@@ -260,4 +260,36 @@ describe("Perfil seguro: fila", () => {
       flow: { account: { status: "CONNECTED" } },
     });
   });
+
+  it("resumeDueDelays devolve o run à espera (+60s) quando executeFlow lança, sem logar a mensagem", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedPrisma.flowRun.findMany.mockResolvedValue([{ id: "run_1", flowId: "f", contactId: "c" }] as never);
+    mockedPrisma.flowRun.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.contact.findUnique.mockResolvedValue({ id: "c", accountId: "acc_1" } as never);
+    mockedExecuteFlow.mockRejectedValueOnce(Object.assign(new Error("SELECT dado pessoal"), { code: "P2024" }));
+
+    const before = Date.now();
+    expect(await resumeDueDelays(5)).toBe(0);
+
+    expect(mockedPrisma.flowRun.updateMany).toHaveBeenCalledTimes(2);
+    const restore = mockedPrisma.flowRun.updateMany.mock.calls[1][0] as {
+      where: unknown; data: { status: string; resumeAt: Date };
+    };
+    expect(restore.where).toEqual({ id: "run_1", status: "RUNNING" });
+    expect(restore.data.status).toBe("WAITING_DELAY");
+    expect(restore.data.resumeAt.getTime()).toBeGreaterThanOrEqual(before + 60_000);
+    expect(JSON.stringify(error.mock.calls)).not.toContain("dado pessoal");
+    expect(JSON.stringify(error.mock.calls)).toContain("P2024");
+  });
+
+  it("resumeDueDelays segue em frente se nem devolver à espera for possível", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedPrisma.flowRun.findMany.mockResolvedValue([{ id: "run_1", flowId: "f", contactId: "c" }] as never);
+    mockedPrisma.flowRun.updateMany
+      .mockResolvedValueOnce({ count: 1 } as never)
+      .mockRejectedValueOnce(new Error("db caiu"));
+    mockedPrisma.contact.findUnique.mockResolvedValue({ id: "c", accountId: "acc_1" } as never);
+    mockedExecuteFlow.mockRejectedValueOnce(new Error("x"));
+    await expect(resumeDueDelays(5)).resolves.toBe(0);
+  });
 });

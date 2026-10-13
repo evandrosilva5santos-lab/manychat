@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { errorCode } from "@/lib/log-safe";
 import {
   recordIncomingMessage,
   recordOutgoingMessage,
@@ -53,7 +54,7 @@ export async function processDueEvents(limit = 10): Promise<TickSummary> {
   try {
     summary.stuckReclaimed = await reclaimStuckEvents();
   } catch (error) {
-    console.error("[worker] Falha ao reivindicar eventos presos:", error);
+    console.error(`[worker] Falha ao reivindicar eventos presos (${errorCode(error)})`);
     return summary;
   }
 
@@ -61,7 +62,7 @@ export async function processDueEvents(limit = 10): Promise<TickSummary> {
   try {
     ids = await findDueEventIds(limit);
   } catch (error) {
-    console.error("[worker] Falha ao buscar eventos da fila:", error);
+    console.error(`[worker] Falha ao buscar eventos da fila (${errorCode(error)})`);
     return summary;
   }
   summary.due = ids.length;
@@ -71,7 +72,7 @@ export async function processDueEvents(limit = 10): Promise<TickSummary> {
     try {
       claimed = await claimEvent(id);
     } catch (error) {
-      console.error(`[worker] Falha ao reivindicar ${id}:`, error);
+      console.error(`[worker] Falha ao reivindicar ${id} (${errorCode(error)})`);
       continue;
     }
     if (!claimed) {
@@ -84,7 +85,7 @@ export async function processDueEvents(limit = 10): Promise<TickSummary> {
       const row = await prisma.webhookEvent.findUnique({ where: { id } });
       event = row?.payload as unknown as NormalizedWebhookEvent;
     } catch (error) {
-      console.error(`[worker] Falha ao carregar ${id}:`, error);
+      console.error(`[worker] Falha ao carregar ${id} (${errorCode(error)})`);
       continue; // fica em PROCESSING e é recuperado pelo reclaim
     }
     if (!event) {
@@ -107,7 +108,7 @@ export async function processDueEvents(limit = 10): Promise<TickSummary> {
         await markRetryable(id, message);
         summary.retried++;
       }
-      console.error(`[worker] Evento ${id} (${event.kind}) falhou: ${message}`);
+      console.error(`[worker] Evento ${id} (${event.kind}) falhou (${errorCode(error)})`);
     }
   }
 
@@ -182,8 +183,7 @@ export async function processEvent(
           client = await graphClientForAccount(account.id);
         } catch (error) {
           console.warn(
-            `[worker] Resposta pública ignorada: perfil ${account.id} sem token utilizável`,
-            error instanceof Error ? error.message : error,
+            `[worker] Resposta pública ignorada: perfil ${account.id} sem token utilizável (${errorCode(error)})`,
           );
         }
         if (client) {
@@ -328,6 +328,8 @@ export async function processEvent(
   return account.id;
 }
 
+const DELAY_RETRY_MS = 60_000;
+
 /**
  * Retoma runs paradas em DELAY cuja espera venceu. Complementa o item 5
  * (agendador externo): enquanto não houver QStash/Inngest, o cron do /tick
@@ -367,8 +369,17 @@ export async function resumeDueDelays(limit = 10): Promise<number> {
       });
       resumed++;
     } catch (error) {
-      // Erro aqui já foi registrado pelo runner (run FAILED ou volta pro nó).
-      console.error(`[worker] Falha ao retomar run ${run.id}:`, error);
+      // O runner já registra falhas conhecidas (run FAILED). Erro inesperado: devolve
+      // o run para a espera, senão ele ficaria RUNNING para sempre.
+      console.error(`[worker] Falha ao retomar run ${run.id} (${errorCode(error)})`);
+      try {
+        await prisma.flowRun.updateMany({
+          where: { id: run.id, status: "RUNNING" },
+          data: { status: "WAITING_DELAY", resumeAt: new Date(Date.now() + DELAY_RETRY_MS) },
+        });
+      } catch (restoreError) {
+        console.error(`[worker] Não foi possível devolver o run ${run.id} à espera (${errorCode(restoreError)})`);
+      }
     }
   }
   return resumed;

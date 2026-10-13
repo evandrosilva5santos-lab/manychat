@@ -59,6 +59,25 @@ export function verifySignedRequest(raw: string, now = new Date()): SignedReques
 
 const MAX_BODY_BYTES = 8192;
 
+/** Corpo sem content-length (chunked) também respeita o teto: lê em bytes e para no limite. */
+async function readBodyWithLimit(request: Request, limit: number): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 export type CallbackParse =
   | { ok: true; raw: string; data: SignedRequestResult }
   | { ok: false; reason: "too_large" | "missing" | "invalid_signature" };
@@ -67,8 +86,8 @@ export type CallbackParse =
 export async function parseCallbackRequest(request: Request): Promise<CallbackParse> {
   const length = Number(request.headers.get("content-length") ?? 0);
   if (length > MAX_BODY_BYTES) return { ok: false, reason: "too_large" };
-  const body = await request.text();
-  if (body.length > MAX_BODY_BYTES) return { ok: false, reason: "too_large" };
+  const body = await readBodyWithLimit(request, MAX_BODY_BYTES);
+  if (body === null) return { ok: false, reason: "too_large" };
   const raw = new URLSearchParams(body).get("signed_request");
   if (!raw) return { ok: false, reason: "missing" };
   const data = verifySignedRequest(raw);

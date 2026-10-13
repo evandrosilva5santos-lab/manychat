@@ -492,4 +492,14 @@ describe("identificadores do perfil", () => {
     expect(warn).toHaveBeenCalledTimes(2);
     expect(JSON.stringify(warn.mock.calls)).not.toContain("user_tok");
   });
+
+  it("fetchFacebookUserId não loga a mensagem do erro de rede (pode conter URL e token)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed https://graph.facebook.com/me?access_token=segredo"));
+    expect(await fetchFacebookUserId("user_tok")).toBeNull();
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).not.toContain("segredo");
+    expect(logged).not.toContain("graph.facebook.com");
+    expect(logged).toContain("TypeError");
+  });
 });

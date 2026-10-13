@@ -59,6 +59,21 @@ describe("FlowRunner: envios reais controlados por janela e conta", () => {
     expect(result.success).toBe(false);
     expect(client.sendTextMessage).not.toHaveBeenCalled();
   });
+  it("cliente Graph indisponível não consome o claim da private reply", async () => {
+    const { graphClientForAccount } = await import("@/lib/meta/account-client");
+    vi.mocked(graphClientForAccount).mockRejectedValueOnce(new Error("sem token"));
+    const result = await executeFlow({ ...options, triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now() } });
+    expect(result.success).toBe(false);
+    expect(db.privateReply.create).not.toHaveBeenCalled();
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("perfil descarregado não consome o claim da private reply", async () => {
+    db.instagramAccount.findUnique.mockResolvedValue({ status: "DISCONNECTED" });
+    const result = await executeFlow({ ...options, triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now() } });
+    expect(result.success).toBe(false);
+    expect(db.privateReply.create).not.toHaveBeenCalled();
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
   it("bloqueia comentário com mais de 7 dias", async () => {
     const result = await executeFlow({ ...options, triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now() - 8 * 86400000 } });
     expect(result.success).toBe(false);

@@ -3,6 +3,8 @@ import { safeEqual } from "@/lib/auth/basic";
 import { resumePendingDeletions } from "@/lib/meta/account-lifecycle";
 import { processDueEvents, resumeDueDelays } from "@/lib/queue/worker";
 
+export const maxDuration = 60;
+
 /**
  * GET/POST /api/webhook/instagram/tick
  *
