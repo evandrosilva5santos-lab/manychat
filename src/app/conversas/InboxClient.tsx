@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useRef, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import {
   MessageSquare,
@@ -40,6 +40,8 @@ interface InboxClientProps {
   loadError?: string | null;
 }
 
+const noopSubscribe = () => () => {};
+
 export function InboxClient({
   initialConversations,
   initialActiveContactId,
@@ -59,7 +61,8 @@ export function InboxClient({
   // Drawer lateral do contato ativo
   const [showLeadDetails, setShowLeadDetails] = useState(true);
   const [tagModalOpen, setTagModalOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  // true só no navegador: datas relativas não divergem entre servidor e cliente
+  const isMounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   // Evita que a resposta atrasada de uma conversa sobrescreva outra ao trocar rápido
@@ -68,10 +71,6 @@ export function InboxClient({
   // Contato selecionado
   const activeConversation = conversations.find((c) => c.contact.id === activeContactId) || conversations[0];
   const activeContact = activeConversation?.contact;
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const scrollToBottom = (smooth = true) => {
     if (chatContainerRef.current) {
@@ -237,7 +236,7 @@ export function InboxClient({
             <button
               onClick={() => setTabFilter("ACTIVE24H")}
               className={`flex-1 py-1 text-center rounded-lg text-xs font-bold transition ${
-                tabFilter === "ACTIVE24H" ? "bg-surface-200 text-emerald-500 shadow-xs" : "text-ink-muted hover:text-ink"
+                tabFilter === "ACTIVE24H" ? "bg-surface-200 text-success shadow-xs" : "text-ink-muted hover:text-ink"
               }`}
             >
               24h Ativas ({conversations.filter((c) => c.contact.is24hActive).length})
@@ -287,7 +286,7 @@ export function InboxClient({
                     {/* Indicador de Janela 24h na foto */}
                     {item.contact.is24hActive && (
                       <span
-                        className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-surface-200"
+                        className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-success ring-2 ring-surface-200"
                         title="Janela de 24h aberta"
                       />
                     )}
@@ -300,7 +299,7 @@ export function InboxClient({
                       </span>
                       {item.contact.is24hActive ? (
                         <span
-                          className="text-[10px] font-semibold text-emerald-500 whitespace-nowrap"
+                          className="text-[10px] font-semibold text-success whitespace-nowrap"
                           title={`Janela de 24h aberta: restam ${item.contact.remainingHours24h}h para envio de DMs`}
                         >
                           {item.contact.remainingHours24h}h rest.
@@ -364,8 +363,8 @@ export function InboxClient({
                     <span className="text-ink-muted">@{activeContact.username}</span>
                     <span>·</span>
                     {activeContact.is24hActive ? (
-                      <span className="text-emerald-500 font-semibold flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-success font-semibold flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                         Janela 24h aberta ({activeContact.remainingHours24h}h restantes)
                       </span>
                     ) : (
@@ -492,7 +491,7 @@ export function InboxClient({
 
               {/* Banner da Meta 24h Window */}
               {!activeContact.is24hActive ? (
-                <div className="mb-3 flex items-center gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-500 border border-amber-500/20">
+                <div className="mb-3 flex items-center gap-2 rounded-xl bg-warning-soft p-3 text-xs text-warning border border-warning/30">
                   <ShieldAlert size={16} className="flex-none" />
                   <span>
                     <strong>Janela de 24 horas encerrada:</strong> Por política de privacidade da Meta,
@@ -500,9 +499,9 @@ export function InboxClient({
                   </span>
                 </div>
               ) : (
-                <div className="mb-2 flex items-center justify-between text-[11px] text-emerald-500 font-semibold px-1">
+                <div className="mb-2 flex items-center justify-between text-[11px] text-success font-semibold px-1">
                   <span className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
                     Janela oficial da Meta ativa · Envio liberado
                   </span>
                   <span>{activeContact.remainingHours24h}h restantes</span>
@@ -573,7 +572,7 @@ export function InboxClient({
 
             <div className="mt-3">
               {activeContact.followsAccount ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500">
+                <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-semibold text-success">
                   <UserCheck size={12} /> Seguidor verificado
                 </span>
               ) : (

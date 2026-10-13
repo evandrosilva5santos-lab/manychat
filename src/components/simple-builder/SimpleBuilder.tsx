@@ -335,8 +335,8 @@ export function SimpleBuilder({ flow, initial }: Props) {
 
             {/* Status Pill (Manychat AO VIVO / PARADO / RASCUNHO) */}
             {status === "LIVE" ? (
-              <span className="flex-none flex items-center gap-1 sm:gap-1.5 rounded-full bg-rose-600 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white shadow-xs">
-                <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-white animate-pulse" />
+              <span className="flex-none flex items-center gap-1 sm:gap-1.5 rounded-full bg-success px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-on-primary shadow-xs">
+                <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-on-primary animate-pulse" />
                 AO VIVO
               </span>
             ) : status === "STOPPED" ? (
@@ -344,7 +344,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
                 PARADO
               </span>
             ) : (
-              <span className="flex-none flex items-center gap-1 sm:gap-1.5 rounded-full bg-amber-500/20 px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-500 border border-amber-500/30">
+              <span className="flex-none flex items-center gap-1 sm:gap-1.5 rounded-full bg-warning-soft px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-warning border border-warning/30">
                 RASCUNHO
               </span>
             )}
@@ -392,7 +392,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
             onClick={handleToggleStatus}
             className={`flex items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 sm:px-4 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer ${
               status === "LIVE"
-                ? "border border-rose-500/30 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20"
+                ? "border border-danger/30 bg-danger-soft text-danger hover:bg-danger-soft"
                 : "bg-primary text-white hover:bg-primary-hover"
             }`}
           >
@@ -464,7 +464,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
                       router.push("/fluxos");
                     }
                   }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-rose-500/10 text-rose-500 text-left transition cursor-pointer"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-danger-soft text-danger text-left transition cursor-pointer"
                 >
                   <Trash2 size={14} /> Excluir automação
                 </button>
@@ -1018,7 +1018,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
                           <button
                             type="button"
                             onClick={() => handleRemoveLinkButton(idx)}
-                            className="text-ink-subtle hover:text-rose-500 p-1 rounded transition-colors cursor-pointer"
+                            className="text-ink-subtle hover:text-danger p-1 rounded transition-colors cursor-pointer"
                             title="Remover este botão"
                             aria-label={`Remover botão ${idx + 1}`}
                           >
@@ -1204,7 +1204,7 @@ export function SimpleBuilder({ flow, initial }: Props) {
             <div className="flex flex-col gap-6 max-w-4xl">
               {/* Banner de Recomendação (exatamente como no print 1 & 5) */}
               <div className="flex items-center gap-5 rounded-2xl border border-border bg-surface-200 p-5 shadow-xs">
-                <div className="flex h-16 w-16 flex-none items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                <div className="flex h-16 w-16 flex-none items-center justify-center rounded-2xl bg-warning-soft text-warning border border-warning/30">
                   <Mail size={32} />
                 </div>
                 <div className="flex flex-col gap-1">

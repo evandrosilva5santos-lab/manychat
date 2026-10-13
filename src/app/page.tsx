@@ -14,6 +14,7 @@ import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
 import { timeAgo } from "@/lib/format";
 import { isAccountConnected, pausedFlowLabel } from "@/components/layout/account-status";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,15 @@ export const metadata = {
   title: "Painel · instachat",
   description: "Visão geral e métricas das suas automações do Instagram",
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Instante de N dias atrás (fora do componente: o painel é renderizado por requisição). */
+function daysAgo(days: number): Date {
+  return new Date(Date.now() - days * DAY_MS);
+}
+
+type RecentContact = Prisma.ContactGetPayload<{ include: { messages: true } }>;
 
 export default async function DashboardPage() {
   const account = await getCurrentAccount();
@@ -32,12 +42,12 @@ export default async function DashboardPage() {
   let liveFlows = 0;
   let stoppedFlows = 0;
   let draftFlows = 0;
-  let recentContacts: any[] = [];
-  let dailyCounts: number[] = [0, 0, 0, 0, 0, 0, 0];
+  let recentContacts: RecentContact[] = [];
+  const dailyCounts: number[] = [0, 0, 0, 0, 0, 0, 0];
 
   if (account) {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const yesterday = daysAgo(1);
+    const sevenDaysAgo = daysAgo(7);
 
     const [
       cCount,
@@ -127,7 +137,7 @@ export default async function DashboardPage() {
       label: "Contatos",
       value: String(contactCount),
       sub: `${active24h} ativos na janela 24h`,
-      subColor: "text-emerald-500 font-semibold",
+      subColor: "text-success font-semibold",
       icon: Users,
     },
     {
@@ -160,9 +170,9 @@ export default async function DashboardPage() {
     <main className="fx mx-auto flex w-full max-w-6xl flex-col gap-6 p-8">
       {/* ── Banner de Conexão com o Instagram ─────────────────────────────── */}
       {account && connected ? (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-ink shadow-xs">
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-success/30 bg-success-soft p-4 text-ink shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-600">
+            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-success-soft text-success">
               <CheckCircle2 size={20} />
             </div>
             <div className="text-sm">
@@ -180,9 +190,9 @@ export default async function DashboardPage() {
           </Link>
         </div>
       ) : account ? null : (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-ink shadow-xs">
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-warning/30 bg-warning-soft p-4 text-ink shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-amber-500/20 text-amber-600">
+            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-warning-soft text-warning">
               <AlertTriangle size={20} />
             </div>
             <div className="text-sm">
@@ -194,7 +204,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/ajustes"
-            className="flex-none rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs"
+            className="flex-none rounded-xl bg-warning hover:opacity-90 text-on-primary px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs"
           >
             Conectar Instagram
           </Link>

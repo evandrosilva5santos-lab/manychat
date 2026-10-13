@@ -140,8 +140,8 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
 
         {/* Banner de Sucesso OAuth */}
         {oauthSuccess && (
-          <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-emerald-400 text-sm font-semibold">
-            <CheckCircle2 size={20} className="shrink-0 text-emerald-400" />
+          <div className="flex items-center gap-3 rounded-2xl bg-success-soft border border-success/30 p-4 text-success text-sm font-semibold">
+            <CheckCircle2 size={20} className="shrink-0 text-success" />
             <div>
               <span>Conta {typeof oauthSuccess === "string" ? `@${oauthSuccess}` : ""} conectada com sucesso via Instagram Login!</span>
               <p className="text-xs text-ink-muted mt-0.5">O token oficial de 60 dias foi gerado, criptografado e as automações agora estão prontas para atender.</p>
@@ -163,7 +163,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
         <ProfileCard settings={settings} />
 
         {/* ── CARD 0: Link de Conexão para Clientes (WhatsApp / Onboarding Limpo) ── */}
-        <section className="rounded-3xl border border-emerald-500/30 bg-surface-200 p-6 md:p-8 shadow-xs relative overflow-hidden">
+        <section className="rounded-3xl border border-success/30 bg-surface-200 p-6 md:p-8 shadow-xs relative overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border">
             <div className="flex items-center gap-3.5">
               <div className="h-12 w-12 rounded-2xl bg-primary-soft flex items-center justify-center text-primary shadow-xs">
@@ -172,7 +172,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-bold text-ink">Link de Conexão para Clientes</h2>
-                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500 border border-emerald-500/20">
+                  <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-semibold text-success border border-success/30">
                     Área Exclusiva do Cliente (/conectar)
                   </span>
                 </div>
@@ -213,14 +213,14 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
                   disabled={!fullClientUrl}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-surface-300 border border-border px-4 py-2.5 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
                 >
-                  {copiedField === "client_url" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                  {copiedField === "client_url" ? <Check size={14} className="text-success" /> : <Copy size={14} />}
                   <span>{copiedField === "client_url" ? "Link Copiado!" : "Copiar Link"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => copyToClipboard(whatsappShareText, "whatsapp_msg")}
                   disabled={!fullClientUrl}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 text-xs font-bold transition active:scale-95 shadow-xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-success hover:opacity-90 text-on-primary px-4 py-2.5 text-xs font-bold transition active:scale-95 shadow-xs"
                 >
                   {copiedField === "whatsapp_msg" ? <Check size={14} /> : <Send size={14} />}
                   <span>{copiedField === "whatsapp_msg" ? "Mensagem Copiada!" : "Copiar Texto p/ WhatsApp"}</span>
@@ -229,7 +229,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
             </div>
 
             <div className="rounded-2xl border border-border bg-surface-100 p-4 text-xs text-ink-muted flex items-start gap-3">
-              <ShieldCheck size={18} className="shrink-0 text-emerald-500 mt-0.5" />
+              <ShieldCheck size={18} className="shrink-0 text-success mt-0.5" />
               <div>
                 <strong className="text-ink font-semibold block mb-0.5">
                   Isolamento Total do Cliente:
@@ -278,11 +278,11 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
             <LoginConfigStatus config={settings.oauthConfig} />
 
             {/* Aviso sobre o erro 'O domínio dessa URL não está incluído nos domínios do app' */}
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-xs space-y-3">
+            <div className="rounded-2xl border border-warning/30 bg-warning-soft p-5 text-xs space-y-3">
               <div className="flex items-start gap-3">
-                <AlertTriangle size={20} className="shrink-0 text-amber-400 mt-0.5" />
+                <AlertTriangle size={20} className="shrink-0 text-warning mt-0.5" />
                 <div className="space-y-2">
-                  <strong className="text-amber-300 font-bold block text-sm">
+                  <strong className="text-warning font-bold block text-sm">
                     Como resolver: &ldquo;O domínio dessa URL não está incluído nos domínios do app&rdquo;
                   </strong>
                   <p className="text-ink-muted leading-relaxed">
@@ -290,10 +290,10 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
                   </p>
                   <ol className="list-decimal pl-5 space-y-1.5 text-ink-muted">
                     <li>
-                      Acesse <strong>Configurações do app &rsaquo; Básico</strong>: no campo <strong>Domínios do app</strong>, digite <code className="bg-surface-300 px-1.5 py-0.5 rounded text-amber-300 font-mono">vercel.app</code> e adicione também em <strong>URL da Política de Privacidade</strong>.
+                      Acesse <strong>Configurações do app &rsaquo; Básico</strong>: no campo <strong>Domínios do app</strong>, digite <code className="bg-surface-300 px-1.5 py-0.5 rounded text-warning font-mono">vercel.app</code> e adicione também em <strong>URL da Política de Privacidade</strong>.
                     </li>
                     <li>
-                      Na mesma página, role até o final, clique em <strong>Adicionar Plataforma &rsaquo; Site</strong> e no campo <strong>URL do site</strong> coloque: <code className="bg-surface-300 px-1.5 py-0.5 rounded text-amber-300 font-mono">https://manychat-evandrosilva5santos-7492s-projects.vercel.app</code>.
+                      Na mesma página, role até o final, clique em <strong>Adicionar Plataforma &rsaquo; Site</strong> e no campo <strong>URL do site</strong> coloque: <code className="bg-surface-300 px-1.5 py-0.5 rounded text-warning font-mono">https://manychat-evandrosilva5santos-7492s-projects.vercel.app</code>.
                     </li>
                     <li>
                       Clique em <strong>Salvar alterações</strong> no rodapé da Meta.
@@ -320,7 +320,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
                   onClick={() => copyToClipboard(fullOauthUrl, "oauth_url")}
                   className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
                 >
-                  {copiedField === "oauth_url" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                  {copiedField === "oauth_url" ? <Check size={14} className="text-success" /> : <Copy size={14} />}
                   <span>{copiedField === "oauth_url" ? "Copiado!" : "Copiar"}</span>
                 </button>
               </div>
@@ -392,7 +392,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
                   onClick={() => copyToClipboard(fullWebhookUrl, "url")}
                   className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
                 >
-                  {copiedField === "url" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                  {copiedField === "url" ? <Check size={14} className="text-success" /> : <Copy size={14} />}
                   <span>{copiedField === "url" ? "Copiado!" : "Copiar"}</span>
                 </button>
               </div>
@@ -424,7 +424,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
                       onClick={handleCopyVerifyToken}
                       className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-300 px-3 py-2 text-xs font-bold text-ink hover:bg-surface-300/80 transition active:scale-95"
                     >
-                      {copiedField === "verify_token" ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                      {copiedField === "verify_token" ? <Check size={14} className="text-success" /> : <Copy size={14} />}
                       <span>{copiedField === "verify_token" ? "Copiado!" : "Copiar"}</span>
                     </button>
                   </div>
@@ -460,7 +460,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
         {/* ── CARD 3: Modelos Prontos para App Review da Meta ─────────────── */}
         <section className="rounded-3xl border border-border bg-surface-200 p-6 md:p-8 shadow-xs">
           <div className="flex items-center gap-3 mb-2">
-            <div className="h-9 w-9 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+            <div className="h-9 w-9 rounded-xl bg-primary-soft text-primary flex items-center justify-center">
               <FileText size={18} />
             </div>
             <h2 className="text-lg font-bold text-ink">Textos de Justificativa para App Review da Meta</h2>
@@ -517,7 +517,7 @@ export function SettingsClient({ initialSettings, oauthSuccess, oauthError, dele
         {/* ── CARD 4: Roteiro do Vídeo Screencast (2 Minutos) ─────────────── */}
         <section className="rounded-3xl border border-border bg-surface-200 p-6 md:p-8 shadow-xs">
           <div className="flex items-center gap-3 mb-2">
-            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+            <div className="h-9 w-9 rounded-xl bg-success-soft text-success flex items-center justify-center">
               <Video size={18} />
             </div>
             <h2 className="text-lg font-bold text-ink">Roteiro para Gravação do Screencast da Meta</h2>
@@ -561,13 +561,13 @@ function LoginConfigStatus({ config }: LoginConfigStatusProps) {
         {rows.map((row) => (
           <li key={row.label} className="flex items-start gap-2.5">
             {row.issue ? (
-              <AlertTriangle size={16} className="shrink-0 text-amber-400 mt-0.5" aria-hidden />
+              <AlertTriangle size={16} className="shrink-0 text-warning mt-0.5" aria-hidden />
             ) : (
-              <CheckCircle2 size={16} className="shrink-0 text-emerald-500 mt-0.5" aria-hidden />
+              <CheckCircle2 size={16} className="shrink-0 text-success mt-0.5" aria-hidden />
             )}
             <div>
               <span className="font-bold text-ink">{row.label}: </span>
-              <span className={row.issue ? "text-amber-300" : "text-emerald-500"}>{row.issue ? "precisa de ajuste" : "pronto"}</span>
+              <span className={row.issue ? "text-warning" : "text-success"}>{row.issue ? "precisa de ajuste" : "pronto"}</span>
               <span className="block text-ink-subtle">{row.issue ?? row.hint}</span>
             </div>
           </li>

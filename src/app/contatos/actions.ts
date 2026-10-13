@@ -5,9 +5,11 @@ import { invalidIdMessage } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { check24hWindow } from "@/lib/meta/window";
 import { deleteContactData } from "@/lib/lgpd/contact-data";
 import { matchesConfirmation } from "@/components/ui/confirm-match";
+import { actionErrorMessage } from "@/lib/user-error";
 
 const CONTACTS_LIMIT = 200;
 
@@ -44,7 +46,7 @@ export async function listContacts(params: {
     const account = await getCurrentAccount();
     if (!account) return [];
 
-    const where: any = { accountId: account.id };
+    const where: Prisma.ContactWhereInput = { accountId: account.id };
 
     if (params.search) {
       where.OR = [
@@ -207,9 +209,9 @@ export async function createContact(data: {
     revalidatePath("/");
 
     return { ok: true, contact: item };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[contatos] Erro ao criar contato:", err);
-    return { ok: false, error: err?.message || "Erro ao criar contato no banco de dados." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao criar contato no banco de dados.") };
   }
 }
 
@@ -242,9 +244,9 @@ export async function addTagToContact(
     revalidatePath("/contatos");
     revalidatePath("/conversas");
     return { ok: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[contatos] Erro ao adicionar tag:", err);
-    return { ok: false, error: err?.message || "Erro ao adicionar etiqueta." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao adicionar etiqueta.") };
   }
 }
 
@@ -269,9 +271,9 @@ export async function removeTagFromContact(
     revalidatePath("/contatos");
     revalidatePath("/conversas");
     return { ok: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[contatos] Erro ao remover tag:", err);
-    return { ok: false, error: err?.message || "Erro ao remover etiqueta." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao remover etiqueta.") };
   }
 }
 

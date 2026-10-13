@@ -9,6 +9,7 @@ import { InstagramGraphClient } from "@/lib/meta/graph";
 import { dmButtonSchema, configSchemas } from "@/lib/flow/schema";
 import { outputHandles } from "@/lib/flow/nodes";
 import { check24hWindow } from "@/lib/meta/window";
+import { createHmac } from "crypto";
 
 describe("Motor de Automação — Etapa 3", () => {
   describe("Validação do Webhook (GET Handshake)", () => {
@@ -41,8 +42,7 @@ describe("Motor de Automação — Etapa 3", () => {
       const rawBody = JSON.stringify({ object: "instagram", entry: [] });
 
       // Calcula HMAC esperado
-      const crypto = require("crypto");
-      const hmac = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+      const hmac = createHmac("sha256", secret).update(rawBody).digest("hex");
 
       const isValid = verifyMetaHmacSignature(rawBody, `sha256=${hmac}`, secret);
       expect(isValid).toBe(true);
@@ -255,7 +255,7 @@ describe("Motor de Automação — Etapa 3", () => {
         },
       };
 
-      const handles = outputHandles(questionData as any, () => undefined);
+      const handles = outputHandles(questionData as never, () => undefined);
 
       // Deve ter exatamente 2 saídas para os dois botões postback (o web_url não tem saída pois sai do Instagram)
       expect(handles).toHaveLength(2);
@@ -317,7 +317,7 @@ describe("Motor de Automação — Etapa 3", () => {
         },
       };
 
-      const handles = outputHandles(carouselNodeData as any, (id) => mockCatalog[id] as any);
+      const handles = outputHandles(carouselNodeData as never, (id) => mockCatalog[id] as never);
 
       // Apenas item_1 e item_3 têm POSTBACK, gerando 2 saídas
       expect(handles).toHaveLength(2);

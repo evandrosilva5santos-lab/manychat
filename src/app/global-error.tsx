@@ -17,7 +17,7 @@ export default function GlobalError({
   return (
     <html lang="pt-BR">
       <body className="flex min-h-screen flex-col items-center justify-center bg-[#090a0f] text-[#f1f3f9] p-6 text-center font-sans">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500 mb-4 border border-rose-500/20">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-danger-soft text-danger mb-4 border border-danger/30">
           <AlertTriangle size={32} />
         </div>
         <h1 className="text-2xl font-bold tracking-tight">Falha crítica na aplicação</h1>

@@ -60,7 +60,7 @@ export function AdminAccountActions({ workspaceId, accountId, username }: Props)
         </button>
       </div>
       {result && (
-        <p className={`max-w-[220px] text-[11px] leading-4 ${result.ok ? "text-emerald-500" : "text-danger"}`} role="status">
+        <p className={`max-w-[220px] text-[11px] leading-4 ${result.ok ? "text-success" : "text-danger"}`} role="status">
           {result.ok ? result.message || (result.url ? "Link aberto em outra aba." : "Concluído.") : result.error}
           {result.url && <ExternalLink size={11} className="ml-1 inline" aria-hidden />}
         </p>

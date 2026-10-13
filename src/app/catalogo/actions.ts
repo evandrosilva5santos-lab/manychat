@@ -6,6 +6,7 @@ import { isSafeHttpsUrl } from "@/lib/links/tracked";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/account";
 import { prisma } from "@/lib/prisma";
+import { actionErrorMessage } from "@/lib/user-error";
 
 export type CardButtonType = "URL" | "POSTBACK";
 
@@ -148,9 +149,9 @@ export async function createCatalogItem(
     };
     revalidatePath("/catalogo");
     return { ok: true, item: result };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[catalogo] Erro ao criar item:", err);
-    return { ok: false, error: err?.message || "Falha ao salvar item no banco de dados." };
+    return { ok: false, error: actionErrorMessage(err, "Falha ao salvar item no banco de dados.") };
   }
 }
 
@@ -209,9 +210,9 @@ export async function updateCatalogItem(
     };
     revalidatePath("/catalogo");
     return { ok: true, item: result };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[catalogo] Erro ao atualizar item:", err);
-    return { ok: false, error: err?.message || "Falha ao atualizar card no banco de dados." };
+    return { ok: false, error: actionErrorMessage(err, "Falha ao atualizar card no banco de dados.") };
   }
 }
 
@@ -254,8 +255,8 @@ export async function deleteCatalogItem(id: string): Promise<{ ok: true } | { ok
     await prisma.catalogItem.delete({ where: { id: item.id } });
     revalidatePath("/catalogo");
     return { ok: true };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[catalogo] Erro ao excluir item:", err);
-    return { ok: false, error: err?.message || "Falha ao excluir card do banco de dados." };
+    return { ok: false, error: actionErrorMessage(err, "Falha ao excluir card do banco de dados.") };
   }
 }

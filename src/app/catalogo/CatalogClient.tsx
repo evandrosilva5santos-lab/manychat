@@ -250,7 +250,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
           <div
             className={`flex items-center gap-3 rounded-xl p-3.5 text-sm font-medium ${
               feedbackMsg.type === "success"
-                ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                ? "bg-success-soft text-success border border-success/30"
                 : "bg-danger/10 text-danger border border-danger/20"
             }`}
           >
@@ -288,7 +288,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
           <div className="rounded-2xl border border-border bg-surface-200 p-4">
             <span className="text-xs font-medium text-ink-subtle">Com Próximo Passo</span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-fuchsia-400">{postbackCount}</span>
+              <span className="text-2xl font-bold text-node-condition">{postbackCount}</span>
               <span className="text-xs text-ink-muted">avançam o fluxo</span>
             </div>
           </div>
@@ -378,11 +378,11 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
                   />
                   <div className="absolute top-3 left-3 flex items-center gap-1.5">
                     {item.buttonType === "URL" ? (
-                      <span className="flex items-center gap-1 rounded-full bg-blue-500/90 backdrop-blur-md px-2.5 py-0.5 text-[11px] font-bold text-white shadow-xs">
+                      <span className="flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-on-primary shadow-xs">
                         <ExternalLink size={12} /> Link Externo
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 rounded-full bg-fuchsia-600/90 backdrop-blur-md px-2.5 py-0.5 text-[11px] font-bold text-white shadow-xs">
+                      <span className="flex items-center gap-1 rounded-full bg-node-condition px-2.5 py-0.5 text-[11px] font-bold text-on-primary shadow-xs">
                         <CornerDownRight size={12} /> Próximo Passo
                       </span>
                     )}
@@ -593,7 +593,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
                       onClick={() => setButtonType("POSTBACK")}
                       className={`flex flex-col items-start p-3 rounded-xl border text-left transition ${
                         buttonType === "POSTBACK"
-                          ? "border-fuchsia-500 bg-fuchsia-500/10 text-fuchsia-400"
+                          ? "border-node-condition bg-surface-300 text-node-condition"
                           : "border-border bg-surface-100 text-ink-muted hover:text-ink"
                       }`}
                     >
@@ -693,7 +693,7 @@ export function CatalogClient({ initialItems }: CatalogClientProps) {
                     alt="Preview"
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      (e.target as any).src = PRESET_IMAGES[0].url;
+                      (e.target as HTMLImageElement).src = PRESET_IMAGES[0].url;
                     }}
                   />
                   <div className="absolute top-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">

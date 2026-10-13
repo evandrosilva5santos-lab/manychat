@@ -4,6 +4,8 @@ import { getCurrentAccount } from "@/lib/account";
 import { pausedFlowLabel } from "@/components/layout/account-status";
 import { describeTrigger, STATUS_BADGE, timeAgo } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import type { FlowMode, FlowStatus } from "@/generated/prisma/enums";
+import type { Trigger } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Automações · instachat" };
@@ -14,10 +16,10 @@ export default async function FlowsPage() {
     id: string;
     name: string;
     folder: string | null;
-    status: any;
-    mode: any;
+    status: FlowStatus;
+    mode: FlowMode;
     updatedAt: Date;
-    triggers: any[];
+    triggers: Trigger[];
   }> = [];
 
   try {

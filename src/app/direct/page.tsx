@@ -51,7 +51,7 @@ export default function DirectBroadcastPage() {
           </div>
           <h2 className="text-sm font-bold text-ink">Segmentação por Etiquetas</h2>
           <p className="text-xs text-ink-muted leading-relaxed">
-            Filtre por tags como "lead-quente", "casamento-2026" ou "cliente" para mensagens hiper-personalizadas.
+            Filtre por tags como “lead-quente”, “casamento-2026” ou “cliente” para mensagens hiper-personalizadas.
           </p>
         </div>
 

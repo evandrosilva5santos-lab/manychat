@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getAuthorizedBasicUser, readBasicAuthConfig } from "@/lib/auth/basic";
+import { UserFacingError } from "@/lib/user-error";
 
 export const ACTIVE_ACCOUNT_COOKIE = "active_ig_account_id";
 export const SESSION_COOKIE = "fluxo_session";
@@ -14,7 +15,7 @@ export type TenantActor = {
   role: "SUPERADMIN" | "CLIENT";
 };
 
-export class AccountAccessError extends Error {
+export class AccountAccessError extends UserFacingError {
   constructor(message = "Você não tem acesso a esta conta do Instagram.") {
     super(message);
     this.name = "AccountAccessError";

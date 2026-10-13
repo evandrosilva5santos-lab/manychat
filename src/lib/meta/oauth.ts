@@ -384,9 +384,14 @@ const UNSUPPORTED_METHOD_RE = /Unsupported request - method type/i;
  * "Unsupported request - method type", repete UMA vez com POST (mesmos params
  * no corpo form-urlencoded). Logs sem tokens/segredos.
  */
+/** Corpo cru de uma resposta de token da Meta: só os campos de erro são lidos antes do Zod. */
+type MetaTokenRaw = {
+  error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string };
+} | null;
+
 async function tokenRequestWithMethodRetry(
   url: URL
-): Promise<{ res: Response; raw: any }> {
+): Promise<{ res: Response; raw: MetaTokenRaw }> {
   const attempt = async (method: "GET" | "POST") => {
     const init: RequestInit = { method, signal: AbortSignal.timeout(15_000) };
     let target = url.toString();
@@ -396,7 +401,7 @@ async function tokenRequestWithMethodRetry(
       init.body = new URLSearchParams(url.searchParams).toString();
     }
     const res = await fetch(target, init);
-    const raw = await res.json().catch(() => null);
+    const raw = (await res.json().catch(() => null)) as MetaTokenRaw;
     if (!res.ok || !raw) {
       console.warn("[oauth] Falha na troca de token", {
         method,
@@ -480,7 +485,7 @@ export async function refreshInstagramLongLivedToken(
   url.searchParams.set("access_token", longLivedToken);
 
   let res: Response;
-  let raw: any;
+  let raw: MetaTokenRaw;
   try {
     ({ res, raw } = await tokenRequestWithMethodRetry(url));
   } catch (err) {

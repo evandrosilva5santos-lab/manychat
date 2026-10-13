@@ -144,7 +144,7 @@ describe("Item 4 — falhas de envio no motor", () => {
 
     expect(result).toMatchObject({ success: false, failed: true });
     const statuses = [...mockedPrisma.flowRun.update.mock.calls, ...mockedPrisma.flowRun.updateMany.mock.calls].map(
-      (c) => (c[0] as any).data?.status
+      (c) => (c[0] as { data?: { status?: string } }).data?.status
     );
     expect(statuses).not.toContain("WAITING_CLICK");
   });

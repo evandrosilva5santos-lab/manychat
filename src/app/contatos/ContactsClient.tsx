@@ -216,7 +216,7 @@ export function ContactsClient({
           <div className="rounded-2xl border border-border bg-surface-200 p-4">
             <span className="text-xs font-medium text-ink-subtle">Janela 24h Ativa</span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-emerald-500">{active24hCount}</span>
+              <span className="text-2xl font-bold text-success">{active24hCount}</span>
               <span className="text-xs text-ink-muted">podem receber DM agora</span>
             </div>
           </div>
@@ -230,7 +230,7 @@ export function ContactsClient({
           <div className="rounded-2xl border border-border bg-surface-200 p-4">
             <span className="text-xs font-medium text-ink-subtle">Leads Quentes</span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-amber-500">{taggedHotCount}</span>
+              <span className="text-2xl font-bold text-warning">{taggedHotCount}</span>
               <span className="text-xs text-ink-muted">com tag quente</span>
             </div>
           </div>
@@ -267,7 +267,7 @@ export function ContactsClient({
             {/* Filtro de Seguidor */}
             <select
               value={followFilter}
-              onChange={(e) => setFollowFilter(e.target.value as any)}
+              onChange={(e) => setFollowFilter(e.target.value as "ALL" | "FOLLOWING" | "NOT_FOLLOWING")}
               className="rounded-xl border border-border bg-surface-200 px-3 py-2 text-xs font-semibold text-ink focus:border-primary focus:outline-none"
             >
               <option value="ALL">Status de Seguidor</option>
@@ -280,7 +280,7 @@ export function ContactsClient({
               onClick={() => setOnly24h(!only24h)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition ${
                 only24h
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                  ? "bg-success-soft border-success/30 text-success"
                   : "bg-surface-200 border-border text-ink-muted hover:text-ink"
               }`}
             >
@@ -392,7 +392,7 @@ export function ContactsClient({
                       {/* Status de Seguidor */}
                       <td className="py-4 px-4 whitespace-nowrap">
                         {contact.followsAccount ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-semibold text-success">
                             <UserCheck size={12} /> Segue
                           </span>
                         ) : (
@@ -405,10 +405,10 @@ export function ContactsClient({
                       {/* Janela de 24 horas da Meta */}
                       <td className="py-4 px-4 whitespace-nowrap">
                         {contact.is24hActive ? (
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-500">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-success">
                             <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
                             </span>
                             <span>Aberta ({contact.remainingHours24h}h restantes)</span>
                           </div>
@@ -560,7 +560,7 @@ export function ContactsClient({
 
             <form onSubmit={handleCreateContact} className="mt-4 space-y-4">
               {createError && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-medium">
+                <div className="p-3 rounded-xl bg-danger-soft border border-danger/30 text-danger text-xs font-medium">
                   {createError}
                 </div>
               )}

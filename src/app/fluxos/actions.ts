@@ -12,6 +12,7 @@ import { compileRecipe, defaultRecipe, recipeSchema, type Recipe } from "@/lib/f
 import { firstIssue, snapshotSchema } from "@/lib/flow/schema";
 import type { FlowSnapshot } from "@/lib/flow/types";
 import { prisma } from "@/lib/prisma";
+import { actionErrorMessage } from "@/lib/user-error";
 
 export type SaveResult = { ok: true; savedAt: string; flowId?: string } | { ok: false; error: string };
 
@@ -65,9 +66,9 @@ export async function convertToAdvanced(flowId: string): Promise<SaveResult> {
     await prisma.flow.update({ where: { id: flowId }, data: { mode: "ADVANCED" } });
     revalidatePath(`/fluxos/${flowId}`);
     return { ok: true, savedAt: new Date().toISOString() };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[fluxos] Erro ao converter para avançado:", err);
-    return { ok: false, error: err?.message || "Erro ao atualizar modo do fluxo." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao atualizar modo do fluxo.") };
   }
 }
 
@@ -90,7 +91,7 @@ export async function saveRecipe(flowId: string, input: unknown): Promise<SaveRe
           name: "Nova automação rápida",
           mode: "SIMPLE",
           status: "DRAFT",
-          recipe: parsed.data as any,
+          recipe: parsed.data as Prisma.InputJsonValue,
         },
       });
 
@@ -99,9 +100,9 @@ export async function saveRecipe(flowId: string, input: unknown): Promise<SaveRe
 
       revalidatePath("/fluxos");
       return { ok: true, savedAt: new Date().toISOString(), flowId: created.id };
-    } catch (err: any) {
+    } catch (err) {
       console.error("[fluxos] Erro ao criar receita:", err);
-      return { ok: false, error: err?.message || "Erro ao salvar receita." };
+      return { ok: false, error: actionErrorMessage(err, "Erro ao salvar receita.") };
     }
   }
 
@@ -121,15 +122,15 @@ export async function saveRecipe(flowId: string, input: unknown): Promise<SaveRe
 
     await prisma.flow.update({
       where: { id: flowId },
-      data: { recipe: parsed.data as any },
+      data: { recipe: parsed.data as Prisma.InputJsonValue },
     });
 
     revalidatePath(`/fluxos/${flowId}`);
     revalidatePath("/fluxos");
     return { ok: true, savedAt: new Date().toISOString() };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[fluxos] Erro ao salvar receita:", err);
-    return { ok: false, error: err?.message || "Erro ao atualizar receita do fluxo." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao atualizar receita do fluxo.") };
   }
 }
 
@@ -145,9 +146,9 @@ export async function updateFlowStatus(flowId: string, status: FlowStatus): Prom
     revalidatePath(`/fluxos/${flowId}`);
     revalidatePath("/fluxos");
     return { ok: true, savedAt: new Date().toISOString() };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[fluxos] Erro ao atualizar status do fluxo:", err);
-    return { ok: false, error: err?.message || "Erro ao atualizar status." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao atualizar status.") };
   }
 }
 
@@ -166,9 +167,9 @@ export async function renameFlow(flowId: string, name: string): Promise<SaveResu
     revalidatePath(`/fluxos/${flowId}`);
     revalidatePath("/fluxos");
     return { ok: true, savedAt: new Date().toISOString() };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[fluxos] Erro ao renomear fluxo:", err);
-    return { ok: false, error: err?.message || "Erro ao renomear fluxo." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao renomear fluxo.") };
   }
 }
 
@@ -204,9 +205,9 @@ export async function duplicateFlow(flowId: string): Promise<SaveResult & { flow
 
     revalidatePath("/fluxos");
     return { ok: true, savedAt: new Date().toISOString(), flowId: cloned.id };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[fluxos] Erro ao duplicar fluxo:", err);
-    return { ok: false, error: err?.message || "Falha ao duplicar fluxo." };
+    return { ok: false, error: actionErrorMessage(err, "Falha ao duplicar fluxo.") };
   }
 }
 
@@ -226,9 +227,9 @@ export async function deleteFlow(flowId: string): Promise<SaveResult> {
     });
     revalidatePath("/fluxos");
     return { ok: true, savedAt: new Date().toISOString() };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[fluxos] Erro ao excluir fluxo:", err);
-    return { ok: false, error: err?.message || "Erro ao excluir fluxo." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao excluir fluxo.") };
   }
 }
 
@@ -247,8 +248,8 @@ export async function createTag(name: string): Promise<{ id: string; name: strin
       create: { accountId: account.id, name: clean },
       select: { id: true, name: true },
     });
-  } catch (err: any) {
-    return { error: err?.message || "Erro ao criar etiqueta." };
+  } catch (err) {
+    return { error: actionErrorMessage(err, "Erro ao criar etiqueta.") };
   }
 }
 
@@ -348,8 +349,8 @@ async function persistSnapshot(
 
     revalidatePath(`/fluxos/${flowId}`);
     return { ok: true, savedAt: new Date().toISOString() };
-  } catch (err: any) {
+  } catch (err) {
     console.error("[fluxos] Erro ao persistir snapshot no Prisma:", err);
-    return { ok: false, error: err?.message || "Erro ao salvar fluxo no banco de dados." };
+    return { ok: false, error: actionErrorMessage(err, "Erro ao salvar fluxo no banco de dados.") };
   }
 }

@@ -30,45 +30,45 @@ export default async function FalhasPage() {
     <div className="mx-auto w-full max-w-4xl px-6 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold">Envios com falha</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-ink-muted">
           Nada falha invisível: mensagens recusadas pela Meta e eventos mortos na fila, com o motivo.
         </p>
       </header>
 
       {loadError ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-danger bg-danger-soft p-4 text-sm text-danger">
           {loadError}
         </div>
       ) : failed.length === 0 && dead.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
+        <div className="rounded-lg border border-border bg-surface-200 p-8 text-center text-sm text-ink-muted">
           Nenhum envio com falha. Tudo que saiu foi aceito pela Meta.
         </div>
       ) : (
         <>
           {failed.length > 0 && (
             <section aria-labelledby="falhas-envios" className="mb-10">
-              <h2 id="falhas-envios" className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              <h2 id="falhas-envios" className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">
                 Mensagens recusadas ({failed.length})
               </h2>
               <ul className="space-y-3">
                 {failed.map((item) => (
                   <li
                     key={item.messageId}
-                    className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+                    className="rounded-lg border border-border bg-white p-4 shadow-sm"
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="font-medium">
                         @{item.contactUsername || item.contactIgsid}
-                        <span className="ml-2 text-xs text-zinc-400">{item.kind}</span>
+                        <span className="ml-2 text-xs text-ink-subtle">{item.kind}</span>
                       </span>
-                      <time className="text-xs text-zinc-400" dateTime={item.createdAt}>
+                      <time className="text-xs text-ink-subtle" dateTime={item.createdAt}>
                         {formatarData(item.createdAt)}
                       </time>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm text-zinc-700">
+                    <p className="mt-2 line-clamp-2 text-sm text-ink">
                       {item.text || "[sem texto]"}
                     </p>
-                    <p className="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-700">
+                    <p className="mt-2 rounded bg-danger-soft px-2 py-1 text-xs text-danger">
                       {item.error}
                       {item.flowName ? ` · fluxo: ${item.flowName}` : ""}
                       {item.runStatus ? ` · execução: ${item.runStatus}` : ""}
@@ -78,13 +78,13 @@ export default async function FalhasPage() {
                         <input type="hidden" name="messageId" value={item.messageId} />
                         <button
                           type="submit"
-                          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+                          className="rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-surface-200 hover:opacity-90"
                         >
                           Reenviar e retomar fluxo
                         </button>
                       </form>
                     ) : (
-                      <p className="mt-2 text-xs text-zinc-400">
+                      <p className="mt-2 text-xs text-ink-subtle">
                         {item.runStatus === "FAILED"
                           ? "Reenvio disponível apenas para mensagens de texto."
                           : ""}
@@ -98,27 +98,27 @@ export default async function FalhasPage() {
 
           {dead.length > 0 && (
             <section aria-labelledby="falhas-fila">
-              <h2 id="falhas-fila" className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              <h2 id="falhas-fila" className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">
                 Eventos mortos na fila ({dead.length})
               </h2>
               <ul className="space-y-2">
                 {dead.map((event) => (
                   <li
                     key={event.id}
-                    className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"
+                    className="rounded-lg border border-warning/30 bg-warning-soft p-3 text-sm"
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="font-medium">
                         {event.type}
-                        <span className="ml-2 text-xs text-amber-700">
+                        <span className="ml-2 text-xs text-warning">
                           {event.attempts} tentativa(s)
                         </span>
                       </span>
-                      <time className="text-xs text-amber-600" dateTime={event.receivedAt}>
+                      <time className="text-xs text-warning" dateTime={event.receivedAt}>
                         {formatarData(event.receivedAt)}
                       </time>
                     </div>
-                    {event.lastError && <p className="mt-1 text-xs text-amber-800">{event.lastError}</p>}
+                    {event.lastError && <p className="mt-1 text-xs text-warning">{event.lastError}</p>}
                   </li>
                 ))}
               </ul>

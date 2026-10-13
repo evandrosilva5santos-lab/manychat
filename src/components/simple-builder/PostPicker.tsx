@@ -11,6 +11,7 @@ import {
   X,
   ExternalLink,
 } from "lucide-react";
+import type { InstagramMediaItem } from "@/lib/meta/graph";
 
 export type InstagramPost = {
   id: string;
@@ -59,7 +60,7 @@ export function PostPicker({
         if (!isMounted) return;
 
         if (json.success && Array.isArray(json.data)) {
-          const mapped: InstagramPost[] = json.data.map((item: any) => {
+          const mapped: InstagramPost[] = json.data.map((item: InstagramMediaItem) => {
             const rawType = item.mediaType || "IMAGE";
             const postType: InstagramPost["type"] =
               rawType === "CAROUSEL_ALBUM"
@@ -89,9 +90,9 @@ export function PostPicker({
         } else {
           setError(json.error || "Não foi possível carregar as publicações.");
         }
-      } catch (err: any) {
+      } catch {
         if (!isMounted) return;
-        setError(err.message || "Erro de conexão ao buscar publicações.");
+        setError("Erro de conexão ao buscar publicações.");
       } finally {
         if (isMounted) setLoading(false);
       }

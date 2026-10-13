@@ -51,7 +51,7 @@ describe("Item 3: contratos independentes do tipo de login", () => {
         publicReplies: [],
         payload: null,
         flow: { id: "flow" },
-      } as any,
+      } as never,
     ]);
     const event = { kind: "comment" as const, igUserId: "account", commentId: "comment", userIgsid: "lead", text: "quero", timestamp: Date.now() };
     expect(await findMatchingTrigger("account", event)).toBeNull();

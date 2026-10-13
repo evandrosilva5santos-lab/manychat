@@ -29,9 +29,9 @@ export default async function AdminPage() {
   const { metrics, clients } = overview;
   const cards = [
     { label: "Clientes", value: metrics.clientCount, description: "workspaces cadastrados", icon: Users, tone: "text-primary" },
-    { label: "Contas do Instagram", value: metrics.instagramAccountCount, description: "perfis profissionais", icon: Bot, tone: "text-violet-500" },
-    { label: "Conexões saudáveis", value: metrics.activeConnections, description: `${metrics.unhealthyConnections} exigem atenção`, icon: ShieldCheck, tone: "text-emerald-500" },
-    { label: "Volume no mês", value: metrics.messagesThisMonth, description: `${formatNumber(metrics.flowsThisMonth)} automações processadas`, icon: MessageSquare, tone: "text-amber-500" },
+    { label: "Contas do Instagram", value: metrics.instagramAccountCount, description: "perfis profissionais", icon: Bot, tone: "text-primary" },
+    { label: "Conexões saudáveis", value: metrics.activeConnections, description: `${metrics.unhealthyConnections} exigem atenção`, icon: ShieldCheck, tone: "text-success" },
+    { label: "Volume no mês", value: metrics.messagesThisMonth, description: `${formatNumber(metrics.flowsThisMonth)} automações processadas`, icon: MessageSquare, tone: "text-warning" },
   ];
 
   return (
@@ -111,7 +111,7 @@ export default async function AdminPage() {
                         </td>
                         <td className="px-5 py-5 text-center font-mono text-base font-semibold">{client.accounts.length}</td>
                         <td className="px-5 py-5">
-                          {client.accounts.length === 0 ? <span className="fx-badge fx-badge-draft">Sem conta</span> : healthy.length === client.accounts.length ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-500"><CheckCircle2 size={13} /> Ativo</span> : <span className="inline-flex items-center gap-1.5 rounded-full bg-danger/10 px-2.5 py-1 text-xs font-semibold text-danger"><XCircle size={13} /> Reconexão necessária</span>}
+                          {client.accounts.length === 0 ? <span className="fx-badge fx-badge-draft">Sem conta</span> : healthy.length === client.accounts.length ? <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-xs font-semibold text-success"><CheckCircle2 size={13} /> Ativo</span> : <span className="inline-flex items-center gap-1.5 rounded-full bg-danger/10 px-2.5 py-1 text-xs font-semibold text-danger"><XCircle size={13} /> Reconexão necessária</span>}
                         </td>
                         <td className="px-5 py-5 text-xs text-ink-muted">{formatDate(latestActivity)}</td>
                         <td className="px-5 py-5">

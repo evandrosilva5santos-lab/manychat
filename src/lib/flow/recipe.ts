@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { buttonTextSchema } from "./schema";
 import { LIMITS, triggerNodeId, type EditorEdge, type EditorNode, type FlowSnapshot } from "./types";
+import { UserFacingError } from "@/lib/user-error";
 
 export type RecipeButton = {
   id?: string;
@@ -181,7 +182,7 @@ export function recipeIds(flowId: string) {
  */
 export function compileRecipe(flowId: string, recipe: Recipe): FlowSnapshot {
   if (recipe.trigger.scope === "specific" && !recipe.trigger.mediaId.trim()) {
-    throw new Error("Informe o ID da publicação específica");
+    throw new UserFacingError("Informe o ID da publicação específica");
   }
   const id = recipeIds(flowId);
   const nodes: EditorNode[] = [];
