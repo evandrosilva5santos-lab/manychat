@@ -15,10 +15,15 @@ Antes de codar, o agente deve pedir ao dono qual destas tarefas autorizar (ordem
 
 | Candidata | Origem | Observação |
 | :--- | :--- | :--- |
-| `INTEGRAR-ITENS-5-8` | branches `item-05-*`, `item-06-*`, `item-07-*`, `item-08-saas` | Trabalho pronto e nunca integrado: Sentry, opt-out "PARAR", retenção LGPD, exportar contato, acessibilidade, `vercel-build` só em produção. Conflita com o pacote Perfil seguro (callbacks já reimplementados). |
-| `AGENDAR-TICK` | `src/app/api/webhook/instagram/tick` | Esperas (DELAY) e fila só andam se algo chamar `/tick`; `vercel.json` só agenda a renovação de token, 1x por dia. |
+| `DEPLOY-OPT-OUT` | BLK-008 | Aplicar a migration `20261012230000_contact_opt_out` junto do próximo deploy (sem ela `/contatos` e o worker quebram). |
+| `ATIVAR-QSTASH` | `docs/agendador-qstash.md` | Dono cria a conta e o agendamento; código já pronto. |
+| `RETENCAO-LGPD` | `item-05-token-e-agendamentos` (ec6baa9) | Pronto no branch, **não portado**: conflita com ADR-007 e o texto de `/privacidade` (BLK-010). |
+| `SENTRY` | `item-06-observabilidade-e-testes` | Pronto no branch; portar quando houver DSN (BLK-011). |
+| `ACESSIBILIDADE` | `item-07-mobile-a11y-ux` (WIP) | Rascunho; refazer sobre o código atual. |
 | `LOGIN-CLIENTE` | `menu-perfil-conta.md`, prompt 08b | `createUserSession` existe mas nada o chama: cliente não tem como entrar; só o operador via Basic Auth. |
 | `MENU-PERFIL` | `menu-perfil-conta.md` | Rascunho em andamento em `../Manychat-novas-implementacoes` (sem commit). |
+
+Já integrados em 12/10 (ver `state/CHANGELOG.md`): `vercel-build` só em produção, opt-out "PARAR", exportar/excluir contato, cabeçalhos de segurança.
 
 ## Protocolo de Execução do Claude Code
 1. Leia `CLAUDE.md` e `AGENTS.md`.

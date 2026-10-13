@@ -32,6 +32,9 @@
 
 ## ⚪ DONE (Concluídas e Validadas)
 
+- [x] **`PORTE-ITENS-6-8`** (2026-10-12): `vercel-build` só em produção, opt-out "PARAR" (migration pendente — BLK-008), exportar/excluir contato, cabeçalhos de segurança. Commits `9bef2b7`, `45e5bed`, `eced9c5`, `4acf127`.
+- [x] **`MARCA-INSTACHAT`** (2026-10-12): logos, favicon, `primary` vermelho, token `brand`, saneamento da governança. Commit `500e025`.
+
 - [x] **`PERFIL-SEGURO`** (2026-10-12): descarregar/excluir perfil, callbacks de desautorização e exclusão de dados da Meta, motor sem token global, isolamento da tela de falhas. Plano `perfil-seguro.md`, ADR-007.
 
 - [x] **`ITEM-01`**: Segurança, basic auth no proxy, requireAuth em server actions e links rastreados.

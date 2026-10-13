@@ -130,3 +130,20 @@
 - **DOCUMENTOS:** `CLAUDE.md` e `execution/CURRENT_TASK.md` deixam de mandar refazer a NANO-002; `state/HANDOFF.md` e `state/STATUS.md` atualizados; `MASTER_PLAN`/`ROADMAP` marcados como históricos; `docs/DESIGN.md` com a paleta real do `tokens.css`, fonte e tema corretos; `README` com porta 3007; `PRD_TRACEABILITY` (REQ-001, 002, 018, 019) e `PRD_ISSUES` (002 e 003 resolvidas, 004–010 novas). PRD intocado (REG-DOC-002).
 - **VALIDATION:** `npx tsc --noEmit` 0 erros; `npm test` 517/517; `npx eslint src` 82 erros / 36 avisos (pré-existentes).
 - **PENDENTE DE APROVAÇÃO DO DONO:** remover worktrees já integrados e o stub do Stripe (bloqueado pelo modo de permissões).
+
+---
+
+### [2026-10-12] — Agendador QStash + porte dos itens 6 e 8
+- **AGENT:** `CLAUDE` (Claude Code) · **PASTA:** oficial, branch `feat-login-duplo`
+- **DECISÃO DO DONO:** agendador do `/tick` = Upstash QStash (fecha a escolha pendente da BLK-006). Guia em `docs/agendador-qstash.md`; `CRON_SECRET` documentado no `.env.example`. Nenhuma mudança de código necessária.
+- **MÉTODO:** merge de `integ-preview-all` descartado (31 arquivos em conflito, base no item 4); porte recurso a recurso sobre o código atual.
+- **COMMITS:**
+  - `9bef2b7` — `vercel-build` só aplica migrations quando `VERCEL_ENV=production` (`scripts/vercel-migrate.mjs`, 7 testes).
+  - `45e5bed` — opt-out "PARAR/SAIR/STOP/CANCELAR" e reativação com "VOLTAR": `Contact.optedOut`, portão no worker, esperas e Reenviar bloqueados; confirmação com o token do próprio perfil. Migration aditiva **não aplicada** (BLK-008); política a confirmar (BLK-009).
+  - `eced9c5` — exportar (JSON) e excluir contato pelo painel, com confirmação "EXCLUIR" conferida no servidor; selo "Parou" na lista.
+  - `4acf127` — cabeçalhos de segurança (HSTS, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy) e sem `X-Powered-By`.
+- **NÃO PORTADO:** retenção LGPD (conflita com ADR-007 — BLK-010); Sentry (sem DSN — BLK-011); acessibilidade do item 7 (rascunho).
+- **VALIDATION:**
+  - `npx tsc --noEmit` 0 erros; `npm test` 576/576; `npm run build` ok.
+  - Runtime (`next start -p 3007`): cabeçalhos presentes em `/privacidade`; `/brand/*.png` 200 sem senha; `/conectar` 200 com o logotipo; `/tick` sem segredo 401.
+  - Lint: nenhum erro novo (82 erros antigos de `no-explicit-any`).

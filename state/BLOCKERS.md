@@ -21,6 +21,18 @@
 - **REQUIRED DECISION:** dono confirma as palavras e a forma de reativação (o prompt 08 sugere reativar quando a pessoa escrever de novo).
 - **STATUS:** `OPEN` (não bloqueia; o padrão é o mais conservador)
 
+### BLK-010: Retenção LGPD — decisões conflitantes
+- **DATE:** 2026-10-12
+- **DESCRIPTION:** BLK-007 (11/10, branch item 5) confirmou apagar mensagens com mais de 180 dias. ADR-007 (12/10) e o texto atual de `/privacidade` dizem que os dados do negócio ficam até o pedido de exclusão, com a retenção pendente de validação jurídica. O job `runRetention` (item 5) **não foi portado** para não contradizer a política publicada.
+- **REQUIRED DECISION:** dono/jurídico escolhem: (a) exclusão automática em N dias + ajuste de `/privacidade`, ou (b) manter até o pedido de exclusão.
+- **STATUS:** `OPEN`
+
+### BLK-011: Sentry sem DSN
+- **DATE:** 2026-10-12
+- **DESCRIPTION:** integração pronta no branch `item-06-observabilidade-e-testes` (SDK, limpeza de PII, alertas), mas sem `SENTRY_DSN` ficaria inerte e adicionaria dependência.
+- **REQUIRED DECISION:** dono cria o projeto no Sentry (ou escolhe alternativa) e fornece o DSN.
+- **STATUS:** `OPEN`
+
 ---
 
 ## Bloqueios Resolvidos (`RESOLVED`)

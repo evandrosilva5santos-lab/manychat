@@ -9,10 +9,11 @@
 ## Estado atual (12/10/2026, 23h)
 - **PRODUTO:** instachat (código interno "Fluxo"). Nome sempre em minúsculas, como no logotipo.
 - **PASTA OFICIAL:** `/Users/evandro/Downloads/Manychat`, branch `feat-login-duplo` — já contém o pacote "Perfil seguro" (fast-forward de `feat-novas-implementacoes` em 12/10).
-- **CONCLUÍDO:** login duplo Instagram/Facebook (ADR-006); pacote "Perfil seguro" (ADR-007); marca instachat aplicada (logos, favicon, `primary` vermelho, token `brand`) — sem commit.
-- **NÃO INTEGRADO (trabalho pronto em branches):** itens 5, 6, 7 e 8 dos prompts de execução — ver `execution/CURRENT_TASK.md`.
-- **LACUNAS CONHECIDAS:** esperas (DELAY) dependem de alguém chamar `/api/webhook/instagram/tick` (não agendado); cliente não tem login próprio; páginas "Agentes de IA" e "Transmissão" são vitrines "Em breve" (fora do escopo do PRD); 82 erros de lint (`no-explicit-any` antigos).
-- **BLOQUEIOS EXTERNOS (dono):** cadastrar `https://instachat.startinc.com.br/api/auth/instagram/callback` e as URLs de desautorização/exclusão no painel da Meta; adicionar a conta do Instagram como testadora; recarregar `@movingfestival` e `@loveu.sunset` (descarregadas pela tela em 12/10).
+- **CONCLUÍDO:** login duplo Instagram/Facebook (ADR-006); pacote "Perfil seguro" (ADR-007); marca instachat; porte dos itens 6 e 8 (`vercel-build` só em produção, opt-out "PARAR", exportar/excluir contato, cabeçalhos de segurança). `tsc` 0 erros, 576 testes, build ok.
+- **ANTES DO PRÓXIMO DEPLOY:** aplicar a migration de opt-out (BLK-008) — o `vercel-build` faz isso sozinho em produção.
+- **NÃO INTEGRADO:** retenção LGPD (BLK-010, decisão), Sentry (BLK-011, falta DSN), acessibilidade (item 7, rascunho).
+- **LACUNAS CONHECIDAS:** esperas (DELAY) só andam quando o QStash estiver chamando o `/tick` (`docs/agendador-qstash.md`); cliente não tem login próprio; páginas "Agentes de IA" e "Transmissão" são vitrines "Em breve" (ISSUE-009); 82 erros de lint (`no-explicit-any` antigos).
+- **BLOQUEIOS EXTERNOS (dono):** criar a conta e o agendamento no QStash com `CRON_SECRET`; cadastrar `https://instachat.startinc.com.br/api/auth/instagram/callback` e as URLs de desautorização/exclusão no painel da Meta; adicionar a conta do Instagram como testadora; recarregar `@movingfestival` e `@loveu.sunset` (descarregadas pela tela em 12/10).
 - **PRÓXIMO:** dono escolhe a próxima tarefa em `execution/CURRENT_TASK.md`; depois, deploy.
 
 ---
