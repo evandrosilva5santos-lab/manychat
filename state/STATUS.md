@@ -10,10 +10,10 @@
 - **PRODUTO:** instachat (código interno "Fluxo"). Nome sempre em minúsculas, como no logotipo.
 - **PASTA OFICIAL:** `/Users/evandro/Downloads/Manychat`, branch `feat-login-duplo` (commits locais, sem push).
 - **CONCLUÍDO:** login duplo (ADR-006); Perfil seguro (ADR-007); marca instachat; porte dos itens 6 e 8 (`vercel-build` só em produção, opt-out "PARAR", exportar/excluir contato, cabeçalhos de segurança); menu de perfil (troca de perfil na sidebar, menu do usuário com Sair, `/contas`, `/sair`, aviso de token vencendo); esperas retomadas a cada webhook e pelo cron diário do `/tick`; erros internos fora da tela; cores só do design system. `tsc` 0 erros, 603 testes, build ok.
-- **DEPLOY:** pendente de autorização do dono. O `vercel-build` aplica a migration de opt-out (BLK-008); `CRON_SECRET` já está na Vercel (conferido com `vercel env ls`).
+- **DEPLOY:** no ar em `https://instachat.startinc.com.br` desde 13/10/2026 03:09 UTC (`dpl_E1kECPNmU67KEKnF3tp9NqqCDKGc`, commit `0c9ad08`). Migration de opt-out aplicada; cron diário do `/tick` ativo.
 - **NÃO INTEGRADO:** retenção LGPD (BLK-010, decisão), Sentry (BLK-011, falta DSN), acessibilidade do item 7 (rascunho), login de cliente (precisa decidir provedor).
 - **DÍVIDA TÉCNICA:** 38 erros de lint, todos `any` no `src/lib/engine/runner.ts` (tipar exige reestruturar o motor e as checagens usadas pelos mocks).
-- **PASSOS DO DONO:** `docs/PASSOS-DO-DONO.md` (deploy, 3 URLs na Meta + testadora, recarregar 2 perfis, 4 decisões rápidas).
+- **PASSOS DO DONO:** `docs/PASSOS-DO-DONO.md` (3 URLs na Meta + testadora, recarregar 2 perfis, 4 decisões rápidas).
 
 ---
 

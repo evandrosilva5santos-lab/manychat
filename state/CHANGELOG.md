@@ -162,3 +162,11 @@
   - `npx tsc --noEmit` 0 erros; `npm test` 603/603; `npm run build` ok.
   - Runtime (`next start -p 3007`, só leitura): `/contas` e `/` 200 com o menu mostrando `@loveu.sunset` descarregado; `/sair` 200 sem senha.
   - Lint: 82 → 38 erros, todos em `src/lib/engine/runner.ts`.
+
+---
+
+### [2026-10-13] — Deploy de produção autorizado pelo dono
+- **DEPLOY:** `vercel deploy --prod` da pasta oficial (commit `0c9ad08`) → `dpl_E1kECPNmU67KEKnF3tp9NqqCDKGc`, alias `https://instachat.startinc.com.br`.
+- **ANTES:** `.vercelignore` novo — worktrees de `.claude/` e `.env` locais não sobem mais.
+- **MIGRATION:** `20261012230000_contact_opt_out` aplicada pelo `vercel-build` (log: "All migrations have been successfully applied").
+- **VERIFICAÇÃO (só leitura):** `/sair`, `/conectar`, `/privacidade`, `/exclusao-de-dados`, `/brand/*`, `/icon.png` → 200; HSTS, `nosniff` e `X-Frame-Options` presentes; `/tick` sem segredo → 401; painel sem senha → 401; `/`, `/contatos`, `/contas`, `/conversas`, `/fluxos` com senha → 200.

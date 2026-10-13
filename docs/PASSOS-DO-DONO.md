@@ -5,11 +5,11 @@
 
 ---
 
-## 1. Autorizar o deploy (5 segundos)
+## 1. ~~Autorizar o deploy~~ — feito em 13/10/2026
 
-Responda **"pode fazer o deploy"** para o Claude. Ele publica a versão nova na Vercel.
+A versão nova está no ar em <https://instachat.startinc.com.br>.
 
-O que acontece sozinho no deploy:
+O que já aconteceu no deploy:
 - a mudança no banco do opt-out ("PARAR") é aplicada;
 - o agendamento diário que destrava os nós "Esperar" passa a rodar (a senha dele, `CRON_SECRET`, já está cadastrada na Vercel).
 

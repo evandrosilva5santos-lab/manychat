@@ -13,7 +13,7 @@
 - **DESCRIPTION:** `prisma/migrations/20261012230000_contact_opt_out` (só adiciona `Contact.optedOut` e `optedOutAt`) foi escrita à mão e não rodou em nenhum banco. O código já lê essas colunas: **sem a migration, o worker falha** ao filtrar esperas e ao ler contatos.
 - **REQUIRED ACTION:** aplicar antes (ou junto) do próximo deploy — `npx prisma migrate deploy` em produção, que o `vercel-build` já faz só em `VERCEL_ENV=production`.
 - **OWNER:** dono (deploy)
-- **STATUS:** `OPEN`
+- **STATUS:** `RESOLVED` (13/10/2026 03:08 UTC — aplicada no deploy `dpl_E1kECPNmU67KEKnF3tp9NqqCDKGc`)
 
 ### BLK-009: Política de opt-out a confirmar
 - **DATE:** 2026-10-12
