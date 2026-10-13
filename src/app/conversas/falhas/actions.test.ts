@@ -63,6 +63,17 @@ describe("falhas: escopo por perfil ativo", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("retryFailedSend não reenvia para contato que pediu para parar (opt-out)", async () => {
+    getAccount.mockResolvedValue({ id: "acc_1", status: "CONNECTED" });
+    db.message.findUnique.mockResolvedValue({ ...message("acc_1"), contact: { id: "c", optedOut: true } });
+    expect(await retryFailedSend(form(MID))).toEqual({
+      ok: false,
+      error: "Este contato pediu para parar de receber mensagens automáticas.",
+    });
+    expect(db.flowRun.update).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("retryFailedSend do próprio perfil reabre o run (RUNNING) e reexecuta", async () => {
     getAccount.mockResolvedValue({ id: "acc_1", status: "CONNECTED" });
     db.message.findUnique.mockResolvedValue(message("acc_1"));

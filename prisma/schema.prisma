@@ -147,6 +147,10 @@ model Contact {
   /// na lista de conversas).
   lastMessagePreview String?
   lastMessageAt      DateTime?
+  /// Opt-out (LGPD): mandou "parar"/"sair"/"stop"/"cancelar" no Direct e não
+  /// recebe nenhum envio automático até mandar "voltar".
+  optedOut          Boolean   @default(false)
+  optedOutAt        DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

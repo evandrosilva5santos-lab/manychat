@@ -20,7 +20,7 @@ import { encodePostback } from "../meta/postback";
 const contact: Contact = {
   id: "contact", accountId: "account", igsid: "lead", username: "ana", name: null,
   profilePicUrl: null, followsAccount: false, lastInboundAt: new Date(),
-  lastInteractionAt: null, sourceFlowId: null, createdAt: new Date(), updatedAt: new Date(),
+  lastInteractionAt: null, sourceFlowId: null, optedOut: false, optedOutAt: null, createdAt: new Date(), updatedAt: new Date(),
   lastMessagePreview: null, lastMessageAt: null,
 };
 const options = { accountId: "account", contact, flowId: "flow", startNodeId: "first" };

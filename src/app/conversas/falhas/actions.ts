@@ -126,6 +126,9 @@ export async function retryFailedSend(formData: FormData): Promise<RetryResult> 
   if (message.run.status !== "FAILED" || !message.nodeId) {
     return { ok: false, error: "Execução não está em estado de reenvio" };
   }
+  if (message.contact.optedOut) {
+    return { ok: false, error: "Este contato pediu para parar de receber mensagens automáticas." };
+  }
 
   // Reexecuta a partir do nó que falhou: envia de novo e segue o fluxo.
   await prisma.flowRun.update({

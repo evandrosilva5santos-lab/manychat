@@ -12,6 +12,7 @@ import {
   resumeFlowOnMessage,
 } from "@/lib/engine/runner";
 import { decodePostback } from "@/lib/meta/postback";
+import { applyOptOutGate } from "@/lib/lgpd/opt-out";
 import {
   claimEvent,
   findDueEventIds,
@@ -156,6 +157,10 @@ export async function processEvent(
     username: "username" in event ? event.username : undefined,
     inboundAt: event.kind === "comment" ? undefined : new Date(event.timestamp),
   });
+
+  // Opt-out LGPD: "parar"/"voltar" e contato que pediu para parar não passam
+  // daqui — o evento é gravado no histórico e o motor não roda.
+  if ((await applyOptOutGate({ accountId: account.id, contact, event, canRun })).stop) return account.id;
 
   // ── Comentário em post/reel ─────────────────────────────────
   if (event.kind === "comment") {
@@ -341,6 +346,7 @@ export async function resumeDueDelays(limit = 10): Promise<number> {
       status: "WAITING_DELAY",
       resumeAt: { lte: new Date() },
       flow: { account: { status: "CONNECTED" } },
+      contact: { optedOut: false },
     },
     orderBy: { resumeAt: "asc" },
     take: limit,

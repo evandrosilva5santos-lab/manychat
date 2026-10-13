@@ -8,7 +8,18 @@
 
 ## Bloqueios Ativos (`OPEN`)
 
-*(Nenhum bloqueio ativo no momento)*
+### BLK-008: Migration de opt-out ainda não aplicada no banco
+- **DATE:** 2026-10-12
+- **DESCRIPTION:** `prisma/migrations/20261012230000_contact_opt_out` (só adiciona `Contact.optedOut` e `optedOutAt`) foi escrita à mão e não rodou em nenhum banco. O código já lê essas colunas: **sem a migration, o worker falha** ao filtrar esperas e ao ler contatos.
+- **REQUIRED ACTION:** aplicar antes (ou junto) do próximo deploy — `npx prisma migrate deploy` em produção, que o `vercel-build` já faz só em `VERCEL_ENV=production`.
+- **OWNER:** dono (deploy)
+- **STATUS:** `OPEN`
+
+### BLK-009: Política de opt-out a confirmar
+- **DATE:** 2026-10-12
+- **DESCRIPTION:** implementada a política padrão do item 8a: só a mensagem inteira conta ("parar", "sair", "stop", "cancelar"); reativação só com "voltar"; confirmação enviada dentro da janela de 24h; comentário não conta.
+- **REQUIRED DECISION:** dono confirma as palavras e a forma de reativação (o prompt 08 sugere reativar quando a pessoa escrever de novo).
+- **STATUS:** `OPEN` (não bloqueia; o padrão é o mais conservador)
 
 ---
 
