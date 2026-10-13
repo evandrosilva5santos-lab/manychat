@@ -101,6 +101,11 @@ model InstagramAccount {
   tokenExpiresAt DateTime?
   authProvider   AuthProvider     @default(INSTAGRAM_LOGIN)
   fbPageId       String? // Página do Facebook (só FACEBOOK_LOGIN)
+  /// ID app-scoped que a Meta manda no signed_request (Instagram: `id` de /me;
+  /// Facebook: `id` do usuário). Casa os callbacks de desautorização/exclusão.
+  metaUserId     String?
+  /// Última conexão pelo OAuth: pedido da Meta emitido antes disso não se aplica.
+  connectedAt    DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -114,6 +119,7 @@ model InstagramAccount {
   privateReplies PrivateReply[]
 
   @@index([workspaceId])
+  @@index([metaUserId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -504,6 +510,54 @@ model WebhookEvent {
   processedAt    DateTime?
 
   @@index([status, nextAttemptAt])
+  @@index([accountId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Exclusão de dados (callback da Meta e "Excluir perfil e dados")
+// ─────────────────────────────────────────────────────────────
+
+enum DeletionSource {
+  META_CALLBACK
+  APP
+}
+
+/// PERSON: só os dados da pessoa (credencial e IDs da Meta). BUSINESS: o perfil
+/// profissional inteiro (contatos, conversas, fluxos…).
+enum DeletionScope {
+  PERSON
+  BUSINESS
+}
+
+enum DeletionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+/// Pedido de exclusão rastreável pelo código mostrado em /exclusao-de-dados.
+/// Guarda só o hash do ID da Meta, nunca o ID.
+model DataDeletionRequest {
+  id               String         @id @default(cuid())
+  /// 128 bits em base64url — é o confirmation_code devolvido à Meta.
+  code             String         @unique
+  /// SHA-256 do signed_request (repetição da Meta devolve o mesmo pedido)
+  /// ou `app:{accountId}:{timestamp}` no pedido feito pelo app.
+  requestKey       String         @unique
+  source           DeletionSource
+  provider         AuthProvider?
+  metaUserIdHash   String?
+  scope            DeletionScope
+  accountIds       String[]
+  status           DeletionStatus @default(PENDING)
+  accountsAffected Int            @default(0)
+  attempts         Int            @default(0)
+  /// Motivo da falha, sem dado pessoal.
+  lastError        String?
+  createdAt        DateTime       @default(now())
+  completedAt      DateTime?
+
+  @@index([status, createdAt])
 }
 
 // ─────────────────────────────────────────────────────────────
