@@ -78,8 +78,6 @@ CREATE TABLE "Subscription" (
     "stripeCustomerId" TEXT,
     "stripeSubscriptionId" TEXT,
     "limitOverrides" JSONB NOT NULL DEFAULT '{}',
-    "isComplimentary" BOOLEAN NOT NULL DEFAULT false,
-    "complimentaryUntil" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
