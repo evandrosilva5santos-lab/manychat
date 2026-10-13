@@ -84,6 +84,9 @@ describe("isPublicPath", () => {
     "/conectar",
     "/sair",
     "/login",
+    "/convite/abc123",
+    "/precos",
+    "/cadastro",
   ])("treats %s as public", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
@@ -98,6 +101,9 @@ describe("isPublicPath", () => {
     "/privacidade-falsa",
     "/termosx",
     "/loginx",
+    "/convites",
+    "/equipe",
+    "/plano",
   ])("treats %s as private", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });

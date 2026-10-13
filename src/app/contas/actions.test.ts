@@ -9,6 +9,7 @@ const m = vi.hoisted(() => {
   }
   return {
     AccountAccessError,
+    requireWorkspaceRole: vi.fn(),
     requireActor: vi.fn(),
     selectActiveAccount: vi.fn(),
     setActiveAccount: vi.fn(),
@@ -26,6 +27,8 @@ vi.mock("@/lib/tenancy", () => ({
   setActiveAccount: m.setActiveAccount,
   clearActiveAccount: m.clearActiveAccount,
   getTenantContext: m.getTenantContext,
+  requireWorkspaceRole: m.requireWorkspaceRole,
+  MANAGER_ROLES: ["OWNER", "ADMIN"],
 }));
 vi.mock("@/lib/meta/account-lifecycle", () => ({ disconnectAccount: m.disconnectAccount }));
 vi.mock("next/cache", () => ({ revalidatePath: m.revalidatePath }));
@@ -48,6 +51,13 @@ describe("unloadAccount", () => {
     expect(m.disconnectAccount).toHaveBeenCalledWith("acc_1", { reason: "USER", notifyMeta: true });
     expect(m.selectActiveAccount.mock.invocationCallOrder[0]).toBeLessThan(m.disconnectAccount.mock.invocationCallOrder[0]);
     expect(m.revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("atendente (OPERATOR) não descarrega perfil", async () => {
+    m.requireWorkspaceRole.mockRejectedValue(new m.AccountAccessError("Seu papel nesta equipe não permite esta ação."));
+    await expect(unloadAccount("acc_1")).resolves.toEqual({ ok: false, message: "Seu papel nesta equipe não permite esta ação." });
+    expect(m.requireWorkspaceRole).toHaveBeenCalledWith("w1", ["OWNER", "ADMIN"]);
+    expect(m.disconnectAccount).not.toHaveBeenCalled();
   });
 
   it("conta de outro workspace gera erro de acesso e não descarrega nada", async () => {

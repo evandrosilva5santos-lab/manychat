@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { assertWithinLimit } from "@/lib/billing/entitlements";
+import { PlanLimitError } from "@/lib/billing/plan-rules";
 import { encryptToken } from "@/lib/security/token";
 import {
   exchangeCodeForShortLivedToken,
@@ -40,20 +42,37 @@ type ConnectedAccount = {
 };
 
 /** Confere TODAS as contas antes de gravar: ou entram todas, ou nenhuma. */
-async function findExistingIds(workspaceId: string, accounts: ConnectedAccount[]): Promise<(string | null)[]> {
+async function findExisting(workspaceId: string, accounts: ConnectedAccount[]) {
   const existing = await Promise.all(
     accounts.map((acc) =>
-      prisma.instagramAccount.findUnique({ where: { igUserId: acc.igUserId }, select: { id: true, workspaceId: true } })
+      prisma.instagramAccount.findUnique({
+        where: { igUserId: acc.igUserId },
+        select: { id: true, workspaceId: true, status: true },
+      })
     )
   );
   if (existing.some((row) => row && row.workspaceId !== workspaceId)) {
     throw new ConnectUserError("Esta conta do Instagram já está vinculada a outro cliente.");
   }
-  return existing.map((row) => row?.id ?? null);
+  return existing;
+}
+
+/** Contas novas e descarregadas que voltam ocupam vaga no plano; reconectar uma ativa não. */
+async function assertAccountSlots(workspaceId: string, existing: ({ status: string } | null)[]) {
+  const adding = existing.filter((row) => !row || row.status === "DISCONNECTED").length;
+  if (adding === 0) return;
+  try {
+    await assertWithinLimit(workspaceId, "maxInstagramAccounts", adding);
+  } catch (error) {
+    if (error instanceof PlanLimitError) throw new ConnectUserError(error.message);
+    throw error;
+  }
 }
 
 async function saveConnectedAccounts(workspaceId: string, accounts: ConnectedAccount[]): Promise<string[]> {
-  const existingIds = await findExistingIds(workspaceId, accounts);
+  const existing = await findExisting(workspaceId, accounts);
+  await assertAccountSlots(workspaceId, existing);
+  const existingIds = existing.map((row) => row?.id ?? null);
   const writes = accounts.map((acc, index) => {
     const data = {
       username: acc.username,

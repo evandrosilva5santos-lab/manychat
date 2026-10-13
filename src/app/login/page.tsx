@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { BrandWordmark } from "@/components/brand/BrandLogo";
 import LoginForm from "./LoginForm";
 
@@ -20,8 +21,10 @@ export default function LoginPage() {
 
         <div className="rounded-2xl border border-border bg-surface-200 p-7 shadow-sm">
           <h1 className="text-[20px] font-extrabold text-ink mb-1">Bem-vindo de volta</h1>
-          <p className="text-sm text-ink-muted mb-6">Entre com suas credenciais para continuar.</p>
-          <LoginForm />
+          <p className="text-sm text-ink-muted mb-6">Entre com seu e-mail e senha para continuar.</p>
+          <Suspense>
+            <LoginForm />
+          </Suspense>
         </div>
 
         <p className="text-center text-[11px] text-ink-subtle">

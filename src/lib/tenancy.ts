@@ -8,6 +8,11 @@ export const ACTIVE_ACCOUNT_COOKIE = "active_ig_account_id";
 export const SESSION_COOKIE = "fluxo_session";
 export const IMPERSONATION_COOKIE = "fluxo_workspace_view";
 
+export type WorkspaceRole = "OWNER" | "ADMIN" | "OPERATOR";
+
+/** Quem configura o workspace (conexões, fluxos, equipe). */
+export const MANAGER_ROLES: readonly WorkspaceRole[] = ["OWNER", "ADMIN"];
+
 export type TenantActor = {
   id: string;
   name: string;
@@ -78,9 +83,14 @@ export async function requireSuperAdmin() {
   return actor;
 }
 
+/** Filtro Prisma dos workspaces em que a pessoa é membro (ADR-008: acesso por membro, não por dono). */
+function memberOf(actor: TenantActor) {
+  return { members: { some: { userId: actor.id } } };
+}
+
 export async function selectActiveAccount(actor: TenantActor, accountId: string) {
   const account = await prisma.instagramAccount.findFirst({
-    where: actor.role === "SUPERADMIN" ? { id: accountId } : { id: accountId, workspace: { ownerId: actor.id } },
+    where: actor.role === "SUPERADMIN" ? { id: accountId } : { id: accountId, workspace: memberOf(actor) },
   });
   if (!account) throw new AccountAccessError();
   return account;
@@ -88,7 +98,7 @@ export async function selectActiveAccount(actor: TenantActor, accountId: string)
 
 export async function listAccessibleAccounts(actor: TenantActor) {
   return prisma.instagramAccount.findMany({
-    where: actor.role === "SUPERADMIN" ? {} : { workspace: { ownerId: actor.id } },
+    where: actor.role === "SUPERADMIN" ? {} : { workspace: memberOf(actor) },
     orderBy: [{ username: "asc" }, { id: "asc" }],
   });
 }
@@ -98,19 +108,66 @@ export async function workspaceExists(workspaceId: string): Promise<boolean> {
   return Boolean(await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { id: true } }));
 }
 
-/** Retorna o workspace operacional do usuário, criando-o apenas no primeiro acesso. */
+/** Papel da pessoa no workspace. Super Admin opera como dono; quem não é membro recebe `null`. */
+export async function getWorkspaceRole(actor: TenantActor, workspaceId: string): Promise<WorkspaceRole | null> {
+  if (actor.role === "SUPERADMIN") return "OWNER";
+  const member = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: actor.id } },
+    select: { role: true },
+  });
+  return member?.role ?? null;
+}
+
+/** Barra a ação se o papel da pessoa no workspace não estiver entre os permitidos. */
+export async function requireWorkspaceRole(workspaceId: string, allowed: readonly WorkspaceRole[]) {
+  const actor = await requireActor();
+  const role = await getWorkspaceRole(actor, workspaceId);
+  if (!role) throw new AccountAccessError("Você não faz parte desta equipe.");
+  if (!allowed.includes(role)) throw new AccountAccessError("Seu papel nesta equipe não permite esta ação.");
+  return { actor, role };
+}
+
+/**
+ * Workspace em que a pessoa está trabalhando: o do perfil ativo, senão o da
+ * primeira equipe (as próprias primeiro). Só cria um workspace novo para quem
+ * ainda não está em nenhum — quem foi convidado nunca ganha um workspace paralelo.
+ */
 export async function getOrCreateWorkspaceForActor(actor: TenantActor) {
-  const existing = await prisma.workspace.findFirst({
-    where: { ownerId: actor.id },
+  const store = await cookies();
+  const activeAccountId = store.get(ACTIVE_ACCOUNT_COOKIE)?.value;
+  if (activeAccountId) {
+    const active = await prisma.instagramAccount.findFirst({
+      where: actor.role === "SUPERADMIN" ? { id: activeAccountId } : { id: activeAccountId, workspace: memberOf(actor) },
+      select: { workspace: true },
+    });
+    if (active) return active.workspace;
+  }
+  const memberships = await prisma.workspaceMember.findMany({
+    where: { userId: actor.id },
+    include: { workspace: true },
     orderBy: { createdAt: "asc" },
   });
-  if (existing) return existing;
+  const preferred = memberships.find((member) => member.role === "OWNER") ?? memberships[0];
+  if (preferred) return preferred.workspace;
   return prisma.workspace.create({
     data: {
       ownerId: actor.id,
       name: actor.role === "SUPERADMIN" ? "Operação instachat" : `Workspace de ${actor.name}`,
+      kind: actor.role === "SUPERADMIN" ? "INTERNAL" : "CUSTOMER",
+      members: { create: { userId: actor.id, role: "OWNER" } },
     },
   });
+}
+
+/** Workspace em uso: o visualizado pelo Super Admin ou o da pessoa (ver `getOrCreateWorkspaceForActor`). */
+export async function getCurrentWorkspace() {
+  const actor = await requireActor();
+  if (actor.role === "SUPERADMIN") {
+    const viewing = (await cookies()).get(IMPERSONATION_COOKIE)?.value;
+    const workspace = viewing ? await prisma.workspace.findUnique({ where: { id: viewing } }) : null;
+    if (workspace) return { actor, workspace };
+  }
+  return { actor, workspace: await getOrCreateWorkspaceForActor(actor) };
 }
 
 async function withoutPendingDeletion<T extends { id: string }>(accounts: T[]): Promise<T[]> {

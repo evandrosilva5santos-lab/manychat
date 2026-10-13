@@ -9,6 +9,7 @@ const { cookieStore, headerStore, db } = vi.hoisted(() => ({
     user: { upsert: vi.fn() },
     instagramAccount: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     workspace: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
+    workspaceMember: { findUnique: vi.fn(), findMany: vi.fn() },
     message: { count: vi.fn() },
     flowRun: { count: vi.fn() },
     dataDeletionRequest: { findMany: vi.fn() },
@@ -24,7 +25,9 @@ import {
   getUserMenuData,
   findNextConnectedAccount,
   getAdminOverview,
+  getOrCreateWorkspaceForActor,
   hashSessionToken,
+  requireWorkspaceRole,
   selectActiveAccount,
 } from "./tenancy";
 
@@ -63,7 +66,7 @@ describe("multi-tenancy", () => {
 
     await expect(selectActiveAccount(client, "account-a")).resolves.toEqual(account);
     expect(db.instagramAccount.findFirst).toHaveBeenCalledWith({
-      where: { id: "account-a", workspace: { ownerId: "client" } },
+      where: { id: "account-a", workspace: { members: { some: { userId: "client" } } } },
     });
   });
 
@@ -191,7 +194,7 @@ describe("getUserMenuData", () => {
     login(client);
     db.instagramAccount.findMany.mockResolvedValue([row("a", "w1")]);
     const data = await getUserMenuData();
-    expect(db.instagramAccount.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { workspace: { ownerId: "client" } } }));
+    expect(db.instagramAccount.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { workspace: { members: { some: { userId: "client" } } } } }));
     expect(data.accounts.map((a) => a.id)).toEqual(["a"]);
     expect(data.actor?.role).toBe("CLIENT");
   });
@@ -227,5 +230,65 @@ describe("getUserMenuData", () => {
       ["authProvider", "id", "name", "profilePicUrl", "status", "tokenExpiresAt", "username", "workspaceId"],
     );
     expect(JSON.stringify(data)).not.toContain("SEGREDO");
+  });
+});
+
+describe("equipe (acesso por membro)", () => {
+  const session = (user: typeof client | typeof admin) => {
+    cookieStore.get.mockImplementation((name: string) => (name === "fluxo_session" ? { value: "s" } : undefined));
+    db.userSession.findUnique.mockResolvedValue({ user, expiresAt: new Date(Date.now() + 60_000) });
+  };
+
+  it("OPERATOR não passa em ação reservada a OWNER/ADMIN", async () => {
+    session(client);
+    db.workspaceMember.findUnique.mockResolvedValue({ role: "OPERATOR" });
+    await expect(requireWorkspaceRole("w1", ["OWNER", "ADMIN"])).rejects.toThrow("Seu papel nesta equipe não permite esta ação.");
+  });
+
+  it("quem não é membro é barrado mesmo com papel global CLIENT", async () => {
+    session(client);
+    db.workspaceMember.findUnique.mockResolvedValue(null);
+    await expect(requireWorkspaceRole("w-outro", ["OWNER", "ADMIN", "OPERATOR"])).rejects.toBeInstanceOf(AccountAccessError);
+  });
+
+  it("ADMIN passa e o papel é devolvido", async () => {
+    session(client);
+    db.workspaceMember.findUnique.mockResolvedValue({ role: "ADMIN" });
+    await expect(requireWorkspaceRole("w1", ["OWNER", "ADMIN"])).resolves.toMatchObject({ role: "ADMIN" });
+    expect(db.workspaceMember.findUnique).toHaveBeenCalledWith({
+      where: { workspaceId_userId: { workspaceId: "w1", userId: "client" } },
+      select: { role: true },
+    });
+  });
+
+  it("Super Admin opera qualquer workspace sem consultar membros", async () => {
+    session(admin);
+    await expect(requireWorkspaceRole("w1", ["OWNER"])).resolves.toMatchObject({ role: "OWNER" });
+    expect(db.workspaceMember.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("convidado usa o workspace da equipe em vez de criar um paralelo", async () => {
+    db.workspaceMember.findMany.mockResolvedValue([{ role: "ADMIN", workspace: { id: "w-equipe" } }]);
+    await expect(getOrCreateWorkspaceForActor(client)).resolves.toEqual({ id: "w-equipe" });
+    expect(db.workspace.create).not.toHaveBeenCalled();
+  });
+
+  it("prefere o workspace do perfil ativo", async () => {
+    cookieStore.get.mockImplementation((name: string) => (name === "active_ig_account_id" ? { value: "acc" } : undefined));
+    db.instagramAccount.findFirst.mockResolvedValue({ workspace: { id: "w-do-perfil" } });
+    await expect(getOrCreateWorkspaceForActor(client)).resolves.toEqual({ id: "w-do-perfil" });
+    expect(db.instagramAccount.findFirst).toHaveBeenCalledWith({
+      where: { id: "acc", workspace: { members: { some: { userId: "client" } } } },
+      select: { workspace: true },
+    });
+  });
+
+  it("quem não está em equipe nenhuma ganha um workspace próprio como OWNER", async () => {
+    db.workspaceMember.findMany.mockResolvedValue([]);
+    db.workspace.create.mockResolvedValue({ id: "novo" });
+    await getOrCreateWorkspaceForActor(client);
+    expect(db.workspace.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ ownerId: "client", kind: "CUSTOMER", members: { create: { userId: "client", role: "OWNER" } } }),
+    });
   });
 });

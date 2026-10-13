@@ -59,6 +59,9 @@ function FlowAiIcon({ className = "" }: { className?: string }) {
   );
 }
 
+/** Páginas públicas que abrem sem a barra lateral do painel. */
+const CHROMELESS_PREFIXES = ["/conectar", "/sair", "/login", "/convite", "/precos", "/cadastro"];
+
 const NAV_ITEMS = [
   { id: "painel", label: "Painel", href: "/", icon: Home },
   { id: "contatos", label: "Contatos", href: "/contatos", icon: User },
@@ -93,7 +96,7 @@ export function Sidebar({ isSuperAdmin = false, accounts, activeAccountId, user 
   const pathname = usePathname();
 
   // Telas públicas isoladas, sem menu interno do app: conexão do cliente e "Você saiu"
-  if (pathname?.startsWith("/conectar") || pathname === "/sair") {
+  if (CHROMELESS_PREFIXES.some((prefix) => pathname === prefix || pathname?.startsWith(`${prefix}/`))) {
     return null;
   }
 

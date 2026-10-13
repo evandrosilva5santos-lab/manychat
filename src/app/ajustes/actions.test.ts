@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
+  requireWorkspaceRole: vi.fn(),
+  AccountAccessError: class AccountAccessError extends Error {},
   clearActiveAccount: vi.fn(),
   setActiveAccount: vi.fn(),
   findNextConnectedAccount: vi.fn(),
@@ -28,6 +30,9 @@ vi.mock("@/lib/tenancy", () => ({
   getTenantContext: m.getTenantContext,
   requireSuperAdmin: m.requireSuperAdmin,
   getOrCreateWorkspaceForActor: vi.fn(),
+  requireWorkspaceRole: m.requireWorkspaceRole,
+  AccountAccessError: m.AccountAccessError,
+  MANAGER_ROLES: ["OWNER", "ADMIN"],
 }));
 vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount: vi.fn() }));
 vi.mock("@/lib/meta/connect-invite", () => ({ createConnectInvite: vi.fn() }));
@@ -277,5 +282,23 @@ describe("revealWebhookVerifyToken", () => {
     m.requireSuperAdmin.mockResolvedValue({ id: "adm", role: "SUPERADMIN" });
 
     await expect(revealWebhookVerifyToken()).resolves.toEqual({ ok: true, token: "segredo" });
+  });
+});
+
+describe("papéis na equipe (ADR-008)", () => {
+  it("atendente não descarrega o perfil", async () => {
+    m.requireWorkspaceRole.mockRejectedValue(new m.AccountAccessError("Seu papel nesta equipe não permite esta ação."));
+    await expect(disconnectCurrentInstagramProfile("acc_1")).resolves.toEqual({
+      ok: false,
+      error: "Seu papel nesta equipe não permite esta ação.",
+    });
+    expect(m.disconnectAccount).not.toHaveBeenCalled();
+  });
+
+  it("excluir perfil e dados exige ser o dono", async () => {
+    m.requireWorkspaceRole.mockRejectedValue(new m.AccountAccessError("Seu papel nesta equipe não permite esta ação."));
+    await expect(deleteCurrentInstagramProfile("loja.sunset")).resolves.toMatchObject({ ok: false });
+    expect(m.requireWorkspaceRole).toHaveBeenCalledWith(account.workspaceId, ["OWNER"]);
+    expect(m.requestAccountDeletion).not.toHaveBeenCalled();
   });
 });

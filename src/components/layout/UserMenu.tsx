@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, LogOut, Settings, Shield, ShieldCheck, Users } from "lucide-react";
+import { CreditCard, FileText, LogOut, Settings, Shield, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { initialsOf } from "./AccountAvatar";
 import { POPOVER_ITEM_CLASS, POPOVER_PANEL_CLASS, useEntered, usePopover } from "./usePopover";
@@ -53,6 +53,12 @@ export function UserMenu({ user }: { user: MenuUser }) {
           <div role="menu" aria-label="Conta e sessão" className="flex flex-col gap-0.5 px-2 py-2">
             <Link role="menuitem" href="/contas" onClick={() => close(false)} className={POPOVER_ITEM_CLASS}>
               <Users size={18} aria-hidden /> Gerenciamento de contas
+            </Link>
+            <Link role="menuitem" href="/equipe" onClick={() => close(false)} className={POPOVER_ITEM_CLASS}>
+              <UserPlus size={18} aria-hidden /> Equipe
+            </Link>
+            <Link role="menuitem" href="/plano" onClick={() => close(false)} className={POPOVER_ITEM_CLASS}>
+              <CreditCard size={18} aria-hidden /> Plano e uso
             </Link>
             <Link role="menuitem" href="/ajustes" onClick={() => close(false)} className={POPOVER_ITEM_CLASS}>
               <Settings size={18} aria-hidden /> Ajustes

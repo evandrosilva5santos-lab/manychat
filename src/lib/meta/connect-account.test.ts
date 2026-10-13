@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { db, oauth } = vi.hoisted(() => ({
+const { db, oauth, assertWithinLimit } = vi.hoisted(() => ({
+  assertWithinLimit: vi.fn(),
   db: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   oauth: {
     exchangeCodeForShortLivedToken: vi.fn(),
@@ -16,8 +17,10 @@ const { db, oauth } = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({ prisma: { instagramAccount: db, $transaction: (ops: Promise<unknown>[]) => Promise.all(ops) } }));
 vi.mock("@/lib/security/token", () => ({ encryptToken: (t: string) => `enc(${t})` }));
 vi.mock("./oauth", () => oauth);
+vi.mock("@/lib/billing/entitlements", () => ({ assertWithinLimit }));
 
 import { ConnectUserError, connectViaFacebook, connectViaInstagram } from "./connect-account";
+import { PlanLimitError } from "@/lib/billing/plan-rules";
 
 const NOW = new Date("2026-10-12T12:00:00Z");
 const REDIRECT = "https://app.test/api/auth/instagram/callback";
@@ -26,6 +29,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   db.findUnique.mockResolvedValue(null);
+  assertWithinLimit.mockResolvedValue(undefined);
   db.create.mockImplementation(async ({ data }) => data);
   db.update.mockImplementation(async ({ data }) => data);
 });
@@ -152,5 +156,37 @@ describe("connectViaFacebook", () => {
     await expect(connectViaFacebook("code", REDIRECT, "ws_1")).rejects.toThrow("já está vinculada a outro cliente");
     expect(db.create).not.toHaveBeenCalled();
     expect(db.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("limite de contas do plano", () => {
+  beforeEach(() => {
+    oauth.exchangeFacebookCodeForToken.mockResolvedValue({ accessToken: "short" });
+    oauth.exchangeForLongLivedFacebookUserToken.mockResolvedValue({ accessToken: "long" });
+    oauth.fetchFacebookUserId.mockResolvedValue("fb-1");
+    oauth.fetchFacebookPagesAndInstagram.mockResolvedValue([
+      { igUserId: "1", username: "a", pageId: "p1", pageAccessToken: "t1" },
+      { igUserId: "2", username: "b", pageId: "p2", pageAccessToken: "t2" },
+    ]);
+  });
+
+  it("conta todas as Páginas novas de uma vez e não grava nada se passar do plano", async () => {
+    assertWithinLimit.mockRejectedValue(new PlanLimitError("Seu plano permite até 1 contas do Instagram."));
+    await expect(connectViaFacebook("code", REDIRECT, "w1")).rejects.toThrow(ConnectUserError);
+    expect(assertWithinLimit).toHaveBeenCalledWith("w1", "maxInstagramAccounts", 2);
+    expect(db.create).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it("reconectar contas que já estão ativas não consome vaga", async () => {
+    db.findUnique.mockResolvedValue({ id: "x", workspaceId: "w1", status: "CONNECTED" });
+    await connectViaFacebook("code", REDIRECT, "w1");
+    expect(assertWithinLimit).not.toHaveBeenCalled();
+  });
+
+  it("conta descarregada que volta ocupa vaga de novo", async () => {
+    db.findUnique.mockResolvedValue({ id: "x", workspaceId: "w1", status: "DISCONNECTED" });
+    await connectViaFacebook("code", REDIRECT, "w1");
+    expect(assertWithinLimit).toHaveBeenCalledWith("w1", "maxInstagramAccounts", 2);
   });
 });

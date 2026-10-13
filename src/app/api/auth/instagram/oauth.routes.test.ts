@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { tenancy, connect, ConnectUserError } = vi.hoisted(() => ({
   ConnectUserError: class ConnectUserError extends Error {},
-  tenancy: { getCurrentActor: vi.fn(), getOrCreateWorkspaceForActor: vi.fn(), workspaceExists: vi.fn() },
+  tenancy: { getCurrentActor: vi.fn(), getOrCreateWorkspaceForActor: vi.fn(), workspaceExists: vi.fn(), getWorkspaceRole: vi.fn() },
   connect: { connectViaInstagram: vi.fn(), connectViaFacebook: vi.fn() },
 }));
-vi.mock("@/lib/tenancy", () => ({ ...tenancy, IMPERSONATION_COOKIE: "fluxo_workspace_view" }));
+vi.mock("@/lib/tenancy", () => ({ ...tenancy, IMPERSONATION_COOKIE: "fluxo_workspace_view", MANAGER_ROLES: ["OWNER", "ADMIN"] }));
 vi.mock("@/lib/meta/connect-account", () => ({ ...connect, ConnectUserError }));
 
 import { createConnectInvite } from "@/lib/meta/connect-invite";
@@ -30,10 +30,18 @@ beforeEach(() => {
   tenancy.getCurrentActor.mockResolvedValue({ id: "u1", role: "CLIENT", name: "C", email: "c@x" });
   tenancy.getOrCreateWorkspaceForActor.mockResolvedValue({ id: "ws_sessao" });
   tenancy.workspaceExists.mockResolvedValue(true);
+  tenancy.getWorkspaceRole.mockResolvedValue("OWNER");
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); vi.restoreAllMocks(); });
 
 describe("GET /api/auth/instagram/login", () => {
+  it("atendente (OPERATOR) não inicia a conexão de perfil", async () => {
+    tenancy.getWorkspaceRole.mockResolvedValue("OPERATOR");
+    const url = location(await login("?mode=instagram"));
+    expect(url.pathname).toBe("/ajustes");
+    expect(url.searchParams.get("error")).toMatch(/papel na equipe não permite conectar/);
+  });
+
   it("Instagram (padrão) usa o ID do app do Instagram e a redirect URI canônica", async () => {
     const url = location(await login("?mode=instagram"));
     expect(url.origin + url.pathname).toBe("https://www.instagram.com/oauth/authorize");

@@ -11,6 +11,9 @@ const { db, client, record, clicked, link } = vi.hoisted(() => ({
   client: { sendTextMessage: vi.fn(), sendButtonMessage: vi.fn(), sendCarouselMessage: vi.fn(), checkUserFollows: vi.fn(), reactToMessage: vi.fn() },
   record: vi.fn(), clicked: vi.fn(), link: vi.fn(),
 }));
+// Plano liberado: a trava de plano tem testes próprios (billing/entitlements).
+const sendingBlockReason = vi.hoisted(() => vi.fn(async (): Promise<string | null> => null));
+vi.mock("@/lib/billing/entitlements", () => ({ sendingBlockReason }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/meta/account-client", () => ({ graphClientForAccount: vi.fn(async () => client) }));
 vi.mock("./contacts", () => ({ recordOutgoingMessage: record }));
@@ -79,6 +82,13 @@ describe("FlowRunner: envios reais controlados por janela e conta", () => {
     const result = await executeFlow({ ...options, triggerContext: { origin: "comment", commentId: "comment", timestamp: Date.now() - 8 * 86400000 } });
     expect(result.success).toBe(false);
     expect(client.sendTextMessage).not.toHaveBeenCalled();
+  });
+  it("plano bloqueado (assinatura suspensa ou cota do mês) não envia e marca FAILED com o motivo", async () => {
+    sendingBlockReason.mockResolvedValueOnce("Limite de 100 mensagens enviadas no mês do plano atingido.");
+    const result = await executeFlow(options);
+    expect(result).toMatchObject({ success: false, error: "Limite de 100 mensagens enviadas no mês do plano atingido." });
+    expect(client.sendTextMessage).not.toHaveBeenCalled();
+    expect(db.flowRun.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
   });
   it("bloqueia DM fora da janela", async () => {
     db.contact.findFirst.mockResolvedValue({ ...contact, lastInboundAt: null });

@@ -6,7 +6,9 @@ import {
   AccountAccessError,
   clearActiveAccount,
   getTenantContext,
+  MANAGER_ROLES,
   requireActor,
+  requireWorkspaceRole,
   selectActiveAccount,
   setActiveAccount,
 } from "@/lib/tenancy";
@@ -41,6 +43,7 @@ export async function unloadAccount(accountId: string): Promise<AccountActionRes
     if (!accountId) return { ok: false, message: "Perfil inválido." };
     const actor = await requireActor();
     const account = await selectActiveAccount(actor, accountId);
+    await requireWorkspaceRole(account.workspaceId, MANAGER_ROLES);
     await disconnectAccount(account.id, { reason: "USER", notifyMeta: true });
     const tenant = await getTenantContext();
     if (tenant.account?.id === account.id) await clearActiveAccount();

@@ -4,6 +4,7 @@ import { recordOutgoingMessage } from "./contacts";
 import { compileRecipe, readRecipe } from "@/lib/flow/recipe";
 import { classifyGraphFailure, RetryableError } from "@/lib/queue/errors";
 import { encodePostback, decodePostback } from "@/lib/meta/postback";
+import { sendingBlockReason } from "@/lib/billing/entitlements";
 
 export type TriggerContext = {
   origin: "comment" | "message" | "story_reply" | "postback";
@@ -76,16 +77,19 @@ async function updateRunUnlessFailed(
   });
 }
 
-/** Confere (barato) se a conta ainda está CONNECTED antes de falar com a Meta. */
+/** Confere se a conta ainda está CONNECTED e se o plano permite enviar, antes de falar com a Meta. */
 async function accountBlockReason(accountId: string): Promise<string | null> {
   const account = await prisma.instagramAccount.findUnique({
     where: { id: accountId },
     select: { status: true },
   });
-  if (account?.status === "CONNECTED") return null;
-  return account?.status === "DISCONNECTED"
-    ? PROFILE_DETACHED_ERROR
-    : PROFILE_UNAVAILABLE_ERROR;
+  if (account?.status !== "CONNECTED") {
+    return account?.status === "DISCONNECTED"
+      ? PROFILE_DETACHED_ERROR
+      : PROFILE_UNAVAILABLE_ERROR;
+  }
+  // Plano: assinatura bloqueada ou cota de mensagens do mês esgotada (ADR-008).
+  return sendingBlockReason(accountId);
 }
 
 async function handleSendFailure(

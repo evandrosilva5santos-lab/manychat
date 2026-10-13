@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeFlow } from "./runner";
 import { RetryableError } from "@/lib/queue/errors";
 
+// Plano liberado: a trava de plano tem testes próprios (billing/entitlements).
+const sendingBlockReason = vi.hoisted(() => vi.fn(async (): Promise<string | null> => null));
+vi.mock("@/lib/billing/entitlements", () => ({ sendingBlockReason }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     flow: { findUnique: vi.fn() },

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 export default function LoginForm() {
   const router = useRouter();
+  const next = safeNextPath(useSearchParams().get("next"));
   const [isPending, startTransition] = useTransition();
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
@@ -18,20 +20,17 @@ export default function LoginForm() {
     setError(null);
     startTransition(async () => {
       try {
-        const credentials = btoa(`${user.trim()}:${password}`);
         const res = await fetch("/api/auth/session", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Basic ${credentials}`,
-          },
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ login: user.trim(), password }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          setError((body as { error?: string }).error ?? "Credenciais inválidas.");
+          setError((body as { error?: string }).error ?? "E-mail ou senha incorretos.");
           return;
         }
-        router.replace("/");
+        router.replace(next);
         router.refresh();
       } catch {
         setError("Erro de rede. Tente novamente.");
@@ -42,15 +41,16 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink">Usuário</span>
+        <span className="text-[13px] font-semibold text-ink">E-mail</span>
         <input
           type="text"
           autoComplete="username"
+          inputMode="email"
           required
           value={user}
           onChange={(e) => setUser(e.target.value)}
           className="rounded-xl border border-border bg-surface-100 px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
-          placeholder="fluxo"
+          placeholder="voce@empresa.com"
         />
       </label>
 

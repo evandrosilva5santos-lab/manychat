@@ -24,6 +24,10 @@ import {
   getOrCreateWorkspaceForActor,
   getTenantContext,
   requireSuperAdmin,
+  requireWorkspaceRole,
+  AccountAccessError,
+  MANAGER_ROLES,
+  type WorkspaceRole,
   setActiveAccount,
 } from "@/lib/tenancy";
 
@@ -78,12 +82,24 @@ function configIssue(check: () => unknown): string | null {
   }
 }
 
-/** Convite para o workspace em uso (o do cliente que o superadmin está vendo, ou o próprio). */
+/** Mensagem de erro se a pessoa não tiver um dos papéis no workspace; `null` se tiver. */
+async function roleProblem(workspaceId: string, allowed: readonly WorkspaceRole[]): Promise<string | null> {
+  try {
+    await requireWorkspaceRole(workspaceId, allowed);
+    return null;
+  } catch (error) {
+    if (error instanceof AccountAccessError) return error.message;
+    throw error;
+  }
+}
+
+/** Convite para o workspace em uso (o do cliente que o superadmin está vendo, ou o próprio). Só OWNER/ADMIN geram. */
 async function buildClientConnectUrl(): Promise<string | null> {
   try {
     const { actor, impersonatedWorkspaceId } = await getTenantContext();
     if (!actor) return null;
     const workspaceId = impersonatedWorkspaceId ?? (await getOrCreateWorkspaceForActor(actor)).id;
+    if (await roleProblem(workspaceId, MANAGER_ROLES)) return null;
     const url = new URL("/conectar", getAppBaseUrl());
     url.searchParams.set("convite", createConnectInvite(workspaceId));
     return url.toString();
@@ -136,6 +152,8 @@ export async function disconnectCurrentInstagramProfile(expectedAccountId: strin
   }
 
   try {
+    const denied = await roleProblem(account.workspaceId, MANAGER_ROLES);
+    if (denied) return { ok: false, error: denied };
     await disconnectAccount(account.id, { reason: "USER", notifyMeta: true });
     return { ok: true, nextAccountId: await moveToNextAccount(account) };
   } catch (error) {
@@ -161,6 +179,9 @@ export async function deleteCurrentInstagramProfile(confirmation: string): Promi
 
     const account = await getCurrentAccount();
     if (!account) return { ok: false, error: NO_PROFILE };
+    // Excluir dados é irreversível: só o dono do workspace (ou o Super Admin).
+    const denied = await roleProblem(account.workspaceId, ["OWNER"]);
+    if (denied) return { ok: false, error: denied };
     if (typeof confirmation !== "string" || !matchesConfirmation(confirmation, account.username)) {
       return { ok: false, error: NAME_MISMATCH };
     }

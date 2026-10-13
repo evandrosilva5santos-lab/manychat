@@ -4,37 +4,49 @@ import { requireAuth } from "@/lib/auth/requireAuth";
 import { invalidIdMessage } from "@/lib/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, type InstagramAccount } from "@/generated/prisma/client";
 import type { FlowMode, FlowStatus } from "@/generated/prisma/enums";
 import { getCurrentAccount } from "@/lib/account";
+import { assertWithinLimit } from "@/lib/billing/entitlements";
+import { getCurrentActor, getWorkspaceRole, MANAGER_ROLES } from "@/lib/tenancy";
 import { toSavePlan } from "@/lib/flow/convert";
 import { compileRecipe, defaultRecipe, recipeSchema, type Recipe } from "@/lib/flow/recipe";
 import { firstIssue, snapshotSchema } from "@/lib/flow/schema";
 import type { FlowSnapshot } from "@/lib/flow/types";
 import { prisma } from "@/lib/prisma";
-import { actionErrorMessage } from "@/lib/user-error";
+import { actionErrorMessage, UserFacingError } from "@/lib/user-error";
 
 export type SaveResult = { ok: true; savedAt: string; flowId?: string } | { ok: false; error: string };
 
 const FLOW_STATUSES: readonly FlowStatus[] = ["DRAFT", "LIVE", "STOPPED"];
 
-async function ownFlow(flowId: string) {
+const FLOW_NOT_FOUND = "Fluxo não encontrado.";
+
+/** Conta ativa, se a pessoa pode configurar automações nela (OWNER/ADMIN); senão, a mensagem de erro. */
+async function managedAccount(): Promise<InstagramAccount | string> {
   const account = await getCurrentAccount();
-  if (!account) return null;
+  if (!account) return "Nenhuma conta conectada. Conecte sua conta em Ajustes.";
+  const actor = await getCurrentActor();
+  const role = actor ? await getWorkspaceRole(actor, account.workspaceId) : null;
+  return role && MANAGER_ROLES.includes(role) ? account : "Seu papel na equipe não permite alterar automações.";
+}
+
+/** Conta dona do fluxo, já conferido o papel; senão, a mensagem de erro. */
+async function ownFlow(flowId: string): Promise<InstagramAccount | string> {
+  const account = await managedAccount();
+  if (typeof account === "string") return account;
   const flow = await prisma.flow.findFirst({
     where: { id: flowId, accountId: account.id },
     select: { id: true },
   });
-  return flow ? account : null;
+  return flow ? account : FLOW_NOT_FOUND;
 }
 
 export async function createFlow(mode: FlowMode) {
   await requireAuth();
   if (mode !== "SIMPLE" && mode !== "ADVANCED") throw new Error("Modo de fluxo inválido.");
-  const account = await getCurrentAccount();
-  if (!account) {
-    throw new Error("Nenhuma conta conectada. Conecte sua conta em Ajustes.");
-  }
+  const account = await managedAccount();
+  if (typeof account === "string") throw new UserFacingError(account);
 
   const flow = await prisma.flow.create({
     data: {
@@ -60,7 +72,7 @@ export async function convertToAdvanced(flowId: string): Promise<SaveResult> {
   const invalidInput = invalidIdMessage(flowId);
   if (invalidInput) return { ok: false, error: invalidInput };
   const account = await ownFlow(flowId);
-  if (!account) return { ok: false, error: "Fluxo não encontrado ou permissão negada." };
+  if (typeof account === "string") return { ok: false, error: account };
 
   try {
     await prisma.flow.update({ where: { id: flowId }, data: { mode: "ADVANCED" } });
@@ -81,8 +93,8 @@ export async function saveRecipe(flowId: string, input: unknown): Promise<SaveRe
 
   // Criação a partir de rota /fluxos/novo
   if (flowId === "novo") {
-    const account = await getCurrentAccount();
-    if (!account) return { ok: false, error: "Nenhuma conta conectada." };
+    const account = await managedAccount();
+    if (typeof account === "string") return { ok: false, error: account };
 
     try {
       const created = await prisma.flow.create({
@@ -107,7 +119,7 @@ export async function saveRecipe(flowId: string, input: unknown): Promise<SaveRe
   }
 
   const account = await ownFlow(flowId);
-  if (!account) return { ok: false, error: "Fluxo não encontrado ou sem permissão." };
+  if (typeof account === "string") return { ok: false, error: account };
 
   try {
     const flow = await prisma.flow.findUnique({ where: { id: flowId }, select: { mode: true } });
@@ -139,9 +151,14 @@ export async function updateFlowStatus(flowId: string, status: FlowStatus): Prom
   const invalidInput = invalidIdMessage(flowId) ?? (FLOW_STATUSES.includes(status) ? null : "Status inválido.");
   if (invalidInput) return { ok: false, error: invalidInput };
   const account = await ownFlow(flowId);
-  if (!account) return { ok: false, error: "Fluxo não encontrado." };
+  if (typeof account === "string") return { ok: false, error: account };
 
   try {
+    if (status === "LIVE") {
+      // Só conta como nova ativação se o fluxo ainda não estava ao vivo.
+      const current = await prisma.flow.findUnique({ where: { id: flowId }, select: { status: true } });
+      if (current?.status !== "LIVE") await assertWithinLimit(account.workspaceId, "maxActiveFlows");
+    }
     await prisma.flow.update({ where: { id: flowId }, data: { status } });
     revalidatePath(`/fluxos/${flowId}`);
     revalidatePath("/fluxos");
@@ -160,7 +177,7 @@ export async function renameFlow(flowId: string, name: string): Promise<SaveResu
   if (!clean || clean.length > 80) return { ok: false, error: "O nome precisa ter de 1 a 80 caracteres" };
 
   const account = await ownFlow(flowId);
-  if (!account) return { ok: false, error: "Fluxo não encontrado." };
+  if (typeof account === "string") return { ok: false, error: account };
 
   try {
     await prisma.flow.update({ where: { id: flowId }, data: { name: clean } });
@@ -178,7 +195,7 @@ export async function duplicateFlow(flowId: string): Promise<SaveResult & { flow
   const invalidInput = invalidIdMessage(flowId);
   if (invalidInput) return { ok: false, error: invalidInput };
   const account = await ownFlow(flowId);
-  if (!account) return { ok: false, error: "Fluxo não encontrado para duplicação" };
+  if (typeof account === "string") return { ok: false, error: account };
 
   try {
     const original = await prisma.flow.findUnique({
@@ -216,7 +233,7 @@ export async function deleteFlow(flowId: string): Promise<SaveResult> {
   const invalidInput = invalidIdMessage(flowId);
   if (invalidInput) return { ok: false, error: invalidInput };
   const account = await ownFlow(flowId);
-  if (!account) return { ok: false, error: "Fluxo não encontrado." };
+  if (typeof account === "string") return { ok: false, error: account };
 
   try {
     // Soft-delete: o histórico (FlowRun, Message) é preservado — apagar
@@ -261,7 +278,7 @@ export async function saveFlow(flowId: string, input: unknown): Promise<SaveResu
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
   const account = await ownFlow(flowId);
-  if (!account) return { ok: false, error: "Fluxo não encontrado ou sem permissão." };
+  if (typeof account === "string") return { ok: false, error: account };
 
   return await persistSnapshot(flowId, account.id, parsed.data as FlowSnapshot);
 }

@@ -8,7 +8,16 @@ import {
   OAuthConfigError,
   type OAuthMode,
 } from "@/lib/meta/oauth";
-import { getCurrentActor, getOrCreateWorkspaceForActor, IMPERSONATION_COOKIE, workspaceExists } from "@/lib/tenancy";
+import {
+  getCurrentActor,
+  getOrCreateWorkspaceForActor,
+  getWorkspaceRole,
+  IMPERSONATION_COOKIE,
+  MANAGER_ROLES,
+  workspaceExists,
+} from "@/lib/tenancy";
+
+const ROLE_DENIED = "Seu papel na equipe não permite conectar perfis. Peça a um administrador.";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +27,11 @@ export const dynamic = "force-dynamic";
 // O workspace que recebe a conta é decidido AQUI (sessão do painel ou convite do
 // /conectar) e viaja assinado no `state`. Nunca há OAuth anônimo.
 
-/** Convite tem prioridade (link do cliente); sem convite, usa a sessão do painel. */
-async function resolveWorkspaceId(request: NextRequest, invite: string | null): Promise<string | null> {
+/**
+ * Convite tem prioridade (link do cliente, já assinado); sem convite, usa a sessão
+ * do painel — e só OWNER/ADMIN conectam perfis (ADR-008).
+ */
+async function resolveWorkspaceId(request: NextRequest, invite: string | null): Promise<string | null | typeof ROLE_DENIED> {
   if (invite) {
     const workspaceId = readConnectInvite(invite)?.workspaceId;
     return workspaceId && (await workspaceExists(workspaceId)) ? workspaceId : null;
@@ -28,7 +40,9 @@ async function resolveWorkspaceId(request: NextRequest, invite: string | null): 
   if (!actor) return null;
   const viewing = actor.role === "SUPERADMIN" ? request.cookies.get(IMPERSONATION_COOKIE)?.value : undefined;
   if (viewing && (await workspaceExists(viewing))) return viewing;
-  return (await getOrCreateWorkspaceForActor(actor)).id;
+  const workspaceId = (await getOrCreateWorkspaceForActor(actor)).id;
+  const role = await getWorkspaceRole(actor, workspaceId);
+  return role && MANAGER_ROLES.includes(role) ? workspaceId : ROLE_DENIED;
 }
 
 export async function GET(request: NextRequest) {
@@ -47,6 +61,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const workspaceId = await resolveWorkspaceId(request, invite);
+    if (workspaceId === ROLE_DENIED) return fail(ROLE_DENIED);
     if (!workspaceId) {
       return fail(
         fromConectar
