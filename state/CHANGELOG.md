@@ -177,3 +177,12 @@
 - **DIAGNÓSTICO:** banco de produção (consulta só leitura) com `@evansantoos` CONNECTED e **nenhum** fluxo; logs com vários `POST /fluxos/novo` 200 sem erro. Causa: `recipeSchema` recusava legenda > 1.000 caracteres (post escolhido tinha legenda longa) e o botão Ativar mostrava sucesso sem conferir a resposta.
 - **COMMIT:** `aefc870` — limites do Instagram (legenda 2.200, URL 4.096); Ativar salva antes e só muda o estado com confirmação do servidor; erro de salvamento visível no celular; cabeçalho sem sobreposição; sem `@import` do Google Fonts (bloqueado pela CSP).
 - **VALIDATION:** `tsc` 0 erros; `npm test` 605/605 (regressão nova em `recipe.test.ts`); deploy de produção sem migrations pendentes; `/fluxos/novo` 200 e CSS publicado sem `fonts.googleapis`.
+
+---
+
+### [2026-10-13] — Diagnóstico: "o instachat não responde comentários"
+- **Banco (só leitura):** `@evansantoos` CONNECTED; automação `cmv64ezv…` LIVE com gatilho `COMMENT_KEYWORD` "black" (CONTAINS) no post `18367689238158519`; **zero** `WebhookEvent` e **zero** `Message` em toda a base.
+- **Logs Vercel (48 h):** nenhum `POST /api/webhook/instagram`; só o callback do OAuth e o `/tick`.
+- **Graph (só leitura):** `me/subscribed_apps` do perfil → inscrito em `comments`, `messages`, `messaging_postbacks`. `GET /{META_APP_ID}/subscriptions` (app do `.env` local) → **lista vazia**.
+- **Produção:** `GET /api/webhook/instagram` com o verify token → 200 com o challenge; token errado → 403.
+- **Conclusão:** falta configurar o webhook no app da Meta (URL + verify token + campos). Não é a lógica de resposta. Passo adicionado em `docs/PASSOS-DO-DONO.md` (1b).

@@ -15,6 +15,18 @@ O que já aconteceu no deploy:
 
 ---
 
+## 1b. ⚠️ Ligar o webhook no app da Meta (sem isto, NADA responde)
+
+Diagnóstico de 13/10/2026: o perfil `@evansantoos` está conectado e inscrito (`comments`, `messages`, `messaging_postbacks`), a automação está AO VIVO, mas **a Meta nunca chamou o instachat** — o app não tem endereço de webhook configurado.
+
+1. Em <https://developers.facebook.com/apps>, abra o app › **Instagram** › **Configuração da API com login do Instagram** › passo **2. Configurar webhooks**.
+2. **URL de retorno de chamada:** `https://instachat.startinc.com.br/api/webhook/instagram`
+3. **Verificar token:** o valor de `WEBHOOK_VERIFY_TOKEN` (Vercel › projeto *manychat* › Settings › Environment Variables › `WEBHOOK_VERIFY_TOKEN` › ícone do olho). Clique em **Verificar e salvar**.
+4. Na lista de campos logo abaixo, clique em **Inscrever** em `comments`, `messages` e `messaging_postbacks`.
+5. Enquanto o app estiver em **Desenvolvimento**, a Meta só entrega eventos de contas com função no app: teste comentando com **outra** conta do Instagram que seja **testadora** do app (comentário do próprio `@evansantoos` é ignorado de propósito, para o perfil não responder a si mesmo).
+
+---
+
 ## 2. Painel da Meta: cadastrar 3 endereços (10 minutos)
 
 Entre em <https://developers.facebook.com/apps>, abra o seu app e cole os endereços abaixo.
