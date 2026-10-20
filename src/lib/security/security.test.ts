@@ -22,6 +22,12 @@ describe("buildContentSecurityPolicy", () => {
     expect(csp).not.toContain("upgrade-insecure-requests");
   });
 
+  it("libera só a origem https do Storage para o upload do Autoposter", () => {
+    expect(buildContentSecurityPolicy("n", false, "https://abc.supabase.co")).toContain("connect-src 'self' https://abc.supabase.co");
+    expect(buildContentSecurityPolicy("n", false, "javascript:alert(1)")).toContain("connect-src 'self';");
+    expect(buildContentSecurityPolicy("n", false)).toContain("media-src 'self' blob: https:");
+  });
+
   it("generates a different nonce per call", () => {
     expect(generateNonce()).not.toBe(generateNonce());
     expect(generateNonce()).toMatch(/^[A-Za-z0-9+/=]{16,}$/);

@@ -222,3 +222,25 @@
 - **Validação:**
   - `tsc` 0 erros e 870 testes.
   - Teste no navegador (Chrome headless via DevTools Protocol) contra um banco local descartável, com as três visões, Super Admin, dono e atendente: 35 checagens passaram e não houve erro de console.
+
+### [2026-10-19] — Deploy só do Autoposter; Stripe e cobrança recorrente adiados (HANDOFF-004)
+- **AGENT:** Claude Code. Pedido do dono: "cache por enquanto a parte do Stripe, deixa no PRD para ser instalado; faça o commit que já vá para o ar, preciso testar a parte de postagem".
+- **Como foi feito:** worktree isolada `deploy/autoposter`, criada do `91fbf7f`. A pasta oficial (`feat-login-duplo`) ficou intacta, com o ADR-010 sem commit.
+- **Entrou:**
+  - Autoposter: `src/lib/autoposter/**`, `src/app/autoposter/**` e o cron `/api/cron/autoposter` (`0 7 * * *` no `vercel.json`).
+  - Migrations `20261013180000_autoposter` (recria as tabelas `autoposter_*`, que estavam vazias) e `20261013200000_autoposter_review_caption`.
+  - Schema do HEAD com o bloco do Autoposter e três relações.
+  - `resolveAccountToken` em `src/lib/meta/account-client.ts`.
+  - Páginas públicas de aprovação e calendário em `basic.ts`.
+  - CSP com a origem do Supabase Storage (`csp.ts`, `proxy.ts`, com teste).
+  - Item "Autoposter" no menu lateral.
+  - `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no `.env.example`.
+  - Documentos `docs/prd`, `docs/cobranca` e `docs/autoposter/*.md`.
+- **Ficou de fora:**
+  - Stripe, assinatura recorrente, `/assinar`, o cron de cobrança e as migrations `20261014*`.
+  - O layout do console admin.
+  - O histórico de conversas (`graph.ts`).
+  - Os pacotes da vitrine de preços.
+  - O PRD `docs/prd/2026-10-14-prd-assinatura-saas.md` ganhou o "Status de instalação: ADIADO", com os passos para instalar depois.
+- **Validação (na worktree, com `npm ci` pelo lockfile do HEAD):** `prisma validate` ok, `tsc` 0 erros, `npm test` verde, eslint limpo nos arquivos do Autoposter e `npm run build` ok.
+- **Pendente:** push e deploy, que aguardam a confirmação do dono porque mexem no banco de produção. Também falta configurar na Vercel `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `CRON_SECRET`.

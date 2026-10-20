@@ -72,6 +72,7 @@ model Workspace {
   members      WorkspaceMember[]
   invitations  WorkspaceInvitation[]
   subscription Subscription?
+  autoposterProjects AutoposterProject[]
 
   @@index([ownerId])
 }
@@ -124,6 +125,8 @@ model InstagramAccount {
   messages       Message[]
   trackedLinks   TrackedLink[]
   privateReplies PrivateReply[]
+  autoposterProjectAccounts AutoposterProjectAccount[]
+  autoposterTargets AutoposterPostTarget[]
 
   @@index([workspaceId])
   @@index([metaUserId])
@@ -627,6 +630,234 @@ model PrivateReply {
   account InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, commentId])
+}
+
+// ── Autoposter ─────────────────────────────────────────────────────────────
+
+/// Projeto do Autoposter = um cliente da agência (equivale ao "projeto" do Reportei Flux).
+model AutoposterProject {
+  id                    String   @id @default(cuid())
+  workspaceId           String
+  name                  String
+  logoUrl               String?
+  timezone              String   @default("America/Sao_Paulo")
+  dateFormat            String   @default("DD/MM/YYYY")
+  /// Padrão ao agendar com aprovação: só publica se o cliente aprovar a tempo.
+  publishOnlyIfApproved Boolean  @default(true)
+  /// Em falha temporária da rede, tenta de novo antes de marcar falha.
+  retryOnFailure        Boolean  @default(true)
+  /// Link público do calendário (somente leitura). Nulo = compartilhamento desativado.
+  calendarShareToken    String?  @unique
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  accounts      AutoposterProjectAccount[]
+  posts         AutoposterPost[]
+  reviewGroups  AutoposterReviewGroup[]
+  hashtagGroups AutoposterHashtagGroup[]
+  signatures    AutoposterSignature[]
+  categories    AutoposterCategory[]
+
+  @@index([workspaceId])
+  @@map("autoposter_projects")
+}
+
+/// Contas (redes) conectadas no instachat que o projeto usa para publicar.
+model AutoposterProjectAccount {
+  id        String   @id @default(cuid())
+  projectId String
+  accountId String
+  createdAt DateTime @default(now())
+
+  project AutoposterProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  account InstagramAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, accountId])
+  @@index([accountId])
+  @@map("autoposter_project_accounts")
+}
+
+/// Um post (o "asset group" do Flux): mesmo conteúdo publicado em uma ou mais redes.
+/// status: draft | reviewing | needs_adjustment | approved | scheduled | publishing | published | not_published | failed
+/// reviewStatus: none | pending | approved | needs_adjustment
+model AutoposterPost {
+  id                    String    @id @default(cuid())
+  projectId             String
+  title                 String?
+  caption               String    @default("")
+  firstComment          String?
+  mediaUrls             String[]
+  /// IMAGE | VIDEO | CAROUSEL
+  mediaType             String    @default("IMAGE")
+  status                String    @default("draft")
+  reviewStatus          String    @default("none")
+  scheduledAt           DateTime?
+  publishOnlyIfApproved Boolean   @default(true)
+  reviewGroupId         String?
+  categoryId            String?
+  createdById           String?
+  createdByName         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  project     AutoposterProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewGroup AutoposterReviewGroup? @relation(fields: [reviewGroupId], references: [id], onDelete: SetNull)
+  category    AutoposterCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  targets     AutoposterPostTarget[]
+  reviews     AutoposterReview[]
+  timeline    AutoposterTimeline[]
+
+  @@index([projectId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@index([reviewGroupId])
+  @@map("autoposter_posts")
+}
+
+/// Versão do post numa rede/formato (o "post" do Flux). status: pending | publishing | published | failed
+model AutoposterPostTarget {
+  id             String    @id @default(cuid())
+  postId         String
+  accountId      String
+  /// instagram | facebook
+  network        String
+  /// feed | story | reels
+  format         String
+  status         String    @default("pending")
+  platformPostId String?
+  permalink      String?
+  publishedAt    DateTime?
+  failureReason  String?
+  attempts       Int       @default(0)
+
+  post    AutoposterPost   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  account InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, accountId, format])
+  @@index([accountId])
+  @@map("autoposter_post_targets")
+}
+
+/// Lote de posts enviado ao cliente por um link público de aprovação.
+model AutoposterReviewGroup {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  /// Segredo do link público /autoposter/aprovacao/{token}.
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   AutoposterProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  posts     AutoposterPost[]
+  reviewers AutoposterReviewer[]
+
+  @@index([projectId])
+  @@map("autoposter_review_groups")
+}
+
+/// Pessoa do cliente que revisa um grupo (identificada por nome e e-mail).
+model AutoposterReviewer {
+  id            String    @id @default(cuid())
+  reviewGroupId String
+  name          String
+  email         String
+  token         String    @unique
+  submittedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  reviewGroup AutoposterReviewGroup @relation(fields: [reviewGroupId], references: [id], onDelete: Cascade)
+  reviews     AutoposterReview[]
+
+  @@index([reviewGroupId])
+  @@map("autoposter_reviewers")
+}
+
+/// Decisão de um revisor sobre um post (approved | needs_adjustment). A agência pode invalidar.
+model AutoposterReview {
+  id              String    @id @default(cuid())
+  postId          String
+  reviewerId      String
+  decision        String
+  comment         String?
+  /// Arte (imagem/vídeo): approved | needs_adjustment
+  mediaDecision   String?
+  /// Legenda: approved | needs_adjustment | edited
+  captionDecision String?
+  captionComment  String?
+  /// Legenda reescrita pelo cliente (já aplicada ao post).
+  editedCaption   String?
+  invalidatedAt   DateTime?
+  createdAt       DateTime  @default(now())
+
+  post     AutoposterPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reviewer AutoposterReviewer @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([reviewerId])
+  @@map("autoposter_reviews")
+}
+
+/// Histórico de um post. `code` segue o padrão do Flux (post.created, review.approved,
+/// post.status_changed.published…). actorType: agency | client | system
+model AutoposterTimeline {
+  id         String   @id @default(cuid())
+  postId     String
+  code       String
+  actorType  String
+  actorName  String?
+  actorEmail String?
+  network    String?
+  format     String?
+  note       String?
+  reviewId   String?
+  createdAt  DateTime @default(now())
+
+  post AutoposterPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("autoposter_timeline")
+}
+
+model AutoposterHashtagGroup {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  hashtags  String
+  createdAt DateTime @default(now())
+
+  project AutoposterProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("autoposter_hashtag_groups")
+}
+
+/// Texto fixo que pode ser anexado ao fim da legenda.
+model AutoposterSignature {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  content   String
+  createdAt DateTime @default(now())
+
+  project AutoposterProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("autoposter_signatures")
+}
+
+model AutoposterCategory {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  project AutoposterProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  posts   AutoposterPost[]
+
+  @@index([projectId])
+  @@map("autoposter_categories")
 }
 
 // ─────────────────────────────────────────────────────────────

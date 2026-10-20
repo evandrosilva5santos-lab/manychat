@@ -9,6 +9,7 @@ import {
   Send,
   LayoutGrid,
   TriangleAlert,
+  CalendarDays,
   Lock,
 } from "lucide-react";
 import type { FeatureFlags } from "@/lib/access/menu-rules";
@@ -83,6 +84,7 @@ const NAV_ITEMS = [
   },
   { id: "falhas", label: "Envios com falha", href: "/conversas/falhas", icon: TriangleAlert },
   { id: "direct", label: "Transmissão", href: "/direct", icon: Send, feature: "broadcast" as FeatureKey },
+  { id: "autoposter", label: "Autoposter", href: "/autoposter", icon: CalendarDays, feature: "autoposter" as FeatureKey },
 ];
 
 type SidebarProps = {

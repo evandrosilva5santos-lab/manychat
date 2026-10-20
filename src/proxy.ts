@@ -11,6 +11,15 @@ import { buildContentSecurityPolicy, generateNonce } from "@/lib/security/csp";
 // confirmada nas páginas e Server Actions por `requireAuth`/`getCurrentActor`.
 const SESSION_COOKIE = "fluxo_session";
 
+/** Origem do Supabase Storage (upload direto de mídia do Autoposter). */
+function storageOrigin(): string | undefined {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function proxy(request: NextRequest) {
   if (!isPublicPath(request.nextUrl.pathname)) {
     const result = evaluateBasicAuth(request.headers.get("authorization"), readBasicAuthConfig());
@@ -32,7 +41,7 @@ export function proxy(request: NextRequest) {
   }
 
   const nonce = generateNonce();
-  const csp = buildContentSecurityPolicy(nonce, process.env.NODE_ENV === "development");
+  const csp = buildContentSecurityPolicy(nonce, process.env.NODE_ENV === "development", storageOrigin());
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);

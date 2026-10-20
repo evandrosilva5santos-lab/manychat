@@ -6,6 +6,15 @@
 
 ---
 
+## Estado atual (19/10/2026): deploy só do Autoposter (HANDOFF-004)
+- **Branch `deploy/autoposter`** (worktree `/Users/evandro/Downloads/Manychat-deploy-autoposter`): Autoposter pronto para ir ao ar, sem Stripe.
+- **Stripe e cobrança recorrente (ADR-010):** adiados por decisão do dono. Seguem em `feat-login-duplo`, sem commit. Para instalar, veja `docs/prd/2026-10-14-prd-assinatura-saas.md` ("Status de instalação").
+- **BANCO:** as migrations `20261013180000_autoposter` e `20261013200000_autoposter_review_caption` entram no deploy.
+- **DEPENDE DO DONO:**
+  - Confirmar o push e o deploy.
+  - Configurar na Vercel `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `CRON_SECRET`.
+  - Workspace de teste com plano que tenha o recurso `autoposter`, ou cortesia.
+
 ## Estado atual (13/10/2026, noite) — modelos de pagamento e visões Super Admin / dono da conta (ADR-009)
 - **CONCLUÍDO NO BRANCH (sem deploy):**
   - Plano mensal e anual.

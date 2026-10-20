@@ -1,0 +1,239 @@
+/* Autoposter — tokens e peças visuais medidos no Reportei Flux
+   (docs/autoposter/flux-engenharia-reversa.md). Valem só dentro de .ap. */
+
+.ap {
+  --ap-bg: #f9fafb;
+  --ap-surface: #ffffff;
+  --ap-primary: #1876f2;
+  --ap-primary-hover: #0e62d0;
+  --ap-title: #0054c2;
+  --ap-ink: #212b30;
+  --ap-muted: #78909c;
+  --ap-subtle: #5a7582;
+  --ap-line: #ecf0f1;
+  --ap-line-strong: #cfd8dc;
+  --ap-input: #ecf0f1;
+  --ap-purple: #6e35a7;
+  --ap-purple-soft: #f0e8f8;
+  --ap-pink: #cd37b4;
+  --ap-pink-soft: #f9e6f6;
+  --ap-blue-soft: #e3eefd;
+  --ap-green: #0a9b38;
+  --ap-green-soft: #dff7e6;
+  --ap-orange: #ff7a51;
+  --ap-orange-soft: #ffede6;
+  --ap-orange-line: #ffb59e;
+  --ap-red: #f63535;
+  --ap-red-soft: #fde8e8;
+  --ap-yellow: #b7791f;
+  --ap-yellow-soft: #fef5e1;
+
+  min-height: 100%;
+  background: var(--ap-bg);
+  color: #000;
+  font-family: var(--font-ap-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.ap-title {
+  font-family: var(--font-ap-quicksand), var(--font-ap-inter), system-ui, sans-serif;
+  font-weight: 700;
+  color: var(--ap-title);
+  letter-spacing: -0.01em;
+}
+
+/* Botões (r-btn do Flux): 8px 16px, raio 12px, 16px/500, borda 2px */
+.ap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+.ap-btn:focus-visible {
+  outline: 2px solid var(--ap-primary);
+  outline-offset: 2px;
+}
+.ap-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ap-btn-primary {
+  background: var(--ap-primary);
+  border-color: var(--ap-primary);
+  color: #fff;
+}
+.ap-btn-primary:hover:not(:disabled) {
+  background: var(--ap-primary-hover);
+  border-color: var(--ap-primary-hover);
+}
+.ap-btn-purple {
+  background: var(--ap-purple);
+  border-color: var(--ap-purple);
+  color: #fff;
+}
+.ap-btn-outline {
+  background: #fff;
+  border-color: var(--ap-title);
+  color: var(--ap-title);
+}
+.ap-btn-outline:hover:not(:disabled) {
+  background: var(--ap-blue-soft);
+}
+.ap-btn-tertiary {
+  background: #fff;
+  border-color: var(--ap-line-strong);
+  color: var(--ap-subtle);
+}
+.ap-btn-tertiary:hover:not(:disabled) {
+  border-color: var(--ap-subtle);
+  color: var(--ap-ink);
+}
+.ap-btn-danger {
+  background: #fff;
+  border-color: var(--ap-red);
+  color: var(--ap-red);
+}
+.ap-btn-green {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.ap-btn-sm {
+  min-height: 28px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+.ap-btn-md {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+/* Campo com rótulo flutuante na borda (r-input do Flux) */
+.ap-field {
+  position: relative;
+  display: block;
+}
+.ap-field > .ap-field-label {
+  position: absolute;
+  top: -9px;
+  left: 10px;
+  padding: 0 4px;
+  background: var(--ap-field-bg, #fff);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ap-muted);
+  pointer-events: none;
+}
+.ap-input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--ap-line-strong);
+  background: #fff;
+  padding: 8px 14px;
+  font-size: 14px;
+  color: var(--ap-ink);
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.ap-input::placeholder {
+  color: var(--ap-muted);
+}
+.ap-input:focus {
+  border-color: var(--ap-title);
+  box-shadow: 0 0 0 1px var(--ap-title);
+}
+.ap-field:focus-within > .ap-field-label {
+  color: var(--ap-title);
+}
+textarea.ap-input {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.ap-search {
+  width: 100%;
+  height: 40px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--ap-input);
+  padding: 0 16px 0 40px;
+  font-size: 14px;
+  color: var(--ap-ink);
+  outline: none;
+}
+.ap-search:focus {
+  box-shadow: 0 0 0 2px var(--ap-title);
+}
+
+.ap-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* Abas do projeto: ativa rosa (#CD37B4 sobre #F9E6F6) */
+.ap-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--ap-muted);
+  white-space: nowrap;
+}
+.ap-tab:hover {
+  color: var(--ap-ink);
+}
+.ap-tab[aria-current="page"] {
+  color: var(--ap-pink);
+  background: var(--ap-pink-soft);
+  font-weight: 500;
+}
+
+.ap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 2px solid var(--ap-line-strong);
+  background: #fff;
+  font-size: 14px;
+  color: var(--ap-subtle);
+  white-space: nowrap;
+}
+.ap-chip[aria-current="true"] {
+  border-color: var(--ap-primary);
+  color: var(--ap-title);
+  font-weight: 500;
+}
+
+@keyframes ap-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.ap-skeleton {
+  background: linear-gradient(90deg, #ececec 0%, #d6d6d6 50%, #ececec 100%);
+  background-size: 400px 100%;
+  animation: ap-shimmer 1.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-skeleton {
+    animation: none;
+  }
+}

@@ -3,7 +3,15 @@ import { z } from "zod";
 import { InstagramGraphClient } from "./graph";
 import { decryptToken } from "@/lib/security/token";
 
-export async function graphClientForAccount(accountId: string): Promise<InstagramGraphClient> {
+type ResolvedToken = {
+  token: string;
+  igUserId: string;
+  provider: "instagram" | "facebook";
+  markExpired: () => Promise<void>;
+};
+
+/** Token em claro de uma conta conectada, para chamadas fora do InstagramGraphClient. */
+export async function resolveAccountToken(accountId: string): Promise<ResolvedToken> {
   const account = await prisma.instagramAccount.findUnique({
     where: { id: accountId },
     select: { igUserId: true, status: true, accessTokenEnc: true, authProvider: true },
@@ -27,13 +35,20 @@ export async function graphClientForAccount(accountId: string): Promise<Instagra
   }
   if (!token && process.env.IG_USER_ID === account.igUserId) token = process.env.IG_ACCESS_TOKEN;
   if (!token) throw new Error("Token não configurado para esta conta do Instagram.");
-  return new InstagramGraphClient(token, {
-    onExpired: async () => {
+  return {
+    token,
+    igUserId: account.igUserId,
+    provider: account.authProvider === "FACEBOOK_LOGIN" ? "facebook" : "instagram",
+    markExpired: async () => {
       await prisma.instagramAccount.updateMany({
         where: { id: accountId, status: "CONNECTED" },
         data: { status: "EXPIRED", tokenStatus: "EXPIRED" },
       });
     },
-    provider: account.authProvider === "FACEBOOK_LOGIN" ? "facebook" : "instagram",
-  });
+  };
+}
+
+export async function graphClientForAccount(accountId: string): Promise<InstagramGraphClient> {
+  const resolved = await resolveAccountToken(accountId);
+  return new InstagramGraphClient(resolved.token, { onExpired: resolved.markExpired, provider: resolved.provider });
 }

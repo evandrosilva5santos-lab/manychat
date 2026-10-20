@@ -6,15 +6,19 @@ export function generateNonce(): string {
   return btoa(crypto.randomUUID());
 }
 
-export function buildContentSecurityPolicy(nonce: string, isDev: boolean): string {
+/** `storageOrigin`: origem do Supabase Storage, para o upload direto de mídia do Autoposter. */
+export function buildContentSecurityPolicy(nonce: string, isDev: boolean, storageOrigin?: string): string {
+  const storage = storageOrigin && /^https:\/\/[a-z0-9.-]+$/i.test(storageOrigin) ? ` ${storageOrigin}` : "";
   const directives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     // Fotos de perfil e posts vêm das CDNs do Instagram/Facebook.
     "img-src 'self' blob: data: https:",
+    // Prévia dos vídeos do Autoposter (Storage) e das CDNs da Meta.
+    "media-src 'self' blob: https:",
     "font-src 'self' data:",
-    `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+    `connect-src 'self'${storage}${isDev ? " ws: wss:" : ""}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     { "path": "/api/cron/refresh-tokens", "schedule": "0 4 * * *" },
-    { "path": "/api/webhook/instagram/tick", "schedule": "30 6 * * *" }
+    { "path": "/api/webhook/instagram/tick", "schedule": "30 6 * * *" },
+    { "path": "/api/cron/autoposter", "schedule": "0 7 * * *" }
   ]
 }
