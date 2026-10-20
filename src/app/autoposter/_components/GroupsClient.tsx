@@ -103,7 +103,7 @@ export function GroupsClient({ projectId, groups }: { projectId: string; groups:
         <div className="flex flex-wrap items-center gap-3">
           <label className="ap-field">
             <span className="ap-field-label">Status</span>
-            <select className="ap-input !min-h-9 w-44 !py-1 text-sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <select id="group-status-filter" name="groupStatusFilter" className="ap-input !min-h-9 w-44 !py-1 text-sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="">Todos</option>
               <option value="reviewing">Aguardando revisão</option>
               <option value="needs_adjustment">Pedido de ajuste</option>
@@ -116,7 +116,7 @@ export function GroupsClient({ projectId, groups }: { projectId: string; groups:
           <label className="relative w-72">
             <span className="sr-only">Buscar grupo</span>
             <Search size={16} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ap-muted" aria-hidden />
-            <input className="ap-search" placeholder="Buscar grupo..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input id="group-search" name="groupSearch" className="ap-search" placeholder="Buscar grupo..." value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
         </div>
       </div>
@@ -207,7 +207,7 @@ export function GroupsClient({ projectId, groups }: { projectId: string; groups:
         >
           <label className="ap-field mt-2">
             <span className="ap-field-label">Nome do grupo</span>
-            <input className="ap-input" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Posts de novembro" />
+            <input id="review-group-name" name="reviewGroupName" className="ap-input" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Posts de novembro" />
           </label>
         </Modal>
       )}

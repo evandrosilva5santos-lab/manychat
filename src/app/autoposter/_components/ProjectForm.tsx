@@ -59,19 +59,19 @@ export function ProjectForm({ accounts, project }: Props) {
 
       <label className="ap-field">
         <span className="ap-field-label">Nome</span>
-        <input className="ap-input" required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Clínica Dra. Ana" />
+        <input id="project-name" name="projectName" className="ap-input" required maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Clínica Dra. Ana" />
       </label>
 
       <label className="ap-field">
         <span className="ap-field-label">Idioma</span>
-        <select className="ap-input" value="pt-BR" disabled aria-readonly>
+        <select id="project-language" name="projectLanguage" className="ap-input" value="pt-BR" disabled aria-readonly>
           <option value="pt-BR">Português do Brasil</option>
         </select>
       </label>
 
       <label className="ap-field">
         <span className="ap-field-label">Fuso horário</span>
-        <select className="ap-input" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+        <select id="project-timezone" name="projectTimezone" className="ap-input" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
           {TIMEZONES.map((zone) => (
             <option key={zone.id} value={zone.id}>
               {zone.label}
@@ -85,7 +85,7 @@ export function ProjectForm({ accounts, project }: Props) {
         <div className="flex flex-col gap-3">
           {DATE_FORMATS.map((format) => (
             <label key={format} className="flex cursor-pointer items-center gap-3 text-sm text-ap-ink">
-              <input type="radio" name="dateFormat" className="h-5 w-5 accent-ap-title" checked={dateFormat === format} onChange={() => setDateFormat(format)} />
+              <input id={`date-format-${format.replaceAll("/", "-")}`} type="radio" name="dateFormat" value={format} className="h-5 w-5 accent-ap-title" checked={dateFormat === format} onChange={() => setDateFormat(format)} />
               {format} ({todayExample(format)})
             </label>
           ))}

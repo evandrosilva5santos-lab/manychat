@@ -5,10 +5,10 @@ import { useState, useTransition } from "react";
 import { Info } from "lucide-react";
 import { deleteProject, updatePublishRules } from "@/lib/autoposter/actions/projects";
 
-function Radio({ checked, onChange, title, description }: { checked: boolean; onChange: () => void; title: string; description?: string }) {
+function Radio({ id, name, value, checked, onChange, title, description }: { id: string; name: string; value: string; checked: boolean; onChange: () => void; title: string; description?: string }) {
   return (
     <label className="flex cursor-pointer gap-3 py-2">
-      <input type="radio" className="mt-1 h-5 w-5 accent-ap-title" checked={checked} onChange={onChange} />
+      <input id={id} name={name} value={value} type="radio" className="mt-1 h-5 w-5 accent-ap-title" checked={checked} onChange={onChange} />
       <span>
         <span className="block text-ap-ink">{title}</span>
         {description && <span className="block text-sm text-ap-muted">{description}</span>}
@@ -47,20 +47,26 @@ export function PublishRulesForm({ projectId, initial }: { projectId: string; in
       <p className="mt-3 text-ap-subtle">Quando a rede (ex.: Instagram) ou o Autoposter estiverem instáveis, o que prefere que aconteça?</p>
       <p className="mt-1 text-sm text-ap-muted">Em falhas comuns, tentamos automaticamente 3x com intervalos de 1 minuto.</p>
       <div className="mt-3">
-        <Radio checked={rules.retryOnFailure} onChange={() => setRules({ ...rules, retryOnFailure: true })} title="Tentar novamente assim que estiver estável" />
-        <Radio checked={!rules.retryOnFailure} onChange={() => setRules({ ...rules, retryOnFailure: false })} title="Não tentar novamente, apenas marcar como falha." />
+        <Radio id="retry-on-failure" name="retryPolicy" value="retry" checked={rules.retryOnFailure} onChange={() => setRules({ ...rules, retryOnFailure: true })} title="Tentar novamente assim que estiver estável" />
+        <Radio id="do-not-retry" name="retryPolicy" value="fail" checked={!rules.retryOnFailure} onChange={() => setRules({ ...rules, retryOnFailure: false })} title="Não tentar novamente, apenas marcar como falha." />
       </div>
 
       <h3 className="ap-title mt-12 text-2xl">Preferências do agendamento</h3>
       <p className="mt-3 text-ap-subtle">Quando você estiver enviando um post para aprovação com agendamento, qual opção prefere que já venha selecionada?</p>
       <div className="mt-3">
         <Radio
+          id="default-approval-required"
+          name="defaultApprovalPolicy"
+          value="required"
           checked={rules.publishOnlyIfApproved}
           onChange={() => setRules({ ...rules, publishOnlyIfApproved: true })}
           title="Publicar somente se for aprovado"
           description="Publica no horário agendado apenas se o post estiver aprovado."
         />
         <Radio
+          id="default-approval-optional"
+          name="defaultApprovalPolicy"
+          value="optional"
           checked={!rules.publishOnlyIfApproved}
           onChange={() => setRules({ ...rules, publishOnlyIfApproved: false })}
           title="Publicar mesmo sem aprovação"
@@ -102,7 +108,7 @@ export function DeleteProject({ projectId, name }: { projectId: string; name: st
       <p className="mt-3 text-ap-subtle">Apaga o projeto, todos os posts, grupos de aprovação e o histórico. Posts já publicados continuam no Instagram. Não dá para desfazer.</p>
       <label className="ap-field mt-6">
         <span className="ap-field-label">Digite o nome do projeto para confirmar</span>
-        <input className="ap-input" value={typed} onChange={(event) => setTyped(event.target.value)} placeholder={name} />
+        <input id="delete-project-confirmation" name="deleteProjectConfirmation" className="ap-input" value={typed} onChange={(event) => setTyped(event.target.value)} placeholder={name} />
       </label>
       {error && <p role="alert" className="mt-3 text-sm text-ap-red">{error}</p>}
       <button type="button" className="ap-btn ap-btn-danger mt-6" disabled={pending || typed.trim() !== name} onClick={remove}>

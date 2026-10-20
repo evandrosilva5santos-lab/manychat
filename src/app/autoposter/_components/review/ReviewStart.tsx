@@ -69,11 +69,11 @@ export function ReviewStart({ token, groupName }: { token: string; groupName: st
       </div>
       <label className="ap-field" style={ON_BG}>
         <span className="ap-field-label">Seu nome</span>
-        <input className="ap-input" required minLength={2} maxLength={80} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} />
+        <input id="reviewer-name" name="reviewerName" className="ap-input" required minLength={2} maxLength={80} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} />
       </label>
       <label className="ap-field" style={ON_BG}>
         <span className="ap-field-label">Seu e-mail</span>
-        <input className="ap-input" type="email" required maxLength={160} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <input id="reviewer-email" name="reviewerEmail" className="ap-input" type="email" required maxLength={160} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
       </label>
       {error && <p role="alert" className="rounded-lg bg-ap-red-soft px-3 py-2 text-sm text-ap-red">{error}</p>}
       <button type="submit" className="ap-btn ap-btn-primary" disabled={pending}>

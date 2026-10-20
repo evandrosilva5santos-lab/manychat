@@ -47,7 +47,7 @@ export function ProjectsGrid({ projects }: { projects: ProjectCard[] }) {
         <label className="relative w-full sm:w-[333px]">
           <span className="sr-only">Buscar projeto</span>
           <Search size={16} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ap-muted" aria-hidden />
-          <input className="ap-search" placeholder="Buscar projeto" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input id="project-search" name="projectSearch" className="ap-search" placeholder="Buscar projeto" value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
         <div className="relative flex items-center gap-1.5 text-base text-ap-ink">
           Ordenar por

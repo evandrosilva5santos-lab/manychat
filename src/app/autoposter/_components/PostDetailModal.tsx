@@ -97,6 +97,8 @@ export function PostDetailModal({ postId, onClose }: { postId: string; onClose: 
         <FolderOpen size={16} aria-hidden />
         <span className="sr-only">Grupo de aprovação</span>
         <select
+          id={`post-review-group-${post.id}`}
+          name="postReviewGroup"
           className="bg-transparent pr-2 text-ap-ink outline-none"
           value={post.reviewGroup?.id ?? ""}
           disabled={moving}

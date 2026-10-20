@@ -67,13 +67,15 @@ export function StepContent({ projectId, state, update, library, accounts }: Pro
 
         <label className="ap-field">
           <span className="ap-field-label">Título interno (opcional)</span>
-          <input className="ap-input" maxLength={120} value={state.title} onChange={(event) => update({ title: event.target.value })} placeholder="Ex.: Promoção Dia das Crianças" />
+          <input id="post-title" name="postTitle" className="ap-input" maxLength={120} value={state.title} onChange={(event) => update({ title: event.target.value })} placeholder="Ex.: Promoção Dia das Crianças" />
         </label>
 
         <div>
           <label className="ap-field">
             <span className="ap-field-label">Legenda</span>
             <textarea
+              id="post-caption"
+              name="postCaption"
               className="ap-input !min-h-[180px]"
               maxLength={CAPTION_MAX}
               value={state.caption}
@@ -108,14 +110,14 @@ export function StepContent({ projectId, state, update, library, accounts }: Pro
         {showComment && (
           <label className="ap-field">
             <span className="ap-field-label">Primeiro comentário (feed e reels)</span>
-            <textarea className="ap-input" maxLength={CAPTION_MAX} value={state.firstComment} onChange={(event) => update({ firstComment: event.target.value })} placeholder="Ex.: hashtags ou link" />
+            <textarea id="post-first-comment" name="postFirstComment" className="ap-input" maxLength={CAPTION_MAX} value={state.firstComment} onChange={(event) => update({ firstComment: event.target.value })} placeholder="Ex.: hashtags ou link" />
           </label>
         )}
 
         {library.categories.length > 0 && (
           <label className="ap-field">
             <span className="ap-field-label">Categoria</span>
-            <select className="ap-input" value={state.categoryId} onChange={(event) => update({ categoryId: event.target.value })}>
+            <select id="post-category" name="postCategory" className="ap-input" value={state.categoryId} onChange={(event) => update({ categoryId: event.target.value })}>
               <option value="">Sem categoria</option>
               {library.categories.map((category) => (
                 <option key={category.id} value={category.id}>

@@ -96,6 +96,8 @@ export function MediaUploader({ projectId, urls, onChange }: Props) {
         )}
       </div>
       <input
+        id="post-media-files"
+        name="postMediaFiles"
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
@@ -109,6 +111,8 @@ export function MediaUploader({ projectId, urls, onChange }: Props) {
           <span className="sr-only">Colar link da mídia</span>
           <Link2 size={16} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ap-muted" aria-hidden />
           <input
+            id="post-media-link"
+            name="postMediaLink"
             className="ap-search"
             placeholder="Ou cole o link público de uma imagem/vídeo (https://…)"
             value={link}

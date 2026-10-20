@@ -37,7 +37,7 @@ export function StepFormats({ projectId, accounts, targets, onChange }: Props) {
                 const key = `${account.id}:${format}`;
                 return (
                   <label key={format} className="flex cursor-pointer items-center gap-3 text-base text-ap-ink">
-                    <input type="checkbox" className="h-5 w-5 rounded-full accent-ap-primary" checked={targets.includes(key)} onChange={() => toggle(key)} />
+                    <input id={`target-${account.id}-${format}`} name="postTargets" value={key} type="checkbox" className="h-5 w-5 rounded-full accent-ap-primary" checked={targets.includes(key)} onChange={() => toggle(key)} />
                     <span className="flex-1">{FORMAT_LABEL[format]}</span>
                     {format === "feed" ? <ImageIcon size={22} className="text-ap-line-strong" aria-hidden /> : <PlaySquare size={22} className="text-ap-line-strong" aria-hidden />}
                   </label>

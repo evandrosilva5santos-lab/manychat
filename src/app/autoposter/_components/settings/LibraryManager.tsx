@@ -82,7 +82,7 @@ export function LibraryManager({ projectId, kind, items }: { projectId: string; 
         <label className="relative min-w-60 flex-1">
           <span className="sr-only">{copy.search}</span>
           <Search size={16} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ap-muted" aria-hidden />
-          <input className="ap-search" placeholder={copy.search} value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input id={`${kind}-search`} name={`${kind}Search`} className="ap-search" placeholder={copy.search} value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
         <button type="button" className="ap-btn ap-btn-primary" onClick={() => setEditing({ id: null, name: "", value: kind === "category" ? CATEGORY_COLORS[4] : "" })}>
           <Plus size={18} aria-hidden /> {copy.create}
@@ -151,7 +151,7 @@ export function LibraryManager({ projectId, kind, items }: { projectId: string; 
           <div className="flex flex-col gap-5 pt-2">
             <label className="ap-field">
               <span className="ap-field-label">{copy.nameLabel}</span>
-              <input className="ap-input" maxLength={80} value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
+              <input id={`${kind}-name`} name={`${kind}Name`} className="ap-input" maxLength={80} value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
             </label>
             {kind === "category" ? (
               <div className="flex items-center justify-between gap-3">
@@ -176,7 +176,7 @@ export function LibraryManager({ projectId, kind, items }: { projectId: string; 
               <div>
                 <label className="ap-field">
                   <span className="ap-field-label">{copy.valueLabel}</span>
-                  <textarea className="ap-input" maxLength={2000} value={editing.value} onChange={(event) => setEditing({ ...editing, value: event.target.value })} />
+                  <textarea id={`${kind}-value`} name={`${kind}Value`} className="ap-input" maxLength={2000} value={editing.value} onChange={(event) => setEditing({ ...editing, value: event.target.value })} />
                 </label>
                 {copy.hint && <p className="mt-1.5 text-xs text-ap-muted">{copy.hint}</p>}
               </div>

@@ -121,11 +121,11 @@ export function PostActions({ post, onChanged, onClosed }: { post: PostDetailDTO
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <label className="ap-field">
             <span className="ap-field-label">Data</span>
-            <input type="date" className="ap-input !min-h-9" value={date} onChange={(event) => setDate(event.target.value)} />
+            <input id={`reschedule-date-${post.id}`} name="rescheduleDate" type="date" className="ap-input !min-h-9" value={date} onChange={(event) => setDate(event.target.value)} />
           </label>
           <label className="ap-field">
             <span className="ap-field-label">Hora</span>
-            <input type="time" className="ap-input !min-h-9" value={time} onChange={(event) => setTime(event.target.value)} />
+            <input id={`reschedule-time-${post.id}`} name="rescheduleTime" type="time" className="ap-input !min-h-9" value={time} onChange={(event) => setTime(event.target.value)} />
           </label>
           <button
             type="button"

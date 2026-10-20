@@ -152,6 +152,8 @@ export function ReviewBoard({ token, reviewerToken, posts }: { token: string; re
                         <label className="ap-field">
                           <span className="ap-field-label">O que precisa mudar na arte?</span>
                           <textarea
+                            id={`media-comment-${post.id}`}
+                            name={`mediaComment-${post.id}`}
                             className="ap-input"
                             maxLength={1000}
                             value={draft.mediaComment}
@@ -167,7 +169,7 @@ export function ReviewBoard({ token, reviewerToken, posts }: { token: string; re
                       {draft.caption === "edited" ? (
                         <label className="ap-field">
                           <span className="ap-field-label">Sua versão da legenda</span>
-                          <textarea className="ap-input !min-h-[180px]" maxLength={CAPTION_MAX} value={draft.editedCaption} onChange={(event) => patch(post.id, { editedCaption: event.target.value })} />
+                          <textarea id={`edited-caption-${post.id}`} name={`editedCaption-${post.id}`} className="ap-input !min-h-[180px]" maxLength={CAPTION_MAX} value={draft.editedCaption} onChange={(event) => patch(post.id, { editedCaption: event.target.value })} />
                           <span className="mt-1 block text-right text-xs text-ap-muted">
                             {draft.editedCaption.length}/{CAPTION_MAX}
                           </span>
@@ -199,6 +201,8 @@ export function ReviewBoard({ token, reviewerToken, posts }: { token: string; re
                         <label className="ap-field">
                           <span className="ap-field-label">O que precisa mudar na legenda?</span>
                           <textarea
+                            id={`caption-comment-${post.id}`}
+                            name={`captionComment-${post.id}`}
                             className="ap-input"
                             maxLength={1000}
                             value={draft.captionComment}

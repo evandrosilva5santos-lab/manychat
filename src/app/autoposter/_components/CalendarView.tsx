@@ -79,7 +79,7 @@ export function CalendarView(props: Props) {
         <div className="ml-auto flex flex-wrap items-center gap-3">
           <label className="ap-field">
             <span className="ap-field-label">Formato</span>
-            <select className="ap-input !min-h-8 !py-1 pr-8 text-sm" value={format} onChange={(event) => router.push(href({ formato: event.target.value }))}>
+            <select id="calendar-format" name="calendarFormat" className="ap-input !min-h-8 !py-1 pr-8 text-sm" value={format} onChange={(event) => router.push(href({ formato: event.target.value }))}>
               {FORMAT_OPTIONS.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
