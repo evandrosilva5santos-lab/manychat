@@ -11,9 +11,11 @@
 - **Stripe e cobrança recorrente (ADR-010):** adiados por decisão do dono. Seguem em `feat-login-duplo`, sem commit. Para instalar, veja `docs/prd/2026-10-14-prd-assinatura-saas.md` ("Status de instalação").
 - **BANCO:** as migrations `20261013180000_autoposter` e `20261013200000_autoposter_review_caption` entram no deploy.
 - **DEPENDE DO DONO:**
-  - Confirmar o push e o deploy.
-  - Configurar na Vercel `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `CRON_SECRET`.
+  - Preview publicado e validado em 20/10/2026 pelo fluxo GitHub → Vercel.
+  - Variáveis de Preview `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `CRON_SECRET` configuradas.
   - Workspace de teste com plano que tenha o recurso `autoposter`, ou cortesia.
+- **QA DO PREVIEW (20/10):** Chrome/DevTools, 870 testes, TypeScript e build aprovados. Login e seis rotas do Autoposter sem erro de console, erro de aplicação ou campo sem identificação. Preview Feedback da Vercel desligado sem alterar a CSP.
+- **PRÓXIMO PASSO PARA PRODUÇÃO:** abrir PR de `deploy/autoposter` para `main`, revisar e fazer merge.
 
 ## Estado atual (13/10/2026, noite) — modelos de pagamento e visões Super Admin / dono da conta (ADR-009)
 - **CONCLUÍDO NO BRANCH (sem deploy):**

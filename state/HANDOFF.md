@@ -54,8 +54,9 @@
   - O symlink de `node_modules` quebra o Turbopack, por isso foi preciso o `npm ci`.
 - [x] Nota "Status de instalação: ADIADO" no PRD `docs/prd/2026-10-14-prd-assinatura-saas.md`.
 - [x] Commit `4ad3e25` em `deploy/autoposter`, com CHANGELOG e STATUS.
-- [ ] **Push bloqueado** pelo classificador de permissões do Claude Code ("Production Deploy"). O dono precisa rodar o push ou liberar a permissão:
-  `cd /Users/evandro/Downloads/Manychat-deploy-autoposter && git push -u origin deploy/autoposter`
+- [x] Branch enviada ao GitHub e Preview criado automaticamente na Vercel.
+- [x] QA final no Chrome/DevTools em 20/10/2026: login e seis rotas autenticadas, sem erro de aplicação ou console e sem campos sem `id`/`name`.
+- [x] Preview Feedback desativado no projeto Vercel para manter a CSP rígida sem conflitos com a barra injetada.
 
 **Descobertas que mudam o deploy (19/10):**
 - A Vercel publica a `main` como produção (`docs/deploy-vercel.md`). A `deploy/autoposter` está **67 commits à frente da `main`** e a `main` não tem nada que falte aqui.
@@ -69,6 +70,12 @@
   - O Preview não roda migrations (`scripts/vercel-migrate.mjs`), mas usa o banco já migrado.
   - Cron não roda em Preview; use publicar pela interface ou chame `/api/cron/autoposter` com o `CRON_SECRET`.
 - Para produção: abrir um PR `deploy/autoposter` → `main` e fazer o merge. Isso leva os 67 commits.
+
+**Preview validado (20/10/2026):**
+- Deploy `dpl_C59mp32LoCms74XJr8B6pEiaMDCq`, commit de código `b675aa2`, status Ready.
+- Validação local: 870 testes, `tsc --noEmit`, eslint dos arquivos alterados e `next build` aprovados.
+- Logs do deploy: nenhum erro e nenhum HTTP 5xx durante a auditoria.
+- Próxima ação: PR `deploy/autoposter` → `main`; não promover o Preview diretamente.
 
 **Para testar a postagem em produção:**
 - O runner exige que o plano do workspace tenha o recurso do Autoposter (`getEntitlements`/`hasFeature`). Use um plano com o recurso ou cortesia.

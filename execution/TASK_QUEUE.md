@@ -44,6 +44,7 @@ Depois da fila: pacotes do plano n8n (`docs/plans/2026-10-13-engenharia-reversa-
 
 ## ⚪ DONE (Concluídas e Validadas)
 
+- [x] **`AUTOPOSTER-PREVIEW-QA`** (2026-10-20): Preview via GitHub → Vercel, formulários identificados, Preview Feedback desativado sem afrouxar CSP, 870 testes e auditoria Chrome/DevTools limpa. Commits `f3f4b03`, `c292ed6`, `b675aa2`.
 - [x] **`MENU-PERFIL`** (2026-10-13): sidebar com troca de perfil, menu do usuário com Sair, `/contas`, `/sair`, aviso de token vencendo. Commit `5c4d966`.
 - [x] **`ESPERAS-E-QUALIDADE`** (2026-10-13): webhook e cron diário retomam esperas (`8ed8937`); erros internos fora da tela, tipos e cores do design system (`9e2c740`).
 - [x] **`PORTE-ITENS-6-8`** (2026-10-12): `vercel-build` só em produção, opt-out "PARAR" (migration pendente — BLK-008), exportar/excluir contato, cabeçalhos de segurança. Commits `9bef2b7`, `45e5bed`, `eced9c5`, `4acf127`.

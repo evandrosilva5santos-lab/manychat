@@ -244,3 +244,10 @@
   - O PRD `docs/prd/2026-10-14-prd-assinatura-saas.md` ganhou o "Status de instalação: ADIADO", com os passos para instalar depois.
 - **Validação (na worktree, com `npm ci` pelo lockfile do HEAD):** `prisma validate` ok, `tsc` 0 erros, `npm test` verde, eslint limpo nos arquivos do Autoposter e `npm run build` ok.
 - **Pendente:** push e deploy, que aguardam a confirmação do dono porque mexem no banco de produção. Também falta configurar na Vercel `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `CRON_SECRET`.
+
+### [2026-10-20] — Preview do Autoposter auditado no Chrome
+- **Deploy:** branch `deploy/autoposter` publicada pelo fluxo GitHub → Vercel; Preview final `dpl_C59mp32LoCms74XJr8B6pEiaMDCq` em estado Ready.
+- **Correções:** todos os `input`, `select` e `textarea` do Autoposter e do login receberam identificadores estáveis (`id`/`name`), eliminando o aviso de formulários do DevTools.
+- **Vercel:** Preview Feedback desativado no projeto (`enablePreviewFeedback=false`) para impedir a barra injetada de colidir com a CSP rígida. A CSP do aplicativo não foi enfraquecida.
+- **Validação:** 870 testes, TypeScript, eslint dos arquivos alterados e build de produção aprovados; login e seis rotas autenticadas do Autoposter com 0 erros de aplicação, 0 mensagens de console, 0 campos sem identificação e 0 erros/5xx nos logs do deploy.
+- **Commits:** `f3f4b03`, `c292ed6`, `b675aa2`.
