@@ -43,6 +43,8 @@ export default function LoginForm() {
       <label className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink">E-mail</span>
         <input
+          id="login-email"
+          name="email"
           type="text"
           autoComplete="username"
           inputMode="email"
@@ -58,6 +60,8 @@ export default function LoginForm() {
         <span className="text-[13px] font-semibold text-ink">Senha</span>
         <div className="relative">
           <input
+            id="login-password"
+            name="password"
             type={showPwd ? "text" : "password"}
             autoComplete="current-password"
             required
