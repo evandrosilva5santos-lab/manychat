@@ -41,10 +41,34 @@
 - [x] Worktree e cópia dos arquivos.
 - [x] Schema montado; `prisma validate` ok.
 - [x] `npx tsc --noEmit` com 0 erros. Na worktree nova é preciso rodar antes `npx prisma generate` e `npx next typegen`.
-- [ ] `npm test`, lint e `npm run build`.
-- [ ] Nota "Stripe adiado" no PRD `docs/prd/2026-10-14-prd-assinatura-saas.md`.
-- [ ] Commit em `deploy/autoposter`.
-- [ ] **Push e deploy aguardam a confirmação do dono**, porque a migration recria as tabelas `autoposter_*` no banco de produção.
+- [x] Peças do Autoposter que estavam misturadas em outros arquivos:
+  - páginas públicas `/autoposter/aprovacao` e `/autoposter/calendario` em `src/lib/auth/basic.ts`;
+  - CSP com a origem do Supabase Storage (`csp.ts`, `proxy.ts`, com teste);
+  - item "Autoposter" no `Sidebar.tsx` (só o item; o `chromeless` do console admin ficou fora);
+  - `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no `.env.example`.
+- [x] Validação na worktree, com `npm ci` pelo lockfile do HEAD:
+  - `tsc` sem erros;
+  - 870 testes;
+  - eslint limpo;
+  - `npm run build` ok.
+  - O symlink de `node_modules` quebra o Turbopack, por isso foi preciso o `npm ci`.
+- [x] Nota "Status de instalação: ADIADO" no PRD `docs/prd/2026-10-14-prd-assinatura-saas.md`.
+- [x] Commit `4ad3e25` em `deploy/autoposter`, com CHANGELOG e STATUS.
+- [ ] **Push bloqueado** pelo classificador de permissões do Claude Code ("Production Deploy"). O dono precisa rodar o push ou liberar a permissão:
+  `cd /Users/evandro/Downloads/Manychat-deploy-autoposter && git push -u origin deploy/autoposter`
+
+**Descobertas que mudam o deploy (19/10):**
+- A Vercel publica a `main` como produção (`docs/deploy-vercel.md`). A `deploy/autoposter` está **67 commits à frente da `main`** e a `main` não tem nada que falte aqui.
+- O Autoposter depende de multi-tenancy, workspaces e sessões, que ainda não estão na `main`. Por isso ir ao ar = levar esses 67 commits juntos:
+  - login duplo, perfil seguro e opt-out;
+  - planos e equipe (ADR-008);
+  - cortesia e modelos de pagamento (ADR-009).
+  - O ADR-009 já tinha código de Stripe commitado, que fica dormente sem as chaves.
+- `npx prisma migrate status`, só leitura, no banco do `.env` (Supabase `aws-0-us-east-2`): **"Database schema is up to date"**, com as 15 migrations aplicadas, incluindo as do Autoposter. O deploy **não altera o banco**.
+- Caminho mais seguro para testar já: fazer o push da branch, que gera um link de **Preview** na Vercel.
+  - O Preview não roda migrations (`scripts/vercel-migrate.mjs`), mas usa o banco já migrado.
+  - Cron não roda em Preview; use publicar pela interface ou chame `/api/cron/autoposter` com o `CRON_SECRET`.
+- Para produção: abrir um PR `deploy/autoposter` → `main` e fazer o merge. Isso leva os 67 commits.
 
 **Para testar a postagem em produção:**
 - O runner exige que o plano do workspace tenha o recurso do Autoposter (`getEntitlements`/`hasFeature`). Use um plano com o recurso ou cortesia.
